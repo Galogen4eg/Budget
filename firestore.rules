@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function familyPath(fid) { return /databases/$(database)/documents/families/$(fid); }
+    function family(fid) { return get(familyPath(fid)).data; }
+    function member(fid) { return signedIn() && exists(familyPath(fid)) && request.auth.uid in family(fid).members; }
+    function owner(fid) { return member(fid) && family(fid).ownerId == request.auth.uid; }
+    function joint(fid) { return family(fid).get('budgetPolicy','family') == 'family'; }
+    function afterMember(fid) { return signedIn() && request.auth.uid in getAfter(familyPath(fid)).data.members; }
+    function verifiedEmail() { return signedIn() && request.auth.token.get('email_verified',false) == true && request.auth.token.get('email','') != ''; }
+    function invitationPath() { return /databases/$(database)/documents/invitations/$(request.auth.token.email.lower()); }
+    function invited(fid) { return verifiedEmail() && exists(invitationPath()) && get(invitationPath()).data.familyId == fid; }
+    function invitedProfile(fid,pid) { return invited(fid) && get(invitationPath()).data.placeholderMemberId == pid; }
+    function profilePath(fid,pid) { return /databases/$(database)/documents/families/$(fid)/members/$(pid); }
+    function owns(fid,data) {
+      return data.get('memberId','') is string && data.get('memberId','') != ''
+        && exists(profilePath(fid,data.memberId))
+        && get(profilePath(fid,data.memberId)).data.get('userId','') == request.auth.uid;
+    }
+    function personalKeys() {
+      return ['theme','privacyMode','widgets','isPinEnabled','pinCode','enabledTabs','startTab','enabledServices','defaultBudgetMode',
+        'personalInitialBalance','personalInitialBalanceDate','personalSavingsRate','personalMonthlyBudget','personalManualReservedAmount',
+        'personalMandatoryExpenses','personalManualPaidExpenses','personalCategoryBudgets','personalIgnoredDuplicatePairs','personalEnableSmartReserve','personalStartOfMonthDay',
+        'pushEnabled','fcmToken','showFeedbackTool','eventTemplate','shoppingTemplate','dayStartHour','dayEndHour','salaryDates','telegramBotToken','telegramChatId','telegramApiUrl','telegramState'];
+    }
+    function safeSharedKeys() { return ['familyName','currency','geminiApiKey','autoSendEventsToTelegram','alfaMapping']; }
+    function sharedFinancialKeys() {
+      return ['initialBalance','initialBalanceDate','savingsRate','targetMonthlyBudget','manualReservedAmount',
+        'categoryBudgets','mandatoryExpenses','manualPaidExpenses','ignoredDuplicatePairs','enableSmartReserve'];
+    }
+    match /users/{uid} {
+      allow get, create, update, delete: if signedIn() && request.auth.uid == uid;
+    }
+    match /families/{fid} {
+      // Initial family lookup may be for a document that does not yet exist.
+      allow get: if signedIn() && (request.auth.uid == fid || member(fid) || invited(fid));
+      allow create: if signedIn() && fid == request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.get('budgetPolicy','family') == 'family';
+      // budgetPolicy and ownerId cannot be changed by ANY client.
+      allow update: if (owner(fid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
+        || (member(fid) && request.resource.data == resource.data)
+        || (joint(fid) && invited(fid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet())
+          && request.resource.data.members.size() == request.resource.data.members.toSet().size()
+          && getAfter(profilePath(fid,get(invitationPath()).data.placeholderMemberId)).data.userId == request.auth.uid
+          && !existsAfter(invitationPath()));
+      match /members/{pid} {
+        allow get: if member(fid) || invitedProfile(fid,pid);
+        allow list: if member(fid);
+        allow create: if (owner(fid) && joint(fid) && request.resource.data.get('userId',null) == null && request.resource.data.get('isAdmin',false) == false)
+          || (signedIn() && fid == request.auth.uid && pid == request.auth.uid
+            && !exists(familyPath(fid)) && afterMember(fid)
+            && request.resource.data.userId == request.auth.uid && request.resource.data.isAdmin == true);
+        allow update: if (member(fid) && request.resource.data == resource.data)
+          || (member(fid) && (owner(fid) || resource.data.get('userId','') == request.auth.uid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','email','avatar','color']))
+          || (member(fid) && joint(fid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId'])
+            && ((resource.data.get('userId',null) == null && request.resource.data.userId == request.auth.uid && resource.data.get('isAdmin',false) == false)
+              || (resource.data.get('userId','') == request.auth.uid && request.resource.data.get('userId',null) == null)))
+          || (joint(fid) && invitedProfile(fid,pid) && afterMember(fid)
+            && (resource.data.get('userId',null) == null || resource.data.userId == request.auth.uid)
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.get('isAdmin',false) == resource.data.get('isAdmin',false)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['id','userId','name','color','avatar','isAdmin'])
+            && !existsAfter(invitationPath()));
+        allow delete: if owner(fid) && joint(fid) && resource.data.get('userId',null) == null
+          && resource.data.get('isAdmin',false) == false && resource.data.get('email',null) == null;
+        match /{privateKind}/{recordId} {
+          allow read, write: if member(fid) && pid == request.auth.uid && !joint(fid) && privateKind in ['rules','knowledge'];
+        }
+        match /config/{id} {
+          allow get: if member(fid) && pid == request.auth.uid && id == 'settings';
+          allow create: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.keys().hasOnly(personalKeys());
+          allow update: if member(fid) && pid == request.auth.uid && id == 'settings' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(personalKeys());
+        }
+      }
+      match /config/{id} {
+        allow get: if member(fid) && id == 'settings' && (joint(fid) || resource.data.keys().hasOnly(safeSharedKeys()));
+        allow create: if id == 'settings' && afterMember(fid) && !request.resource.data.keys().hasAny(personalKeys())
+          && (getAfter(familyPath(fid)).data.get('budgetPolicy','family') == 'family'
+            || request.resource.data.keys().hasOnly(safeSharedKeys()));
+        allow update: if member(fid) && id == 'settings'
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(personalKeys())
+          && (joint(fid) || request.resource.data.keys().hasOnly(safeSharedKeys()));
+      }
+      match /{kind}/{id} {
+        allow get: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || !exists(/databases/$(database)/documents/families/$(fid)/$(kind)/$(id)) || owns(fid,resource.data));
+        allow list: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
+        allow create: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,request.resource.data));
+        allow update: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || (owns(fid,resource.data) && owns(fid,request.resource.data) && resource.data.memberId == request.resource.data.memberId));
+        allow delete: if member(fid) && kind in ['transactions','goals','debts'] && (joint(fid) || owns(fid,resource.data));
+        // Shared non-financial application areas are explicitly named.
+        allow read, write: if member(fid) && kind in ['shopping','pantry','events','projects','loyalty','wishlist','categories','chat','messages','shoppingLists','reminders'];
+        // Other financial/AI collections have not been partitioned; deny in personal mode.
+        allow read, write: if member(fid) && joint(fid) && kind in ['accounts','subscriptions','meterReadings','rules','knowledge'];
+      }
+      // serverBudgetArchive and pushDelivery are Admin SDK only.
+    }
+    match /invitations/{email} {
+      allow get: if verifiedEmail() && request.auth.token.email.lower() == email;
+      allow create: if signedIn() && owner(request.resource.data.familyId) && joint(request.resource.data.familyId)
+        && request.resource.data.email == email
+        && getAfter(profilePath(request.resource.data.familyId,request.resource.data.placeholderMemberId)).data.get('userId',null) == null;
+      allow update: if owner(resource.data.familyId) && joint(resource.data.familyId)
+        && request.resource.data.familyId == resource.data.familyId && request.resource.data.email == email
+        && getAfter(profilePath(resource.data.familyId,request.resource.data.placeholderMemberId)).data.get('userId',null) == null;
+      allow delete: if owner(resource.data.familyId)
+        || (verifiedEmail() && request.auth.token.email.lower() == email && afterMember(resource.data.familyId)
+          && getAfter(profilePath(resource.data.familyId,resource.data.placeholderMemberId)).data.userId == request.auth.uid);
+    }
+    // Keep all unknown paths denied, including server-only devices and global data.
+  }
+}

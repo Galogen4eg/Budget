@@ -12,12 +12,13 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, subscribeToAppSettings
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection, subscribeToPersonalCollection, savePersonalItems, deletePersonalItem
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { missingMerchantCategories } from '../utils/merchantCategoryCatalog';
 import { missingIncomeCategories } from '../utils/categoryCatalog';
+import { effectiveBudgetMode, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 
 // Default Settings
@@ -35,6 +36,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     { id: 'recent_transactions', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'category_analysis', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 2 } },
     { id: 'shopping', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
+    { id: 'week_events', isVisible: true, mobile: { colSpan: 2, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'wallet', isVisible: true, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
     { id: 'goals', isVisible: false, mobile: { colSpan: 1, rowSpan: 1 }, desktop: { colSpan: 1, rowSpan: 1 } },
   ],
@@ -75,6 +77,7 @@ interface DataContextType {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   importSourcesReady: boolean;
+  settingsReady: boolean;
   learnedRules: LearnedRule[];
   setLearnedRules: React.Dispatch<React.SetStateAction<LearnedRule[]>>;
   aiKnowledge: AIKnowledgeItem[];
@@ -105,6 +108,8 @@ interface DataContextType {
   currentMonthSpent: number;
   savingsRate: number;
   setSavingsRate: (rate: number) => void;
+  householdPersonal: boolean;
+  financialSettings: AppSettings;
   budgetMode: 'personal' | 'family';
   setBudgetMode: React.Dispatch<React.SetStateAction<'personal' | 'family'>>;
 }
@@ -186,6 +191,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [localRules, globalRules]);
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [loadedSettingsScope,setLoadedSettingsScope]=useState<string|null>(null);
+  const [loadedMembersScope,setLoadedMembersScope]=useState<string|null>(null);
+  const memberScope=familyId&&user?.uid?familyId+':'+user.uid:null;
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   
@@ -193,21 +201,69 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
 
   // Removed isolated savingsRate state
-  const [budgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
+  const [preferredBudgetMode, setBudgetMode] = useState<'personal' | 'family'>('personal');
+  const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;actorUid:string;policy:'family'|'personal'}|null>(null);
+  const policyReady=!familyId||(householdPolicy?.familyId===familyId&&householdPolicy?.actorUid===user?.uid);
+  const householdPersonal=Boolean(familyId&&(!policyReady||householdPolicy?.policy==='personal'));
+  const budgetMode=effectiveBudgetMode(householdPersonal?'personal':'family',preferredBudgetMode);
+  const linkedMemberId=(!familyId||loadedMembersScope===memberScope)?members.find(m=>m.userId&&m.userId===user?.uid)?.id:undefined;
+  const settingsScope=memberScope&&policyReady?memberScope+':'+(householdPersonal?'personal':'family'):null;
+  const settingsReady=!familyId||Boolean(settingsScope&&loadedSettingsScope===settingsScope);
+  const baseSettings=settingsReady?settings:DEFAULT_SETTINGS;
+  useEffect(()=>{
+    if(!familyId||!user?.uid)return;
+    setHouseholdPolicy(null);
+    return subscribeToHouseholdBudgetPolicy(familyId,
+      value=>setHouseholdPolicy({familyId,actorUid:user.uid,policy:value.policy}),
+      ()=>setHouseholdPolicy(null));
+  },[familyId,user?.uid]);
+  const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(baseSettings,policyReady&&settingsReady?linkedMemberId:undefined):baseSettings,[householdPersonal,baseSettings,linkedMemberId,policyReady,settingsReady]);
+  useEffect(()=>{
+    if(!familyId||!user?.uid||!settingsScope)return;
+    setLoadedSettingsScope(null);
+    return subscribeToAppSettings(familyId,user.uid,data=>{
+      const next={...DEFAULT_SETTINGS,...data,widgets:mergeWidgets(data.widgets)};
+      settingsRef.current=next;
+      setSettings(next);
+      setLoadedSettingsScope(settingsScope);
+      if(data.defaultBudgetMode)setBudgetMode(data.defaultBudgetMode);
+    });
+  },[familyId,user?.uid,settingsScope]);
+  const visibleTransactions=useMemo(()=>householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[householdPersonal,transactions,linkedMemberId,policyReady]);
+  const visibleGoals=useMemo(()=>householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[householdPersonal,goals,linkedMemberId,policyReady]);
+  const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
+
+
+  useEffect(()=>{
+    if(!familyId)return;
+    setTransactions([]);setGoals([]);setDebts([]);setTransactionsReady(false);
+    if(!policyReady||(householdPersonal&&!linkedMemberId))return;
+    const mode=householdPersonal?'personal':'family';
+    const onError=(error:Error)=>console.error('Financial subscription failed',error);
+    const unsubs=[
+      subscribeToScopedFinancialCollection(familyId,'transactions',mode,linkedMemberId,items=>{setTransactions(items.map(sanitizeTransaction));setTransactionsReady(true);},error=>{setTransactionsReady(false);onError(error);}),
+      subscribeToScopedFinancialCollection(familyId,'goals',mode,linkedMemberId,items=>setGoals(items as SavingsGoal[]),onError),
+      subscribeToScopedFinancialCollection(familyId,'debts',mode,linkedMemberId,items=>setDebts(items as Debt[]),onError)
+    ];
+    return ()=>unsubs.forEach(unsub=>unsub());
+  },[familyId,policyReady,householdPersonal,linkedMemberId]);
 
   const isInitialLoad = useRef(true);
   const merchantCatalogSyncAttempted = useRef(new Set<string>());
 
   // Wrapper for savings rate to maintain API compatibility but store in settings
   const updateSavingsRate = async (rate: number) => {
-      await updateSettings({ savingsRate: rate });
+      if(familyId&&!policyReady)throw new Error('Режим бюджета ещё не подтверждён');
+      await updateSettings(householdPersonal?{personalSavingsRate:rate}:{savingsRate:rate});
   };
 
   // Persist only modified keys; a stale client must not rewrite unrelated
   // family fields belonging to another person's settings change.
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
       const current = settingsRef.current;
-      const patch = diffSettings(current, newSettings);
+      if(familyId&&(!policyReady||!settingsReady))throw new Error('Дождитесь загрузки настроек бюджета');
+      const changes=diffSettings(householdPersonal?projectPersonalFinance(current,linkedMemberId):current,newSettings);
+      const patch=householdPersonal?toPersonalSettingsPatch<AppSettings>(changes):changes;
       if (!Object.keys(patch).length) return;
       const merged = { ...current, ...patch,
           ...(patch.manualPaidExpenses ? { manualPaidExpenses: {
@@ -234,6 +290,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
     debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
   ) => {
+    if(familyId&&householdPersonal){
+      if(!policyReady||!settingsReady||!user?.uid||!linkedMemberId)throw new Error('Личный профиль не подтверждён');
+      const personalChanges={...changes,mandatoryExpenses:changes.mandatoryExpenses.map(e=>({...e,memberId:e.memberId??linkedMemberId}))};
+      await commitPersonalMandatoryPaymentBundle(familyId,user.uid,linkedMemberId,personalChanges,debtChanges);
+      // Authoritative snapshots update private settings and debts after commit.
+      return;
+    }
     if (familyId && user) {
       await commitMandatoryPaymentBundle(familyId, user.uid, changes, debtChanges);
     }
@@ -250,30 +313,36 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Unified persistent updater for learned rules
+  // Shared and private learned rules never reuse another scope's storage.
   const updateRules = async (rulesOrFn: LearnedRule[] | ((prev: LearnedRule[]) => LearnedRule[])) => {
       const updated = typeof rulesOrFn === 'function' ? rulesOrFn(localRules) : rulesOrFn;
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await savePersonalItems(familyId,user.uid,'rules',updated);
+        else await addItemsBatch(familyId,'rules',updated);
+      }else{
+        localStorage.setItem('local_rules',JSON.stringify(updated));
+      }
       setLocalRules(updated);
-      try {
-          localStorage.setItem('local_rules', JSON.stringify(updated));
-      } catch (e) {
-          console.warn("Failed to write local_rules to localStorage:", e);
-      }
-      if (familyId) {
-          try {
-              await addItemsBatch(familyId, 'rules', updated);
-          } catch (e) {
-              console.warn("Failed to sync rules with Firestore:", e);
-          }
-      }
   };
+  useEffect(()=>{
+    if(!familyId||!user?.uid)return;
+    setLocalRules([]);setAiKnowledge([]);setNotifications([]);
+    if(!policyReady)return;
+    const subscribe=(kind:'rules'|'knowledge',callback:(rows:any[])=>void)=>householdPersonal
+      ?subscribeToPersonalCollection(familyId,user.uid,kind,callback)
+      :subscribeToCollection(familyId,kind,callback);
+    const stopRules=subscribe('rules',rows=>setLocalRules(rows as LearnedRule[]));
+    const stopKnowledge=subscribe('knowledge',rows=>setAiKnowledge(rows as AIKnowledgeItem[]));
+    return ()=>{stopRules();stopKnowledge();};
+  },[familyId,user?.uid,policyReady,householdPersonal]);
 
   // --- Subscriptions ---
   useEffect(() => {
     setTransactionsReady(false);
     setCatalogReady(false);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
-    const cachedRules = localStorage.getItem('local_rules');
+    const cachedRules = !familyId ? localStorage.getItem('local_rules') : null;
     if (cachedRules) {
         try {
             const parsed = JSON.parse(cachedRules);
@@ -363,11 +432,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubs = [
       unsubGlobal,
-      subscribeToCollection(familyId, 'transactions', (data) => {
-        const list = Array.isArray(data) ? data.map(sanitizeTransaction) : [];
-        setTransactions(list);
-        setTransactionsReady(true);
-      }),
       subscribeToCollection(familyId, 'shopping', (data) => {
         const uniqueMap = new Map<string, ShoppingItem>();
         (data as ShoppingItem[]).forEach(item => {
@@ -377,9 +441,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
       subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
       subscribeToCollection(familyId, 'events', (data) => setEvents(data as FamilyEvent[])),
-      subscribeToCollection(familyId, 'goals', (data) => setGoals(data as SavingsGoal[])),
-      subscribeToCollection(familyId, 'members', (data) => { 
-          if (data.length > 0) setMembers(data as FamilyMember[]);
+      subscribeToCollection(familyId, 'members', (data) => {
+          setMembers(data as FamilyMember[]);
+          setLoadedMembersScope(memberScope);
       }),
       subscribeToCollection(familyId, 'categories', (data) => {
           const saved = data as Category[];
@@ -402,38 +466,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   });
           }
       }),
-      subscribeToCollection(familyId, 'rules', async (data) => {
-          const list = (data as LearnedRule[]) || [];
-          if (list.length > 0) {
-              setLocalRules(list);
-              try { localStorage.setItem('local_rules', JSON.stringify(list)); } catch {}
-          } else {
-              // If Firestore rules are empty, check if we have cached rules locally and upload them
-              const cached = localStorage.getItem('local_rules');
-              if (cached) {
-                  try {
-                      const parsed = JSON.parse(cached);
-                      if (Array.isArray(parsed) && parsed.length > 0) {
-                          setLocalRules(parsed);
-                          await addItemsBatch(familyId, 'rules', parsed);
-                      }
-                  } catch (e) {
-                      console.warn("Failed to migrate cached rules to Firestore", e);
-                  }
-              }
-          }
-      }),
-      subscribeToCollection(familyId, 'knowledge', (data) => setAiKnowledge(data as AIKnowledgeItem[])),
-      subscribeToCollection(familyId, 'debts', (data) => setDebts(data as Debt[])),
       subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
-      // NEW: Subscribe to merged settings (Shared + User)
-      subscribeToAppSettings(familyId, user?.uid || 'unknown', (data) => {
-          if (data) {
-              const mergedWidgets = mergeWidgets(data.widgets);
-              setSettings(prev => ({ ...prev, ...data, widgets: mergedWidgets }));
-              if (data.defaultBudgetMode) setBudgetMode(data.defaultBudgetMode);
-          }
-      })
+
     ];
     
     // Always load dismissed notifications from local storage (device specific preference)
@@ -451,7 +485,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sync dismissed notifications to local storage immediately
       localStorage.setItem('local_dismissed_notifs', JSON.stringify(dismissedNotificationIds));
       // Always keep local rules backed up on device
-      try { localStorage.setItem('local_rules', JSON.stringify(localRules)); } catch {}
+      if(!familyId)try { localStorage.setItem('local_rules', JSON.stringify(localRules)); } catch {}
 
       if (!authLoading && !isInitialLoad.current && !familyId) {
           localStorage.setItem('local_transactions', JSON.stringify(transactions));
@@ -545,13 +579,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           text,
           addedDate: new Date().toISOString()
       };
-      setAiKnowledge(prev => [...prev, newItem]);
-      if (familyId) await addItem(familyId, 'knowledge', newItem);
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await savePersonalItems(familyId,user.uid,'knowledge',[newItem]);
+        else await addItem(familyId,'knowledge',newItem);
+      }
+      setAiKnowledge(prev => [...prev.filter(item=>item.id!==newItem.id),newItem]);
   };
 
   const deleteAIKnowledge = async (id: string) => {
+      if(familyId){
+        if(!policyReady||!user?.uid)throw new Error('Режим бюджета не подтверждён');
+        if(householdPersonal)await deletePersonalItem(familyId,user.uid,'knowledge',id);
+        else await deleteItem(familyId,'knowledge',id);
+      }
       setAiKnowledge(prev => prev.filter(k => k.id !== id));
-      if (familyId) await deleteItem(familyId, 'knowledge', id);
   };
 
   useEffect(() => {
@@ -580,8 +622,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const filteredTransactions = useMemo(() => {
       const currentUserId = user?.uid;
       const myMemberId = members.find(m => m.userId && m.userId === currentUserId)?.id;
-      return personalTransactions(transactions, budgetMode, myMemberId);
-  }, [transactions, budgetMode, members, user]);
+      return personalTransactions(visibleTransactions, budgetMode, myMemberId);
+  }, [visibleTransactions, budgetMode, members, user]);
 
   const parseLocalDate = (dateStr: string) => {
     if (!dateStr) return new Date();
@@ -597,8 +639,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const totalBalance = useMemo(() => {
     let relevantTransactions = filteredTransactions;
-    if (settings.initialBalanceDate) {
-        const startDate = parseLocalDate(settings.initialBalanceDate);
+    if (financialSettings.initialBalanceDate) {
+        const startDate = parseLocalDate(financialSettings.initialBalanceDate);
         startDate.setHours(0, 0, 0, 0);
         relevantTransactions = filteredTransactions.filter(t => parseLocalDate(t.date).getTime() >= startDate.getTime());
     }
@@ -608,10 +650,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const expense = relevantTransactions
       .filter(t => t.type === 'expense')
       .reduce((acc, t) => acc + (Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0), 0);
-    const safeInitial = Number.isFinite(Number(settings.initialBalance)) ? Number(settings.initialBalance) : 0;
+    const safeInitial = Number.isFinite(Number(financialSettings.initialBalance)) ? Number(financialSettings.initialBalance) : 0;
     const rawBalance = safeInitial + income - expense;
     return Math.round(rawBalance * 100) / 100;
-  }, [filteredTransactions, settings.initialBalance, settings.initialBalanceDate]);
+  }, [filteredTransactions, financialSettings.initialBalance, financialSettings.initialBalanceDate]);
 
   const currentMonthSpent = useMemo(() => {
     const now = new Date();
@@ -626,18 +668,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [filteredTransactions]);
 
   const value = {
-    transactions, setTransactions,
+    householdPersonal, financialSettings,
+    transactions: visibleTransactions, setTransactions,
     shoppingItems, setShoppingItems,
     pantry, setPantry: handlePantryUpdate,
     events, setEvents,
-    goals, setGoals,
+    goals: visibleGoals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady: transactionsReady && catalogReady,
+    importSourcesReady: transactionsReady && catalogReady && settingsReady,
+    settingsReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
-    settings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose unified updater
-    debts, setDebts,
+    settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose scoped settings
+    debts: visibleDebts, setDebts,
     loyaltyCards, setLoyaltyCards,
     notifications, setNotifications,
     addReminder,
@@ -647,7 +691,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     filteredTransactions,
     totalBalance,
     currentMonthSpent,
-    savingsRate: settings.savingsRate ?? 10,
+    savingsRate: financialSettings.savingsRate ?? 10,
     setSavingsRate: updateSavingsRate,
     budgetMode, setBudgetMode
   };

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Loader2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, RefreshCw, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
 import { triggerHaptic } from './utils/haptics';
 import { 
-  Transaction, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
+  Transaction, SavingsGoal, ShoppingItem, FamilyMember, PantryItem, MandatoryExpense, Debt, Category, LearnedRule, WidgetConfig, AppNotification, FamilyEvent
 } from './types';
 import { Toaster, toast } from 'sonner';
 
@@ -46,6 +46,7 @@ const NotificationsModal = React.lazy(() => import('./components/NotificationsMo
 import { parseAlfaStatement } from './utils/alfaParser';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
+import { stopTelegramBotListener } from './utils/telegramBotListener';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
 import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
@@ -105,8 +106,8 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady,
-    settings, updateSettings, updateMandatoryPaymentBundle,
+    importSourcesReady, settingsReady,
+    settings, financialSettings, householdPersonal, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
     totalBalance,
@@ -128,6 +129,39 @@ export default function App() {
   }, [familyId, members.length, isAuthLoading, importSourcesReady]);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [installPrompt,setInstallPrompt]=useState<(Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>})|null>(null);
+  useEffect(()=>{
+    const capture=(event:Event)=>{
+      event.preventDefault();
+      setInstallPrompt(event as Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>});
+    };
+    const clear=()=>setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt',capture);
+    window.addEventListener('appinstalled',clear);
+    return ()=>{window.removeEventListener('beforeinstallprompt',capture);window.removeEventListener('appinstalled',clear);};
+  },[]);
+
+  const [systemDark,setSystemDark]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  useEffect(()=>{
+    const media=window.matchMedia('(prefers-color-scheme: dark)');
+    const update=()=>setSystemDark(media.matches);
+    update();media.addEventListener('change',update);
+    return ()=>media.removeEventListener('change',update);
+  },[]);
+  const resolvedTheme=settings.theme==='system'?(systemDark?'dark':'light'):settings.theme;
+  const visibleTabs=TAB_CONFIG.filter(tab=>tab.id==='overview'||(settings.enabledTabs??TAB_CONFIG.map(t=>t.id)).includes(tab.id));
+  const initialTabApplied=useRef<string|null>(null);
+  useEffect(()=>{
+    if(isAuthLoading)return;
+    const key=(user?.uid??'demo')+':'+(familyId??'local');
+    if(initialTabApplied.current===key)return;
+    if(familyId&&!settingsReady)return;
+    initialTabApplied.current=key;
+    setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
+  },[isAuthLoading,user?.uid,familyId,settingsReady,settings.startTab,settings.enabledTabs]);
+  useEffect(()=>{
+    if(!visibleTabs.some(t=>t.id===activeTab))setActiveTab('overview');
+  },[activeTab,settings.enabledTabs]);
   const [targetService, setTargetService] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
@@ -148,6 +182,9 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
+  useEffect(()=>{
+    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+  },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   
   // Offline / Network Status
@@ -159,6 +196,7 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
+  useEffect(()=>{if(householdPersonal||!settingsReady)stopTelegramBotListener();},[householdPersonal,settingsReady]);
   // Двусторонняя синхронизация с Telegram-ботом в реальном времени
   useTelegramSync({
     settings,
@@ -166,6 +204,8 @@ export default function App() {
     setShoppingItems,
     setTransactions,
     setEvents,
+    householdPersonal,
+    settingsReady,
   });
 
   useEffect(() => {
@@ -260,7 +300,7 @@ export default function App() {
 
   // Filter Mandatory Expenses based on Member Filter & Budget Mode
   const filteredMandatoryExpenses = useMemo(() => {
-      const allExpenses = settings.mandatoryExpenses || [];
+      const allExpenses = financialSettings.mandatoryExpenses || [];
       const safeMembers = members || [];
       
       // 1. Strict Member Filter from UI (Higher priority)
@@ -280,7 +320,7 @@ export default function App() {
           if (!myMemberId) return []; // Unlinked profile must not inherit another member's payments.
           return allExpenses.filter(e => !e.memberId || e.memberId === myMemberId);
       }
-  }, [settings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
+  }, [financialSettings.mandatoryExpenses, budgetMode, members, user?.uid, memberFilter]);
 
   useEffect(() => {
     if (user?.uid && (!settings.widgets || settings.widgets.length === 0)) {
@@ -290,8 +330,8 @@ export default function App() {
   }, [user?.uid]);
 
   useEffect(() => {
-      document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-  }, [settings.theme]);
+      document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+  }, [resolvedTheme]);
 
   // Synchronize offline Telegram message queue when internet connection restores
   useEffect(() => {
@@ -319,27 +359,35 @@ export default function App() {
 
   const handleTransactionSubmit = async (txData: Omit<Transaction, 'id'>) => {
     const editing = selectedTx;
+    if (householdPersonal) {
+      const owner = members.find(m => m.userId && m.userId === user?.uid)?.id;
+      if (!owner || (editing && editing.memberId !== owner) || txData.memberId !== owner)
+        throw new Error('В личном режиме доступны только собственные операции');
+    }
     const transaction: Transaction = editing
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
-    // A transfer out of expenses adds to savings; withdrawing from savings subtracts.
-    const savingsContribution = (tx: Transaction) =>
-      isSavingsTransfer(tx) ? (tx.type === 'expense' ? tx.amount : -tx.amount) : 0;
-    const previousContribution = editing ? savingsContribution(editing) : 0;
-    const delta = savingsContribution(transaction) - previousContribution;
-
-    let goalAdjustment: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-    if (delta !== 0) {
-      goalAdjustment = applySavingsTransferToGoals(
-        goals, Math.abs(delta), delta > 0, transaction.linkedGoalId || editing?.linkedGoalId
-      );
+    // Persist the goal link so future edits/deletions cannot select a different account.
+    const before=editing&&isSavingsTransfer(editing)?(editing.type==='expense'?editing.amount:-editing.amount):0;
+    const after=isSavingsTransfer(transaction)?(transaction.type==='expense'?transaction.amount:-transaction.amount):0;
+    let affectedGoal: SavingsGoal|undefined;
+    if(householdPersonal&&before!==0&&!editing?.linkedGoalId)throw new Error('Старый перевод не привязан к личной цели');
+    if(after!==0||before!==0){
+      const requestedGoal=transaction.linkedGoalId||editing?.linkedGoalId;
+      if(requestedGoal&&!goals.some(g=>g.id===requestedGoal))throw new Error('Накопительная цель недоступна');
+      if(!requestedGoal&&before!==0&&goals.length===0)throw new Error('Накопительная цель предыдущего перевода не найдена');
+      const candidate=applySavingsTransferToGoals(goals,Math.abs(after||before),after>0,requestedGoal).affectedGoal;
+      affectedGoal=goals.some(g=>g.id===candidate.id)?candidate:{...candidate,memberId:transaction.memberId};
+      if(householdPersonal&&affectedGoal.memberId!==transaction.memberId)throw new Error('Цель принадлежит другому участнику');
+      if(after!==0)transaction.linkedGoalId=affectedGoal.id;
+      else delete transaction.linkedGoalId;
     }
 
     // Never report a saved operation without an acknowledged family write.
     if (!familyId) throw new Error('Family is not ready: transaction was not saved');
     await saveTransactionWithGoal(
-      familyId, transaction, Boolean(editing), goalAdjustment?.affectedGoal
+      familyId, transaction, Boolean(editing), affectedGoal
     );
 
     // Firestore goal snapshots now carry authoritative balances after an atomic write.
@@ -356,8 +404,7 @@ export default function App() {
       if (!familyId) throw new Error('Семья ещё не готова');
       if (!rule.keyword?.trim()) throw new Error('Нельзя сохранить пустое правило');
       // Do not report a learned rule as saved when Firestore rejected it.
-      await addItem(familyId, 'rules', rule);
-      setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
+      await setLearnedRules(prev => prev.some(r => r.id === rule.id) ? prev : [...prev, rule]);
 
       const keyword = rule.keyword.trim().toLowerCase();
       let needsIndividualReview = 0;
@@ -395,10 +442,11 @@ export default function App() {
 
   const handleToggleMandatoryPaid = async (expenseId: string) => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+    const monthIds = financialSettings.manualPaidExpenses?.[monthKey] || [];
     const paid = !monthIds.includes(expenseId);
     const nextMonthIds = paid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
-    const bill = (settings.mandatoryExpenses || []).find(item => item.id === expenseId);
+    const bill = (financialSettings.mandatoryExpenses || []).find(item => item.id === expenseId);
+    if(!bill){toast.error('Платёж недоступен');return;}
     const isThisMonth = currentMonth.getMonth() === new Date().getMonth() &&
       currentMonth.getFullYear() === new Date().getFullYear();
     const debtChanges = bill?.linkedDebtId && isThisMonth
@@ -406,7 +454,7 @@ export default function App() {
       : [];
     try {
       await updateMandatoryPaymentBundle({
-        mandatoryExpenses: settings.mandatoryExpenses || [],
+        mandatoryExpenses: financialSettings.mandatoryExpenses || [],
         manualPaidExpenses: {[monthKey]: nextMonthIds}
       },debtChanges);
     } catch (error) {
@@ -415,8 +463,10 @@ export default function App() {
   };
 
   const handleResetSettings = async () => {
-    await updateSettings(DEFAULT_SETTINGS);
-    toast.success("Настройки сброшены к значениям по умолчанию");
+    if(householdPersonal){
+      await updateSettings({theme:DEFAULT_SETTINGS.theme,privacyMode:DEFAULT_SETTINGS.privacyMode,widgets:DEFAULT_SETTINGS.widgets,enabledTabs:DEFAULT_SETTINGS.enabledTabs,startTab:'overview'});
+    }else await updateSettings(DEFAULT_SETTINGS);
+    toast.success(householdPersonal?'Оформление и навигация сброшены':'Настройки сброшены к значениям по умолчанию');
   };
 
   const handleDeleteEvent = async (id: string, scope: 'single'|'series' = 'series') => {
@@ -677,11 +727,10 @@ export default function App() {
   };
 
   const handleDeleteTransactionsByPeriod = async (startDate: string, endDate: string) => {
-      if (!startDate || !endDate) return;
-      const start = new Date(startDate);
-      start.setHours(0,0,0,0);
-      const end = new Date(endDate);
-      end.setHours(23,59,59,999);
+      if (!startDate || !endDate || startDate>endDate) throw new Error('Некорректный период');
+      const start = new Date(startDate+'T00:00:00');
+      const end = new Date(endDate+'T23:59:59.999');
+      if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error('Некорректные даты');
       
       const startTime = start.getTime();
       const endTime = end.getTime();
@@ -699,8 +748,7 @@ export default function App() {
       const ids = toDelete.map(t => t.id);
       if (!familyId) throw new Error('Family is not ready: transactions were not deleted');
       // Deleting a savings transfer without adjusting its goal would corrupt balances.
-      try { assertBulkDeleteSafe(transactions,ids); }
-      catch(error){toast.error((error as Error).message);return;}
+      assertBulkDeleteSafe(transactions,ids);
       await deleteItemsBatch(familyId, 'transactions', ids);
       setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
       toast.success(`Удалено ${ids.length} операций`);
@@ -712,6 +760,7 @@ export default function App() {
         return false;
       }
       try {
+        if (ids.some(id=>!transactions.some(t=>t.id===id))) throw new Error('Операция недоступна');
         assertBulkDeleteSafe(transactions,ids);
         await deleteItemsBatch(familyId, 'transactions', ids);
         setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
@@ -724,6 +773,10 @@ export default function App() {
   };
 
   const handleGoalSave = async (goal: any) => {
+      const owner = members.find(m => m.userId && m.userId === user?.uid)?.id;
+      if (householdPersonal && (!owner || (editingGoal && editingGoal.memberId !== owner)))
+          throw new Error('В личном режиме доступны только собственные цели');
+      goal = {...goal, ...(editingGoal?.memberId || (!editingGoal && owner) ? {memberId: editingGoal?.memberId || owner} : {})};
       if (editingGoal) {
           if (!familyId) throw new Error('Family is not ready: goal was not saved');
           await updateItem(familyId, 'goals', goal.id, goal);
@@ -738,6 +791,7 @@ export default function App() {
   };
 
   const handleGoalDelete = async (id: string) => {
+      if (!goals.some(g=>g.id===id)) throw new Error('Цель недоступна');
       if (!familyId) throw new Error('Family is not ready: goal was not deleted');
       await deleteItem(familyId, 'goals', id);
       setGoals(prev => prev.filter(g => g.id !== id));
@@ -757,7 +811,7 @@ export default function App() {
   const renderWidget = (id: string) => {
       switch (id) {
           case 'balance':
-              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={settings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={() => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
+              return <SmartHeader balance={totalBalance} spent={currentMonthSpent} savingsRate={savingsRate} settings={financialSettings} budgetMode={budgetMode} transactions={filteredTransactions} onToggleBudgetMode={householdPersonal ? undefined : () => setBudgetMode(prev => prev === 'family' ? 'personal' : 'family')} onTogglePrivacy={() => updateSettings({ privacyMode: !settings.privacyMode })} className="shrink-0" />;
           case 'month_chart':
               return (
                   <div className="flex-1 h-[280px] lg:h-auto min-h-[250px]">
@@ -837,7 +891,7 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full bg-[#F8F6F2] dark:bg-[#121214] text-graphite dark:text-white flex overflow-hidden font-sans relative selection:bg-primary/20 selection:text-primary-dark">
-      <Toaster position="top-center" richColors theme={settings.theme === 'dark' ? 'dark' : 'light'} />
+      <Toaster position="top-center" richColors theme={resolvedTheme === 'dark' ? 'dark' : 'light'} />
 
       {/* Mobile Top Header (only on non-overview tabs, since overview has its own topbar) */}
       {activeTab !== 'overview' && (
@@ -850,7 +904,7 @@ export default function App() {
            </div>
            <div className="flex gap-2">
                <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
-               <button onClick={() => setIsSettingsOpen(true)} className="p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
+               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl active:scale-90 transition-transform text-graphite-muted"><SettingsIcon size={18} /></button>
            </div>
         </div>
       )}
@@ -884,7 +938,7 @@ export default function App() {
 
             {/* Navigation Links */}
             <nav aria-label="Основное меню" className={`w-full ${isSidebarExpanded ? 'px-3' : 'px-2'} space-y-2 mt-4`}>
-              {TAB_CONFIG.map(tab => {
+              {visibleTabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -951,8 +1005,8 @@ export default function App() {
               <button 
                 type="button"
                 onClick={() => setIsSettingsOpen(true)} 
-                title="Настройки" 
-                className="p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
+                title="Настройки" aria-label="Настройки"
+                className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-graphite-muted dark:text-gray-400 hover:text-primary hover:bg-surface-subtle dark:hover:bg-[#2C2C2E] transition cursor-pointer"
               >
                 <SettingsIcon size={18} />
               </button>
@@ -1027,11 +1081,12 @@ export default function App() {
             
             <div className={`h-full w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 <TerraBudget
+                    key={householdPersonal?'private-budget':'joint-budget'}
                     transactions={transactions}
                     categories={categories}
-                    members={members}
-                    mandatoryExpenses={settings.mandatoryExpenses || []}
-                    settings={settings}
+                    members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
+                    mandatoryExpenses={financialSettings.mandatoryExpenses || []}
+                    settings={financialSettings}
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
                     onEditTransaction={handleEditTransaction}
@@ -1119,7 +1174,7 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
       <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 backdrop-blur-xl border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-         {TAB_CONFIG.map(tab => {
+         {visibleTabs.map(tab => {
              const isActive = activeTab === tab.id;
              return (
                 <button 
@@ -1156,8 +1211,8 @@ export default function App() {
                 key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} 
                 onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
                 onSubmit={handleTransactionSubmit} 
-                settings={settings} 
-                members={members} 
+                settings={financialSettings} 
+                members={householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members} 
                 categories={categories} 
                 learnedRules={learnedRules}
                 initialTransaction={selectedTx} 
@@ -1166,6 +1221,7 @@ export default function App() {
                 transactions={transactions} 
                 onDelete={async (id) => { 
                   const transactionToDelete = transactions.find(t => t.id === id);
+                  if (!transactionToDelete) throw new Error('Операция недоступна');
                   let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
                   if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
                     updatedSavings = applySavingsTransferToGoals(
@@ -1184,7 +1240,9 @@ export default function App() {
                   toast.success('Операция удалена');
                 }} 
             />}
-            {isSettingsOpen && <SettingsModal 
+            {isSettingsOpen && <SettingsModal
+                installPrompt={installPrompt}
+                onInstallPromptConsumed={()=>setInstallPrompt(null)} 
                 key="settings-modal"
                 settings={settings} 
                 onClose={() => setIsSettingsOpen(false)} 
@@ -1224,7 +1282,7 @@ export default function App() {
             />}
             {isAIChatOpen && (
               <AIChatModal 
-                key="ai-chat-modal" 
+                key={'ai-chat-modal-'+(user?.uid??'demo')+'-'+(familyId??'local')+'-'+(householdPersonal?'personal':'family')} 
                 onClose={() => setIsAIChatOpen(false)} 
                 onOpenSettings={() => {
                   setIsAIChatOpen(false);
@@ -1239,7 +1297,7 @@ export default function App() {
                 onClose={() => setDrillDownState(null)} 
                 transactions={filteredTransactions} 
                 setTransactions={setTransactions} 
-                settings={settings} 
+                settings={financialSettings} 
                 members={members} 
                 categories={categories} 
                 onLearnRule={handleLearnRule} 
@@ -1308,7 +1366,7 @@ export default function App() {
                           const candidate = applySavingsTransferToGoals(goals,0,true).affectedGoal;
                           // Stable ID for a new default goal: retries after partial
                           // imports must never create another savings account.
-                          return goals.length ? candidate : {...candidate,id:'savings_import_default'};
+                          return goals.length ? candidate : {...candidate,id:householdPersonal ? 'savings_import_default_'+importMemberId : 'savings_import_default', ...(householdPersonal ? {memberId:importMemberId} : {})};
                         })()
                       : undefined;
                     for (const row of savingsRows) {
@@ -1381,16 +1439,17 @@ export default function App() {
                 key={selectedMandatoryExpense ? `edit-exp-${selectedMandatoryExpense.id}` : 'mandatory-exp-modal'}
                 expense={selectedMandatoryExpense}
                 onClose={() => { setIsMandatoryModalOpen(false); setSelectedMandatoryExpense(null); }}
-                settings={settings}
+                settings={financialSettings}
                 selectedMonth={currentMonth}
-                members={members}
+                members={householdPersonal?members.filter(m=>m.userId===user?.uid):members}
                 onSave={async (e, manuallyPaid) => {
                   const existingId = selectedMandatoryExpense?.id;
+                  if(existingId&&!financialSettings.mandatoryExpenses.some(item=>item.id===existingId))throw new Error('Платёж недоступен');
                   const updated = existingId
-                    ? (settings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
-                    : [...(settings.mandatoryExpenses || []), e];
+                    ? (financialSettings.mandatoryExpenses || []).map(item => item.id === existingId ? {...e,id:existingId} : item)
+                    : [...(financialSettings.mandatoryExpenses || []), e];
                   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-                  const monthIds = settings.manualPaidExpenses?.[monthKey] || [];
+                  const monthIds = financialSettings.manualPaidExpenses?.[monthKey] || [];
                   const nextMonthIds = manuallyPaid
                     ? Array.from(new Set([...monthIds,e.id]))
                     : monthIds.filter(id => id !== e.id);
@@ -1415,9 +1474,10 @@ export default function App() {
                   setSelectedMandatoryExpense(null);
                 }}
                 onDelete={async (id) => {
-                  const updated = (settings.mandatoryExpenses || []).filter(item => item.id !== id);
+                  if(!financialSettings.mandatoryExpenses.some(item=>item.id===id))throw new Error('Платёж недоступен');
+                  const updated = (financialSettings.mandatoryExpenses || []).filter(item => item.id !== id);
                   const manualPaid = Object.fromEntries(
-                    Object.entries(settings.manualPaidExpenses || {}).map(([month,ids])=>
+                    Object.entries(financialSettings.manualPaidExpenses || {}).map(([month,ids])=>
                       [month,ids.filter(paidId => paidId !== id)]
                     )
                   );

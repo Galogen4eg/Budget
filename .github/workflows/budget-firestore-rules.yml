@@ -1,0 +1,34 @@
+name: Budget Firestore rules
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install emulator dependencies
+        run: npm install --prefix tests/firestore-emulator --no-audit --no-fund
+      - name: Install root server dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install actual Cloud Functions dependencies
+        run: npm install --prefix functions --no-audit --no-fund
+      - name: Run rules and real callable migration tests against isolated demo project
+        env:
+          BUDGET_SET12_ENABLED: 'true'
+        run: |
+          printf 'BUDGET_SET12_ENABLED=true\n' > functions/.env.local
+          tests/firestore-emulator/node_modules/.bin/firebase emulators:exec --config firebase.test.json --only auth,firestore,functions --project demo-budget "node --test --test-concurrency=1 tests/firestore-emulator/rules.test.mjs tests/firestore-emulator/budgetPolicyCallable.test.mjs"
+

@@ -1,14 +1,15 @@
 
 import { 
-  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocFromServer,
-  onSnapshot, query, orderBy, where, getDocs, writeBatch, runTransaction, arrayUnion 
+  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer,
+  onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
-import { prepareFamilyMemberInvitation } from './familyInvitation';
+import { assertBudgetPolicyOwner } from './familyBudgetPolicy';
+import { prepareFamilyMemberInvitation, resolveFamilyJoinProfile, assertUnusedFamilyProfile } from './familyInvitation';
 import { Transaction, AppSettings, FamilyMember, SavingsGoal, ShoppingItem, FamilyEvent, Subscription, Debt, PantryItem, MeterReading, LoyaltyCard, LearnedRule, Category } from '../types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -53,9 +54,21 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
     'widgets', 
     'isPinEnabled', 
     'pinCode', 
-    'enabledTabs', 
+    'enabledTabs',
+    'startTab', 
     'enabledServices', 
-    'defaultBudgetMode', 
+    'defaultBudgetMode',
+    'personalInitialBalance',
+    'personalInitialBalanceDate',
+    'personalSavingsRate',
+    'personalMonthlyBudget',
+    'personalCategoryBudgets',
+    'personalIgnoredDuplicatePairs',
+    'personalEnableSmartReserve',
+    'personalStartOfMonthDay',
+    'personalMandatoryExpenses',
+    'personalManualPaidExpenses',
+    'personalManualReservedAmount', 
     'pushEnabled', 
     'fcmToken', 
     'showFeedbackTool', 
@@ -76,24 +89,26 @@ export const subscribeToAppSettings = (familyId: string, userId: string, callbac
 
   let sharedSettings: Partial<AppSettings> = {};
   let userSettings: Partial<AppSettings> = {};
+  let sharedReady=false,userReady=false;
+  const selectKeys=(value:Record<string,unknown>,personal:boolean)=>Object.fromEntries(Object.entries(value).filter(([key])=>USER_SPECIFIC_KEYS.includes(key as keyof AppSettings)===personal)) as Partial<AppSettings>;
 
   const mergeAndCallback = () => {
-      callback({ ...sharedSettings, ...userSettings } as AppSettings);
+      if(sharedReady&&userReady)callback({ ...sharedSettings, ...userSettings } as AppSettings);
   };
 
-  const unsubShared = onSnapshot(doc(db, 'families', familyId, 'config', 'settings'), (doc) => {
-    if (doc.exists()) {
-      sharedSettings = doc.data() as AppSettings;
-      mergeAndCallback();
-    }
-  });
+  const unsubShared = onSnapshot(doc(db, 'families', familyId, 'config', 'settings'), {includeMetadataChanges:true}, (doc) => {
+    if(doc.metadata.fromCache&&!sharedReady)return;
+    sharedReady=true;
+    sharedSettings=selectKeys(doc.data()??{},false);
+    mergeAndCallback();
+  },()=>{sharedReady=false;});
 
-  const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), (doc) => {
-    if (doc.exists()) {
-      userSettings = doc.data() as Partial<AppSettings>;
-      mergeAndCallback();
-    }
-  });
+  const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), {includeMetadataChanges:true}, (doc) => {
+    if(doc.metadata.fromCache&&!userReady)return;
+    userReady=true;
+    userSettings=selectKeys(doc.data()??{},true);
+    mergeAndCallback();
+  },()=>{userReady=false;});
 
   return () => {
       unsubShared();
@@ -250,7 +265,7 @@ export const createFamilyMemberWithInvitation = async (
 };
 
 export const getPendingFamilyInvitation = async (user: FirebaseUser): Promise<{ familyId: string } | null> => {
-  if (!user.email) return null;
+  if (!user.email||!user.emailVerified) return null;
   const email = user.email.trim().toLowerCase();
   const invitation = await getDoc(doc(db, 'invitations', email));
   if (!invitation.exists()) return null;
@@ -304,6 +319,8 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   if (!targetFamilyId || !user) throw new Error('ID семьи или пользователь не определены');
 
   const cleanFamilyId = targetFamilyId.trim();
+  await user.reload();
+  await user.getIdToken(true);
   const familyRef = doc(db, 'families', cleanFamilyId);
   const userRef = doc(db, 'users', user.uid);
 
@@ -312,7 +329,7 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   if (!familySnap.exists()) throw new Error('Семейное пространство не найдено. Проверьте ID.');
 
   const cleanEmail = user.email?.toLowerCase().trim();
-  const inviteRef = cleanEmail ? doc(db, 'invitations', cleanEmail) : null;
+  const inviteRef = cleanEmail&&user.emailVerified ? doc(db, 'invitations', cleanEmail) : null;
   const inviteSnap = inviteRef ? await getDoc(inviteRef) : null;
   const invitation = inviteSnap?.exists() && inviteSnap.data().familyId === cleanFamilyId
     ? inviteSnap.data() : null;
@@ -322,13 +339,24 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const isExistingMember = Array.isArray(familySnap.data().members) &&
     familySnap.data().members.includes(user.uid);
   if (!invitation && !isExistingMember) {
+    if(!user.emailVerified)throw new Error('Подтвердите email перед присоединением к семье');
     throw new Error('Для присоединения требуется приглашение на email этого аккаунта.');
   }
 
   // Reuse the placeholder created when the invitation was issued.
-  const memberId = invitation?.placeholderMemberId || user.uid;
-  const memberRef = doc(db, 'families', cleanFamilyId, 'members', memberId);
-  const memberSnap = await getDoc(memberRef);
+  const memberCandidates:FamilyMember[]=[];
+  if(isExistingMember){
+    const linked=await getDocs(query(collection(db,'families',cleanFamilyId,'members'),where('userId','==',user.uid)));
+    memberCandidates.push(...linked.docs.map(s=>({...s.data(),id:s.id} as FamilyMember)));
+  }
+  if(invitation){
+    if(typeof invitation.placeholderMemberId!=='string'||!invitation.placeholderMemberId)throw new Error('Некорректное приглашение');
+    const invited=await getDoc(doc(db,'families',cleanFamilyId,'members',invitation.placeholderMemberId));
+    if(invited.exists()&&!memberCandidates.some(m=>m.id===invited.id))memberCandidates.push({...invited.data(),id:invited.id} as FamilyMember);
+  }
+  const selected=resolveFamilyJoinProfile(memberCandidates,user.uid,invitation?.placeholderMemberId||null);
+  const memberId=selected.id;
+  const memberRef=doc(db,'families',cleanFamilyId,'members',memberId);
   const batch = writeBatch(db);
 
   batch.update(familyRef, { members: arrayUnion(user.uid) });
@@ -341,9 +369,9 @@ export const joinFamily = async (user: FirebaseUser, targetFamilyId: string) => 
   const member: FamilyMember = {
     id: memberId,
     userId: user.uid,
-    name: memberSnap.exists() ? (memberSnap.data().name || user.displayName || 'Участник') : (user.displayName || user.email?.split('@')[0] || 'Участник'),
-    color: memberSnap.exists() ? (memberSnap.data().color || '#34C759') : '#34C759',
-    isAdmin: false
+    name: selected.name || user.displayName || 'Участник',
+    color: selected.color || '#34C759',
+    isAdmin: Boolean(selected.isAdmin || familySnap.data().ownerId===user.uid)
   };
   if (user.photoURL) member.avatar = user.photoURL;
   batch.set(memberRef, member, { merge: true });
@@ -463,7 +491,7 @@ export const saveTransactionWithGoal = async (
     }
     if(isEdit){
       const {id:_id,...updates}=transaction;
-      tx.update(txRef,cleanForFirestore(updates));
+      tx.update(txRef,{...cleanForFirestore(updates),...(!transaction.linkedGoalId&&previous?.linkedGoalId?{linkedGoalId:deleteField()}:{})});
     }else tx.set(txRef,cleanForFirestore(transaction));
   });
 };
@@ -809,4 +837,196 @@ export async function saveFamilyPlanOccurrence(
       ...replacement,id:overrideRef.id,seriesId:undefined,occurrenceDate:undefined,recurrence:'none'
     }));
   });
+}
+
+
+/** Hard deletion is limited to unused, unbound profiles without an invitation. */
+export async function deleteUnusedFamilyProfile(familyId:string,memberId:string):Promise<void>{
+  if(!familyId||!memberId)throw new Error('Семейное пространство недоступно');
+  const ref=doc(db,'families',familyId,'members',memberId);
+  const snap=await getDocFromServer(ref);
+  if(!snap.exists())throw new Error('Профиль не найден');
+  assertUnusedFamilyProfile({...snap.data(),id:snap.id} as FamilyMember,false);
+  const containsReference=(value:unknown):boolean=>{
+    if(value===memberId)return true;
+    if(Array.isArray(value))return value.some(containsReference);
+    if(value&&typeof value==='object')return Object.values(value).some(containsReference);
+    return false;
+  };
+  const collections=['transactions','shopping','pantry','events','goals','debts','projects','loyalty','wishlist','rules'];
+  for(const name of collections){
+    const records=await getDocs(collection(db,'families',familyId,name));
+    if(records.docs.some(record=>containsReference(record.data())))throw new Error('У профиля есть связанные записи. Удаление недоступно.');
+  }
+  const settings=await getDocFromServer(doc(db,'families',familyId,'config','settings'));
+  if(settings.exists()&&containsReference(settings.data()))throw new Error('У профиля есть связанные настройки.');
+  await runTransaction(db,async tx=>{
+    const current=await tx.get(ref);
+    if(!current.exists())throw new Error('Профиль не найден');
+    assertUnusedFamilyProfile({...current.data(),id:current.id} as FamilyMember,false);
+    tx.delete(ref);
+  });
+}
+
+
+/** Household budget policy is independent of editable member preferences.
+ * This client transaction must also be enforced by deployed Firestore rules.
+ */
+export function subscribeToHouseholdBudgetPolicy(
+  familyId:string,
+  onValue:(value:{ownerUid:string;policy:'family'|'personal'})=>void,
+  onError:(error:Error)=>void
+):()=>void {
+  return onSnapshot(doc(db,'families',familyId),{includeMetadataChanges:true},snapshot=>{
+    if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
+    const data=snapshot.data();
+    if(!data||typeof data.ownerId!=='string'||!data.ownerId){
+      onError(new Error('Владелец семьи не определён'));
+      return;
+    }
+    if(data.budgetPolicy!==undefined&&data.budgetPolicy!=='family'&&data.budgetPolicy!=='personal'){
+      onError(new Error('Неизвестный режим семейного бюджета'));
+      return;
+    }
+    onValue({ownerUid:data.ownerId,policy:data.budgetPolicy==='personal'?'personal':'family'});
+  },onError);
+}
+
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[]};
+const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
+  if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
+  const token=await auth.currentUser.getIdToken();
+  const response=await fetch('/api/budget-policy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({familyId,target,preview})});
+  const result=await response.json().catch(()=>null);
+  if(!response.ok)throw new Error(typeof result?.error==='string'?result.error:'Сервер SET-12 недоступен');
+  if(!result||!['family','personal'].includes(result.policy)||typeof result.enabled!=='boolean'||!Array.isArray(result.issues))throw new Error('Сервер вернул некорректный ответ');
+  return result as HouseholdBudgetChangeResult;
+};
+export async function saveHouseholdBudgetPolicy(familyId:string,actorUid:string,policy:'family'|'personal'):Promise<void>{
+  const result=await requestHouseholdBudgetPolicy(familyId,actorUid,policy,false);
+  if(result.policy!==policy||result.issues.length)throw new Error('Сервер не подтвердил изменение режима');
+}
+export function previewHouseholdBudgetPolicy(familyId:string,actorUid:string,target:'family'|'personal'){
+  return requestHouseholdBudgetPolicy(familyId,actorUid,target,true);
+}
+
+
+/** Scoped listener: no unfiltered fallback for a missing personal identity. */
+export function subscribeToScopedFinancialCollection(
+  familyId:string,collectionName:'transactions'|'goals'|'debts',
+  policy:'family'|'personal',memberId:string|undefined,
+  onValue:(records:any[])=>void,onError:(error:Error)=>void
+):()=>void{
+  if(!familyId||(policy==='personal'&&!memberId)){onValue([]);return ()=>{};}
+  const ref=collection(db,'families',familyId,collectionName);
+  const scoped=policy==='personal'?query(ref,where('memberId','==',memberId)):query(ref);
+  return onSnapshot(scoped,snapshot=>{
+    onValue(snapshot.docs.map(record=>({...record.data(),id:record.id})));
+  },error=>{onValue([]);onError(error);});
+}
+
+
+/** Explicitly attribute an old shared record without moving it or changing amounts.
+ * Only the household owner may do this, and only in shared mode.
+ * Deployed Firestore rules must enforce the same conditions.
+ */
+export async function assignLegacyFinancialOwner(
+  familyId:string, actorUid:string, kind:'goals'|'debts', recordId:string, memberId:string
+):Promise<void>{
+  if(!familyId||!recordId||!memberId||!actorUid)throw new Error('Не указаны данные назначения владельца');
+  if(kind!=='goals'&&kind!=='debts')throw new Error('Недопустимый тип записи');
+  const familyRef=doc(db,'families',familyId);
+  const recordRef=doc(db,'families',familyId,kind,recordId);
+  const memberRef=doc(db,'families',familyId,'members',memberId);
+  await runTransaction(db,async tx=>{
+    const family=await tx.get(familyRef);
+    const record=await tx.get(recordRef);
+    const member=await tx.get(memberRef);
+    assertBudgetPolicyOwner(family.data()?.ownerId,actorUid);
+    if(family.data()?.budgetPolicy==='personal')throw new Error('Назначение доступно только в совместном режиме');
+    if(!record.exists()||record.data().memberId)throw new Error('Запись уже назначена или недоступна');
+    const uid=member.data()?.userId;
+    if(typeof uid!=='string'||!uid||!family.data()?.members?.includes(uid))throw new Error('Участник не привязан к семейному аккаунту');
+    tx.update(recordRef,{memberId});
+  });
+}
+
+
+/** Server-read preflight, not a security boundary and not permission to activate.
+ * No financial values or member identities are returned to the UI.
+ */
+export async function inspectPersonalBudgetReadiness(familyId:string,actorUid:string):Promise<HouseholdBudgetChangeResult>{
+  return previewHouseholdBudgetPolicy(familyId,actorUid,'personal');
+}
+
+
+/** Diagnostic listener for the family document only; metadata never contains financial values. */
+export function subscribeToFamilySyncStatus(familyId:string,onValue:(status:{fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string})=>void):()=>void{
+  return onSnapshot(doc(db,'families',familyId),{includeMetadataChanges:true},snapshot=>{
+    const {fromCache,hasPendingWrites:pending}=snapshot.metadata;
+    if(!snapshot.exists()){
+      onValue({fromCache,pending,error:'Семейное пространство не подтверждено'});
+      return;
+    }
+    onValue({fromCache,pending,...(!fromCache&&!pending?{confirmedAt:Date.now()}:{})});
+  },error=>onValue({fromCache:false,pending:false,error:error.code==='permission-denied'?'Нет доступа к семейному пространству':'Не удалось подтвердить соединение с Firebase'}));
+}
+
+
+/** Personal payment writes never touch the family settings document. */
+export async function commitPersonalMandatoryPaymentBundle(
+  familyId:string,userId:string,memberId:string,
+  changes:Pick<AppSettings,'mandatoryExpenses'|'manualPaidExpenses'>,
+  debtChanges:ReadonlyArray<{id:string;changes:Partial<Debt>}>
+):Promise<void>{
+  if(!familyId||!memberId||!userId||auth.currentUser?.uid!==userId)throw new Error('Личный профиль недоступен');
+  const ids=new Set<string>();
+  for(const expense of changes.mandatoryExpenses){
+    if(!expense.id||ids.has(expense.id)||expense.memberId!==memberId)throw new Error('Некорректный владелец или ID обязательного платежа');
+    ids.add(expense.id);
+  }
+  const paid=changes.manualPaidExpenses??{};
+  for(const [month,entries] of Object.entries(paid)){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||entries.some(id=>!ids.has(id)))throw new Error('Некорректная история оплаты');
+  }
+  if(new Set(debtChanges.map(d=>d.id)).size!==debtChanges.length||debtChanges.some(d=>!d.id||('memberId' in d.changes&&d.changes.memberId!==memberId)))throw new Error('Некорректное изменение долга');
+  const familyRef=doc(db,'families',familyId);
+  const memberRef=doc(db,'families',familyId,'members',memberId);
+  const configRef=doc(db,'families',familyId,'members',userId,'config','settings');
+  const debtRefs=debtChanges.map(d=>doc(db,'families',familyId,'debts',d.id));
+  await runTransaction(db,async tx=>{
+    const family=await tx.get(familyRef);
+    const profile=await tx.get(memberRef);
+    const config=await tx.get(configRef);
+    const debts=await Promise.all(debtRefs.map(ref=>tx.get(ref)));
+    if(family.data()?.budgetPolicy!=='personal'||!family.data()?.members?.includes(userId)||profile.data()?.userId!==userId)throw new Error('Личный режим или профиль не подтверждён');
+    if(!Array.isArray(config.data()?.personalMandatoryExpenses))throw new Error('Личные платежи ещё не перенесены');
+    for(const debt of debts){
+      if(!debt.exists()||debt.data().memberId!==memberId)throw new Error('Связанный долг недоступен');
+    }
+    const mergedPaid={...(config.data()?.personalManualPaidExpenses??{}),...paid} as Record<string,string[]>;
+    for(const entries of Object.values(mergedPaid)){
+      if(!Array.isArray(entries)||entries.some(id=>!ids.has(id)))throw new Error('Сначала устраните связанные отметки оплаты');
+    }
+    tx.set(configRef,cleanForFirestore({personalMandatoryExpenses:changes.mandatoryExpenses,personalManualPaidExpenses:mergedPaid}),{merge:true});
+    for(let i=0;i<debtChanges.length;i++)tx.update(debtRefs[i],cleanForFirestore(debtChanges[i].changes));
+  });
+}
+
+
+export function subscribeToPersonalCollection(familyId:string,uid:string,kind:'rules'|'knowledge',callback:(data:any[])=>void){
+ if(!familyId||auth.currentUser?.uid!==uid){callback([]);return ()=>{};}
+ return onSnapshot(collection(db,'families',familyId,'members',uid,kind),snap=>callback(snap.docs.map(d=>({...d.data(),id:d.id}))),()=>callback([]));
+}
+export async function savePersonalItems(familyId:string,uid:string,kind:'rules'|'knowledge',items:ReadonlyArray<{id:string}>){
+ if(!familyId||auth.currentUser?.uid!==uid)throw new Error('Личный профиль недоступен');
+ for(let i=0;i<items.length;i+=450){
+   const batch=writeBatch(db);
+   for(const item of items.slice(i,i+450))batch.set(doc(db,'families',familyId,'members',uid,kind,item.id),cleanForFirestore(item));
+   await batch.commit();
+ }
+}
+export async function deletePersonalItem(familyId:string,uid:string,kind:'rules'|'knowledge',id:string){
+ if(!familyId||auth.currentUser?.uid!==uid)throw new Error('Личный профиль недоступен');
+ await deleteDoc(doc(db,'families',familyId,'members',uid,kind,id));
 }

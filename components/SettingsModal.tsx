@@ -13,15 +13,16 @@ import {
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
 import { auth } from '../firebase';
-import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, sendEmailVerification, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
-import { migrateFamilyData } from '../utils/db';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
+import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -32,7 +33,7 @@ import { startTelegramBotListener, stopTelegramBotListener, isBotPollingActive, 
 interface SettingsModalProps {
   settings: AppSettings;
   onClose: () => void;
-  onUpdate: (settings: AppSettings) => void;
+  onUpdate: (settings: Partial<AppSettings>) => void | Promise<void>;
   onReset: () => void;
   savingsRate: number;
   setSavingsRate: (val: number) => void;
@@ -44,16 +45,17 @@ interface SettingsModalProps {
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
   currentFamilyId: string | null;
-  onJoinFamily: (id: string) => void;
+  onJoinFamily: (id: string) => void | Promise<void>;
   onLogout: () => void;
-  installPrompt?: any;
+  installPrompt?: {prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>} | null;
+  onInstallPromptConsumed?:()=>void;
   transactions?: Transaction[];
   onDeleteTransactionsByPeriod?: (startDate: string, endDate: string) => void;
   onUpdateTransactions?: (transactions: Transaction[]) => void;
   onOpenDuplicates?: () => void;
 }
 
-type SectionType = 'account' | 'family' | 'budget' | 'categories' | 'integrations';
+type SectionType = 'account' | 'appearance' | 'family' | 'budget' | 'categories' | 'integrations' | 'diagnostics';
 
 interface SectionConfig {
   id: SectionType;
@@ -63,10 +65,12 @@ interface SectionConfig {
 }
 
 const SECTIONS: SectionConfig[] = [
-  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль, оформление и аккаунт', icon: <User size={18} /> },
+  { id: 'account', label: 'Профиль и безопасность', subtitle: 'Логин, пароль и аккаунт', icon: <User size={18} /> },
+  { id: 'appearance', label: 'Оформление и приватность', subtitle: 'Тема, видимость сумм, стартовый режим', icon: <Sun size={18} /> },
   { id: 'family', label: 'Семья и доступ', subtitle: 'Участники, ID пространства, синхронизация', icon: <Users size={18} /> },
   { id: 'budget', label: 'Бюджет и зарплата', subtitle: 'Дни зарплаты, сбережения, резерв', icon: <Calculator size={18} /> },
   { id: 'categories', label: 'Категории и правила', subtitle: 'Категории трат и авто-правила', icon: <Tag size={18} /> },
+  { id: 'diagnostics', label: 'Диагностика', subtitle: 'Связь с сервером и локальные данные', icon: <Database size={18} /> },
   { id: 'integrations', label: 'Интеграции (Telegram и ИИ)', subtitle: 'Telegram бот, Chat ID, Gemini API', icon: <Send size={18} /> },
 ];
 
@@ -94,13 +98,53 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   settings, onClose, onUpdate, savingsRate, setSavingsRate, 
   members, onUpdateMembers, categories, onUpdateCategories, 
   onDeleteCategory, learnedRules, onUpdateRules, currentFamilyId, 
-  onJoinFamily, onLogout, installPrompt, transactions = [], 
+  onJoinFamily, onLogout, installPrompt, onInstallPromptConsumed, transactions = [], 
   onDeleteTransactionsByPeriod, onUpdateTransactions, onOpenDuplicates 
 }) => {
   const [activeSection, setActiveSection] = useState<SectionType>('account');
   const [showMobileMenu, setShowMobileMenu] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [installBusy,setInstallBusy]=useState(false);
+  const [installStatus,setInstallStatus]=useState('');
+  const [standalone,setStandalone]=useState(()=>window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & {standalone?:boolean}).standalone===true);
+  useEffect(()=>{
+    const media=window.matchMedia('(display-mode: standalone)');
+    const update=()=>setStandalone(media.matches || (navigator as Navigator & {standalone?:boolean}).standalone===true);
+    window.addEventListener('appinstalled',update);
+    media.addEventListener('change',update);
+    return ()=>{window.removeEventListener('appinstalled',update);media.removeEventListener('change',update);};
+  },[]);
+  const handleInstall=async()=>{
+    if(installBusy||standalone)return;
+    if(!installPrompt){setShowInstallGuide(true);return;}
+    setInstallBusy(true);setInstallStatus('');
+    try{
+      await installPrompt.prompt();
+      const choice=await installPrompt.userChoice;
+      setInstallStatus(choice.outcome==='accepted'?'Запрос установки принят браузером.':'Установка отменена.');
+    }catch{setInstallStatus('Браузер не открыл установку.');setShowInstallGuide(true);}
+    finally{setInstallBusy(false);onInstallPromptConsumed?.();}
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
+  const { isOfflineMode }=useAuth();
+  const [networkOnline,setNetworkOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
+  const [syncStatus,setSyncStatus]=useState<{familyId:string;fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string}|null>(null);
+  const [settingsWriteFailed,setSettingsWriteFailed]=useState(false);
+  useEffect(()=>{
+    const update=()=>setNetworkOnline(navigator.onLine);
+    window.addEventListener('online',update);window.addEventListener('offline',update);
+    return ()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};
+  },[]);
+  useEffect(()=>{
+    setSyncStatus(null);
+    if(!currentFamilyId||isOfflineMode||activeSection!=='diagnostics')return;
+    return subscribeToFamilySyncStatus(currentFamilyId,status=>setSyncStatus(prev=>({
+      ...status,familyId:currentFamilyId,confirmedAt:status.confirmedAt??(prev?.familyId===currentFamilyId?prev.confirmedAt:undefined)
+    })));
+  },[currentFamilyId,isOfflineMode,activeSection]);
+  const confirmedSync=syncStatus?.familyId===currentFamilyId?syncStatus:null;
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -129,11 +173,68 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Family ID Switch State
   const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
   const [isJoining, setIsJoining] = useState(false);
-  const [shouldMigrate, setShouldMigrate] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
   // Account & Password Management State
   const currentUser = auth.currentUser;
+  const [householdPolicy,setHouseholdPolicy]=useState<{familyId:string;ownerUid:string;policy:'family'|'personal'}|null>(null);
+  const [householdPolicyError,setHouseholdPolicyError]=useState(false);
+  useEffect(()=>{
+    setHouseholdPolicy(null);
+    setHouseholdPolicyError(false);
+    if(!currentFamilyId||!currentUser?.uid)return;
+    return subscribeToHouseholdBudgetPolicy(currentFamilyId,
+      value=>{setHouseholdPolicy({...value,familyId:currentFamilyId});setHouseholdPolicyError(false);},
+      ()=>{setHouseholdPolicy(null);setHouseholdPolicyError(true);});
+  },[currentFamilyId,currentUser?.uid]);
+  const currentHouseholdPolicy=householdPolicy?.familyId===currentFamilyId?householdPolicy:null;
+  const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
+  const { goals: ownershipGoals, debts: ownershipDebts }=useData();
+  const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
+  const [readinessBusy,setReadinessBusy]=useState(false);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readinessError,setReadinessError]=useState<string|null>(null);
+  const [policyBusy,setPolicyBusy]=useState(false);
+  const checkReadiness=async()=>{
+    if(readinessBusy||policyBusy||!isHouseholdOwner||!currentFamilyId||!currentUser?.uid||!currentHouseholdPolicy)return;
+    const target=currentHouseholdPolicy.policy==='family'?'personal':'family';
+    setReadinessBusy(true);setReadiness(null);setReadinessError(null);
+    try{
+      const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
+      setReadiness({familyId:currentFamilyId,issues:result.issues,enabled:result.enabled,target});
+    }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
+    finally{setReadinessBusy(false);}
+  };
+  const changePolicy=async()=>{
+    if(policyBusy||!isHouseholdOwner||!currentFamilyId||!currentUser?.uid||!currentHouseholdPolicy||readiness?.familyId!==currentFamilyId||!readiness.enabled||readiness.issues.length||readiness.target===currentHouseholdPolicy.policy)return;
+    const target=readiness.target;
+    if(!window.confirm(target==='personal'?'Перейти на личные бюджеты? Общие финансовые записи будут разделены по владельцам.':'Вернуться к совместному бюджету? Личные финансовые записи станут доступны обоим участникам.'))return;
+    setPolicyBusy(true);setReadinessError(null);
+    try{
+      await saveHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
+      setReadiness(null);
+      toast.success('Сервер подтвердил изменение режима бюджета');
+    }catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось изменить режим');}
+    finally{setPolicyBusy(false);}
+  };
+  const [ownershipChoices,setOwnershipChoices]=useState<Record<string,string>>({});
+  const legacyRecords=[
+    ...ownershipGoals.filter(g=>!g.memberId).map(g=>({kind:'goals' as const,id:g.id,title:g.title})),
+    ...ownershipDebts.filter(d=>!d.memberId).map(d=>({kind:'debts' as const,id:d.id,title:d.name}))
+  ];
+  const assignOwner=async(kind:'goals'|'debts',id:string)=>{
+    const key=kind+':'+id;
+    if(ownershipBusy||!isHouseholdOwner||!currentFamilyId||!currentUser?.uid||currentHouseholdPolicy?.policy!=='family'||!ownershipChoices[key])return;
+    setOwnershipBusy(key);
+    try{
+      await assignLegacyFinancialOwner(currentFamilyId,currentUser.uid,kind,id,ownershipChoices[key]);
+      setReadiness(null);
+      toast.success('Владелец назначен');
+    }catch(error){toast.error(error instanceof Error?error.message:'Не удалось назначить владельца');}
+    finally{setOwnershipBusy(null);}
+  };
+
+
   const currentEmail = currentUser?.email || '';
   const initialUsername = getInitialUsername(currentEmail, currentUser?.displayName);
 
@@ -160,11 +261,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isTestingDelivery, setIsTestingDelivery] = useState(false);
 
   // Live Telegram Bot polling states
-  const { setTransactions, setShoppingItems, shoppingItems } = useData();
+  const { setTransactions, setShoppingItems, shoppingItems, householdPersonal, settingsReady } = useData();
   const [isBotActive, setIsBotActive] = useState(() => isBotPollingActive());
   const [botLogs, setBotLogs] = useState<BotLogEntry[]>([]);
 
+  useEffect(()=>{if(householdPersonal||!settingsReady){stopTelegramBotListener();setIsBotActive(false);setBotLogs([]);}},[householdPersonal,settingsReady]);
   const handleToggleBot = () => {
+    if(householdPersonal||!settingsReady){toast.error('В личном режиме входящие команды Telegram отключены: владелец операции не подтверждён');return;}
     if (isBotActive) {
       stopTelegramBotListener();
       setIsBotActive(false);
@@ -219,6 +322,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTestTelegramConnection = async () => {
+    if (isTestingTelegram || isTestingDelivery) return;
     if (!settings.telegramBotToken?.trim()) {
       toast.error('Введите токен бота Telegram');
       return;
@@ -246,6 +350,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTestTelegramDelivery = async () => {
+    if (isTestingTelegram || isTestingDelivery) return;
     if (!settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()) {
       toast.error('Укажите токен бота и ID семейного чата');
       return;
@@ -341,17 +446,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     setIsUpdatingLogin(true);
     try {
-      await updateProfile(currentUser, { displayName: cleanLogin });
-
-      if (members && onUpdateMembers) {
-        const updatedMembers = members.map(m => 
-          m.userId === currentUser.uid || m.email === currentUser.email 
-            ? { ...m, name: cleanLogin } 
-            : m
-        );
-        onUpdateMembers(updatedMembers);
-      }
-
       const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
       if (currentUser.email !== formattedEmail) {
         try {
@@ -377,9 +471,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             setIsUpdatingLogin(false);
             return;
           }
+          throw emailErr;
         }
       }
 
+      await updateProfile(currentUser, { displayName: cleanLogin });
+      if (members.some(m => m.userId === currentUser.uid)) {
+        await onUpdateMembers(members.map(m => m.userId === currentUser.uid
+          ? { ...m, name: cleanLogin, email: formattedEmail } : m));
+      }
       toast.success('Логин и профиль успешно обновлены!');
     } catch (err: any) {
       toast.error(err?.message || 'Не удалось обновить логин');
@@ -455,26 +555,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   useBodyScrollLock();
 
   const handleTestKey = async () => {
-    if (!apiKey) return;
+    if (!apiKey.trim() || aiTestStatus === 'loading') return;
     setAiTestStatus('loading');
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
       await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: "Hello",
       });
       setAiTestStatus('success');
-      setTimeout(() => setAiTestStatus('idle'), 3000);
+
     } catch (e) {
-      console.error(e);
       setAiTestStatus('error');
-      setTimeout(() => setAiTestStatus('idle'), 3000);
+
     }
   };
 
   const handleChange = useCallback((key: keyof AppSettings, value: any) => {
-    onUpdate({ ...settings, [key]: value });
-  }, [settings, onUpdate]);
+    void Promise.resolve().then(() => onUpdate({ [key]: value })).then(()=>setSettingsWriteFailed(false)).catch(error => {
+      setSettingsWriteFailed(true);
+      console.error('Settings save failed', error);
+      toast.error('Не удалось сохранить настройку. Повторите попытку.');
+    });
+  }, [onUpdate]);
 
   const handleUpdateFamilyId = async () => {
     const targetId = newFamilyId.trim();
@@ -482,20 +585,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       toast.error("ID не может быть пустым");
       return;
     }
-    if (targetId === currentFamilyId) return;
+    if (targetId === currentFamilyId || isJoining) return;
 
     if (!confirm(`Вы уверены, что хотите сменить ID пространства на ${targetId}?`)) return;
 
     setIsJoining(true);
     try {
-      if (shouldMigrate && currentFamilyId) {
-        toast.info('Переносим данные в новое пространство...');
-        await migrateFamilyData(currentFamilyId, targetId);
-        toast.success('Данные перенесены!');
-      }
       await onJoinFamily(targetId);
     } catch (e: any) {
       toast.error(e.message || "Ошибка при смене ID");
+    } finally {
       setIsJoining(false);
     }
   };
@@ -507,6 +606,67 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const renderSectionContent = () => {
     switch (activeSection) {
+      case 'appearance':
+        return (
+          <div className="max-w-3xl space-y-5">
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <div><h3 className="text-base font-semibold">Тема приложения</h3><p className="text-sm text-gray-500 dark:text-gray-400">Личная настройка, не меняет оформление у другого участника семьи.</p></div>
+              <div role="group" aria-label="Тема приложения" className="grid grid-cols-3 gap-2">
+                {(['light','dark','system'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
+                  className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':theme==='dark'?'Тёмная':'Системная'}</button>)}
+              </div>
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Навигация</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Выберите разделы меню на своих устройствах. Обзор всегда доступен.</p>
+              <div className="space-y-1">
+                {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).map(([id,label])=>{
+                  const enabled=settings.enabledTabs??['overview','budget','plans','shopping','chat','services'];
+                  const checked=id==='overview'||enabled.includes(id);
+                  return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-2 text-sm">
+                    <span>{label}</span>
+                    <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
+                      const next=e.target.checked?[...new Set([...enabled,id])]:enabled.filter(t=>t!==id);
+                      void Promise.resolve(onUpdate({enabledTabs:next,...(!next.includes(settings.startTab??'overview')?{startTab:'overview'}:{})})).catch(()=>toast.error('Не удалось сохранить меню'));
+                    }} className="h-5 w-5 accent-[#2D5A43]"/>
+                  </label>;
+                })}
+              </div>
+              <label className="block space-y-2 text-sm font-semibold">
+                <span>Стартовый раздел</span>
+                <select value={settings.startTab??'overview'} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2">
+                  {([['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']] as const).filter(([id])=>id==='overview'||settings.enabledTabs?.includes(id)).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+                </select>
+              </label>
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Карточки обзора</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Скрытие карточек не удаляет данные и не меняет основной раздел.</p>
+              {([['shopping','Список покупок'],['week_events','События недели']] as const).map(([id,label])=>{
+                const widget=settings.widgets?.find(w=>w.id===id);
+                return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 text-sm">
+                  <span>{label}</span>
+                  <input type="checkbox" checked={widget?.isVisible!==false} onChange={e=>{
+                    const next={id,isVisible:e.target.checked,mobile:{colSpan:2,rowSpan:1},desktop:{colSpan:1,rowSpan:1},...widget};
+                    handleChange('widgets',[...(settings.widgets??[]).filter(w=>w.id!==id),{...next,isVisible:e.target.checked}]);
+                  }} className="h-5 w-5 accent-[#2D5A43]"/>
+                </label>;
+              })}
+            </section>
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Приватность и бюджет</h3>
+              <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
+              </button>
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
+                <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
+                <select id="settings-budget-default" disabled={householdPersonal} value={householdPersonal?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
+                  <option value="personal">Личный</option>{!householdPersonal&&<option value="family">Семейный</option>}
+                </select>
+              </div>
+            </section>
+          </div>
+        );
       case 'account':
         return (
           <div className="space-y-6 w-full max-w-full">
@@ -548,7 +708,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                   </div>
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {currentUser?.email || 'alexey@semyaplus.ru'}
+                    {currentUser?.email || 'Email не указан'}
                   </span>
                 </div>
 
@@ -792,12 +952,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'family':
         return (
           <div className="space-y-6 w-full max-w-full">
+            {/* SET-12: read-only until end-to-end isolation is verified. */}
+            <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              <h3 className="text-base font-semibold">Режим семейного бюджета</h3>
+              {householdPolicyError ? <p role="status" className="text-sm text-gray-500">Не удалось получить настройки семьи.</p> :
+                !currentHouseholdPolicy ? <p role="status" className="text-sm text-gray-500">Режим семьи пока не подтверждён.</p> :
+                <p className="text-sm">Сохранённый режим: <strong>{currentHouseholdPolicy.policy==='personal'?'Личный бюджет':'Совместный бюджет'}</strong></p>}
+              {isHouseholdOwner && <div className="space-y-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400">При личном бюджете каждому участнику доступны только его финансовые записи. Покупки, планы и календарь остаются общими.</p>
+                <div className="space-y-3 border-t border-gray-200 dark:border-white/10 pt-3">
+                  <button type="button" disabled={readinessBusy||policyBusy||Boolean(ownershipBusy)} onClick={()=>void checkReadiness()} className="w-full sm:w-auto min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-4 text-sm font-semibold disabled:opacity-50">{readinessBusy?'Проверка…':'Проверить переход в '+(currentHouseholdPolicy?.policy==='personal'?'совместный':'личный')+' режим'}</button>
+                  <div role="status" aria-live="polite" className="space-y-2 text-sm">
+                    {readinessError && <p className="text-red-600 dark:text-red-400 break-words">{readinessError}</p>}
+                    {readiness?.familyId===currentFamilyId && (readiness.issues.length ? <ul className="list-disc pl-5 space-y-1">{readiness.issues.map((issue,index)=><li key={index}>{issue}</li>)}</ul> : <p>{readiness.enabled?'Данные готовы к переходу.':'Данные проверены. Серверная активация пока выключена.'}</p>)}
+                  </div>
+                  <button type="button" disabled={policyBusy||readinessBusy||!readiness?.enabled||!!readiness.issues.length||readiness.familyId!==currentFamilyId||readiness.target===currentHouseholdPolicy?.policy} onClick={()=>void changePolicy()} className="w-full sm:w-auto min-h-[44px] rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{policyBusy?'Перенос данных…':currentHouseholdPolicy?.policy==='personal'?'Вернуть совместный бюджет':'Включить личные бюджеты'}</button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">При личном режиме входящие команды Telegram временно отключены: у очереди нет подтверждённого владельца. Проверка не меняет данные. Перед сохранением сервер повторно проверяет владельцев и историю платежей.</p>
+                </div>
+              </div>}
+            </section>
+            {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              <h3 className="text-base font-semibold">Распределение старых долгов и целей</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Назначьте владельца записи перед включением личного бюджета. Суммы останутся прежними.</p>
+              {legacyRecords.length===0?<p className="text-sm text-gray-500">Нет долгов и целей без владельца.</p>:legacyRecords.map(record=>{
+                const key=record.kind+':'+record.id;
+                return <div key={key} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
+                  <p className="text-sm font-semibold break-words">{record.title}</p>
+                  <p className="text-xs text-gray-500">{record.kind==='goals'?'Накопительная цель':'Долг'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <select aria-label={'Владелец: '+record.title} disabled={Boolean(ownershipBusy)} value={ownershipChoices[key]||''} onChange={e=>setOwnershipChoices(prev=>({...prev,[key]:e.target.value}))} className="flex-1 min-w-[120px] min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-transparent px-2 text-sm">
+                      <option value="">Выберите участника</option>
+                      {members.filter(m=>m.userId).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                    <button type="button" disabled={Boolean(ownershipBusy)||!ownershipChoices[key]} onClick={()=>void assignOwner(record.kind,record.id)} className="min-h-[44px] px-3 rounded-lg bg-[#2D5A43] text-white text-sm disabled:opacity-50">{ownershipBusy===key?'Сохранение…':'Назначить'}</button>
+                  </div>
+                </div>;
+              })}
+            </section>}
             {/* Members Settings */}
             <MembersSettingsSection 
               members={members}
               onUpdateMembers={onUpdateMembers}
               currentFamilyId={currentFamilyId}
               transactions={transactions}
+              householdPersonal={householdPersonal}
+              isHouseholdOwner={isHouseholdOwner}
             />
 
             {/* Family Space ID & Sync */}
@@ -816,9 +1015,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {currentFamilyId && (
                   <button 
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentFamilyId);
-                      toast.success('ID пространства скопирован');
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(currentFamilyId); toast.success('ID пространства скопирован'); }
+                      catch { toast.error('Не удалось скопировать ID'); }
                     }}
                     className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:border-[#2D5A43] transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
@@ -848,17 +1047,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
 
-                {currentFamilyId && (
-                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer pt-1">
-                    <input 
-                      type="checkbox"
-                      checked={shouldMigrate}
-                      onChange={e => setShouldMigrate(e.target.checked)}
-                      className="rounded border-gray-300 text-[#2D5A43] focus:ring-[#2D5A43]"
-                    />
-                    <span>Перенести существующие записи из текущего пространства в новое</span>
-                  </label>
-                )}
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  Для подключения нужно приглашение на подтверждённый email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
+                </p>
+                {currentUser?.email&&!currentUser.emailVerified&&<button type="button" className="min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-3 text-sm" onClick={async()=>{try{await sendEmailVerification(currentUser);toast.success('Письмо отправлено. После подтверждения войдите повторно.');}catch{toast.error('Не удалось отправить письмо подтверждения');}}}>Отправить письмо подтверждения email</button>}
               </div>
             </section>
           </div>
@@ -866,6 +1058,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       case 'budget':
         return (
+          <div className="space-y-5">
+          <section className="rounded-2xl border border-gray-200/80 dark:border-white/10 p-4 sm:p-6 space-y-4">
+            <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Подготовка к раздельному бюджету. Эти параметры не участвуют в совместном расчёте.'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                ['personalInitialBalance','Личный начальный остаток'],
+                ['personalSavingsRate','Процент накоплений, %'],
+                ['personalMonthlyBudget','Личный месячный лимит'],
+                ['personalManualReservedAmount','Личный резерв']
+              ] as const).map(([key,label])=><label key={key} className="block space-y-1 text-sm font-medium">
+                <span>{label}</span>
+                <input type="number" step="0.01" min={key==='personalInitialBalance'?undefined:0} max={key==='personalSavingsRate'?100:undefined}
+                  value={settings[key]??''} onChange={e=>{
+                    const n=e.target.value===''?0:e.target.valueAsNumber;
+                    if(Number.isFinite(n)&& (key==='personalInitialBalance'||n>=0) && (key!=='personalSavingsRate'||n<=100))handleChange(key,Math.round(n*100)/100);
+                  }} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
+              </label>)}
+              <label className="block space-y-1 text-sm font-medium">
+                <span>Дата личного начального остатка</span>
+                <input type="date" value={settings.personalInitialBalanceDate??''} onChange={e=>handleChange('personalInitialBalanceDate',e.target.value)} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
+              </label>
+            </div>
+          </section>
           <BudgetSettingsSection
             settings={settings}
             onUpdateSetting={handleChange}
@@ -875,6 +1091,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             onOpenDuplicates={onOpenDuplicates}
             onDeleteTransactionsByPeriod={onDeleteTransactionsByPeriod}
           />
+          </div>
         );
 
       case 'categories':
@@ -890,6 +1107,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               transactions={transactions}
               onUpdateTransactions={onUpdateTransactions}
             />
+          </div>
+        );
+
+      case 'diagnostics':
+        return (
+          <div className="space-y-4 w-full min-w-0">
+            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Подключение и данные</h3>
+              <dl className="divide-y divide-gray-200 dark:divide-white/10 text-sm">
+                {[
+                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?'Семейный аккаунт':'Без семейного аккаунта'],
+                  ['Сеть устройства',networkOnline?'Доступна по данным браузера':'Нет подключения'],
+                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.fromCache?'Локальный кэш':confirmedSync.pending?'Ожидается подтверждение записи':'Получен с сервера')],
+                  ['Последний ответ сервера',confirmedSync?.confirmedAt?new Date(confirmedSync.confirmedAt).toLocaleString('ru-RU'):'Не подтверждён в этой сессии'],
+                  ['Сохранение настроек',settingsWriteFailed?'Последняя попытка завершилась ошибкой':'Нет зарегистрированной ошибки в этом окне']
+                ].map(([label,value])=><div key={label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3"><dt className="text-gray-500 dark:text-gray-400">{label}</dt><dd className="font-medium break-words min-w-0">{value}</dd></div>)}
+              </dl>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Проверяется документ семейного пространства, а не доставка каждой финансовой операции. Ключи, токены и суммы не выводятся.</p>
+            </section>
+            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-3">
+              <h3 className="text-base font-semibold">Установка приложения</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{standalone?'Приложение открыто в отдельном окне.':'Добавьте Terra на главный экран или установите через меню браузера.'}</p>
+              {!standalone&&<button type="button" disabled={installBusy} onClick={()=>void handleInstall()} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{installBusy?'Ожидание браузера…':installPrompt?'Установить приложение':'Как установить'}</button>}
+              <p role="status" className="text-sm">{installStatus}</p>
+            </section>
           </div>
         );
 
@@ -912,7 +1154,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTestTelegramConnection}
-                  disabled={isTestingTelegram || !settings.telegramBotToken}
+                  disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim()}
                   className="min-h-[44px] px-4 py-2.5 bg-[#2D5A43] hover:bg-[#204332] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]"
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -925,6 +1167,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
                   <input 
                     id="telegram-bot-token"
+                    disabled={isTestingTelegram || isTestingDelivery}
                     type="password" 
                     autoComplete="off"
                     value={settings.telegramBotToken || ''} 
@@ -937,6 +1180,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
                   <input 
                     id="telegram-chat-id"
+                    disabled={isTestingTelegram || isTestingDelivery}
                     type="text" 
                     value={settings.telegramChatId || ''} 
                     onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
@@ -949,7 +1193,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
               <div className="flex flex-wrap items-center gap-3">
                 <button type="button" onClick={handleTestTelegramDelivery}
-                  disabled={isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
+                  disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
                   className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                   {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
                   Проверить доставку
@@ -985,6 +1229,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     type="button"
+                    disabled={householdPersonal||!settingsReady}
                     onClick={handleToggleBot}
                     aria-pressed={isBotActive}
                     className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${
@@ -1050,10 +1295,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input 
                     aria-label="Ключ Google Gemini API"
+                    disabled={aiTestStatus === 'loading'}
                     autoComplete="off"
                     type={showGeminiKey ? "text" : "password"} 
                     value={settings.geminiApiKey || ''} 
-                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value); }}
+                    onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value.trim()); }}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
                     placeholder="Вставьте ваш Google Gemini API key..." 
                   />
@@ -1081,7 +1327,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         <BrainCircuit size={13} className="text-purple-500" />
                       )}
                       <span>
-                        {aiTestStatus === 'success' ? 'Связь активна! ✅' : aiTestStatus === 'error' ? 'Ошибка ключа! ❌' : 'Проверить ключ ИИ'}
+                        {aiTestStatus === 'success' ? 'Подключение подтверждено' : aiTestStatus === 'error' ? 'Не удалось подключиться' : 'Проверить ключ ИИ'}
                       </span>
                     </button>
                   </div>
@@ -1133,7 +1379,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       {/* Main Container */}
       <div 
-        className="modal-animate-enter relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-full md:h-[94vh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
+        role="dialog" aria-modal="true" aria-label="Настройки"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-white dark:bg-[#18191C] w-full md:max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1460px] 2xl:max-w-[1600px] h-[100dvh] md:h-[94dvh] md:max-h-[960px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-gray-200/80 dark:border-white/10 z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-16 px-6 bg-white dark:bg-[#18191C] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
@@ -1145,7 +1392,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <button 
               type="button" 
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              aria-label="Закрыть настройки"
+              className="w-11 h-11 focus-visible:ring-2 focus-visible:ring-primary rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1163,7 +1411,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <button 
                 type="button" 
                 onClick={() => setShowMobileMenu(true)} 
-                className="flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
+                className="min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
               >
                 <ArrowLeft size={16} />
                 <span>Назад</span>
@@ -1178,7 +1426,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <button 
               type="button" 
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              aria-label="Закрыть настройки"
+              className="w-11 h-11 focus-visible:ring-2 focus-visible:ring-primary rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -1186,7 +1435,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </header>
 
         {/* 2-Column Core Layout / Mobile View */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
             <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
@@ -1205,11 +1454,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         {currentUser?.displayName || accountLogin || 'Пользователь'}
                       </h4>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                        ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                      {currentUser?.email || 'alexey@semyaplus.ru'}
+                      {currentUser?.email || 'Email не указан'}
                     </p>
                   </div>
                 </div>
@@ -1305,7 +1554,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </aside>
 
           {/* Right Main Content Panel (visible on md+, or on mobile when showMobileMenu is false) */}
-          <main className={`flex-1 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
+          <main className={`flex-1 min-h-0 bg-white dark:bg-[#18191C] flex-col min-w-0 overflow-hidden ${
             showMobileMenu ? 'hidden md:flex' : 'flex'
           }`}>
             {/* Desktop Section Header (hidden on mobile) */}
@@ -1319,7 +1568,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       </h3>
                       {currentSection.id === 'account' && (
                         <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
-                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                          ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                         </span>
                       )}
                     </div>
@@ -1332,7 +1581,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
-            <div className={`flex-1 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
+            <div className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 pb-6'}`}>
               {renderSectionContent()}
             </div>
           </main>
@@ -1344,7 +1593,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {showInstallGuide && (
           <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full space-y-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-white dark:bg-[#18191C] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center mx-auto">
                 <Smartphone size={24} />
               </div>
@@ -1355,14 +1604,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
                 <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
                   <span className="font-bold">1.</span>
-                  <span>Нажмите «Поделиться» в браузере Safari или меню Chrome</span>
+                  <span>iPhone: в Safari откройте меню «Поделиться» и выберите «На экран Домой».</span>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center gap-3">
                   <span className="font-bold">2.</span>
-                  <span>Выберите пункт «На экран "Домой"»</span>
+                  <span>Android: в Chrome откройте меню ⋮ и выберите «Установить приложение» или «Добавить на главный экран», если пункт доступен.</span>
                 </div>
               </div>
-              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full bg-[#2D5A43] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+              <button type="button" onClick={() => setShowInstallGuide(false)} className="w-full min-h-[44px] bg-[#2D5A43] text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
                 Понятно
               </button>
             </motion.div>
@@ -1436,7 +1685,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Активное пространство</span>
                     <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
-                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : '849-01'}
+                      ID: {currentFamilyId ? currentFamilyId.slice(0, 8) : 'не подключено'}
                     </span>
                   </div>
                 </div>

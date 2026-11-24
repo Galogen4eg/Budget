@@ -6,6 +6,7 @@ const {initializeApp}=require('firebase-admin/app');
 const {getFirestore,FieldValue}=require('firebase-admin/firestore');
 const {getMessaging}=require('firebase-admin/messaging');
 const {dueForDevice}=require('./reminderEngine.cjs');
+const {changeHouseholdBudgetPolicy,PolicyError}=require('./budgetPolicyService.cjs');
 
 initializeApp();
 const region='europe-west1';
@@ -76,6 +77,7 @@ exports.sendCalendarReminders=onSchedule({
           familyRef.collection('members').get(),familyRef.collection('config').doc('settings').get()
         ]);
         familyCache.set(device.familyId,{
+          policy:family.data()?.budgetPolicy??'family',
           members:family.data()?.members||[],
           events:events.docs.map(doc=>({id:doc.id,...doc.data()})),
           profiles:members.docs.map(doc=>({id:doc.id,...doc.data()})),
@@ -86,7 +88,13 @@ exports.sendCalendarReminders=onSchedule({
       const info=familyCache.get(device.familyId);
       if(!info.members.includes(device.uid))continue;
       const profiles=new Set(info.profiles.filter(p=>p.userId===device.uid).map(p=>p.id));
-      const due=dueForDevice(info.events,info.payments,info.paid,device,profiles);
+      let payments=info.payments,paid=info.paid;
+      if(info.policy==='personal'){
+        const own=await db.doc(`families/${device.familyId}/members/${device.uid}/config/settings`).get();
+        payments=profiles.size===1?(own.data()?.personalMandatoryExpenses||[]).filter(p=>profiles.has(p.memberId)):[];
+        paid=own.data()?.personalManualPaidExpenses||{};
+      }
+      const due=dueForDevice(info.events,payments,paid,device,profiles);
       for(const item of due){
         const claimId=hash([deviceSnap.id,item.id,item.date,item.lead,item.triggerMinute].join('|'));
         const claim=db.doc(`families/${device.familyId}/pushDelivery/${claimId}`);
@@ -121,4 +129,11 @@ exports.sendCalendarReminders=onSchedule({
       console.error('Calendar reminder scheduler failed for device',deviceSnap.id,error.code||error.message);
     }
   }
+});
+
+
+// Optional Firebase Functions adapter; Spark production uses Vercel instead.
+exports.changeHouseholdBudgetPolicy=onCall({region,timeoutSeconds:120},async(request)=>{
+ try{return await changeHouseholdBudgetPolicy({db:getFirestore(),FieldValue,uid:request.auth?.uid,data:request.data,enabled:process.env.BUDGET_SET12_ENABLED==='true'});}
+ catch(error){if(error instanceof PolicyError)throw new HttpsError(error.code,error.message);throw error;}
 });

@@ -52,6 +52,7 @@ export interface FamilyMember {
 
 export interface SavingsGoal {
   id: string;
+  memberId?: string; // Legacy shared goals remain unassigned
   title: string;
   targetAmount: number;
   currentAmount: number;
@@ -138,6 +139,7 @@ export interface Reminder {
 
 export interface Debt {
   id: string;
+  memberId?: string; // Legacy shared debts remain unassigned
   name: string;
   totalAmount: number;
   currentBalance: number;
@@ -259,7 +261,7 @@ export interface AppSettings {
   currency: string;
   startOfMonthDay: number;
   privacyMode: boolean;
-  theme: 'light' | 'dark'; // New Theme property
+  theme: 'light' | 'dark' | 'system'; // New Theme property
   savingsRate: number; // PERSISTED SAVINGS RATE
   
   // New: Store API Key in settings
@@ -271,6 +273,7 @@ export interface AppSettings {
   pinCode?: string; // Stored PIN
   
   enabledTabs: string[];
+  startTab?: string;
   enabledServices: string[];
   defaultBudgetMode: 'personal' | 'family'; 
 
@@ -295,6 +298,17 @@ export interface AppSettings {
   
   initialBalance: number;
   initialBalanceDate?: string;
+  personalInitialBalance?: number;
+  personalInitialBalanceDate?: string;
+  personalSavingsRate?: number;
+  personalMonthlyBudget?: number;
+  personalCategoryBudgets?: Record<string,number>;
+  personalIgnoredDuplicatePairs?: string[];
+  personalEnableSmartReserve?: boolean;
+  personalStartOfMonthDay?: number;
+  personalMandatoryExpenses?: MandatoryExpense[];
+  personalManualPaidExpenses?: Record<string,string[]>;
+  personalManualReservedAmount?: number;
   targetMonthlyBudget?: number;
   categoryBudgets?: Record<string, number>;
   salaryDates: number[];

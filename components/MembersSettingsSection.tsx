@@ -10,7 +10,7 @@ import { FamilyMember, Transaction } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
-import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
+import { deleteUnusedFamilyProfile, createFamilyMemberWithInvitation } from '../utils/db';
 import { bindFamilyProfile } from '../utils/familyProfileBinding';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
@@ -79,13 +79,15 @@ export interface MembersSettingsSectionProps {
   readonly onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   readonly currentFamilyId: string | null;
   readonly transactions?: Transaction[];
+  readonly householdPersonal?:boolean;
+  readonly isHouseholdOwner?:boolean;
 }
 
 export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   members,
   onUpdateMembers,
   currentFamilyId,
-  transactions = [],
+  transactions = [], householdPersonal=false, isHouseholdOwner=false,
 }) => {
   const { user } = useAuth();
   const currentUserEmail = user?.email || 'Локальный пользователь';
@@ -131,7 +133,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   const [isBindingProfile, setIsBindingProfile] = useState(false);
 
   const handleBindProfile = useCallback(async (targetMemberId: string) => {
-    if (isBindingProfile) return;
+    if (isBindingProfile||householdPersonal) return;
     try {
       const updated = bindFamilyProfile(members, currentUserId, targetMemberId);
       setIsBindingProfile(true);
@@ -148,7 +150,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
     } finally {
       setIsBindingProfile(false);
     }
-  }, [members, currentUserId, onUpdateMembers, isBindingProfile]);
+  }, [members, currentUserId, onUpdateMembers, isBindingProfile, householdPersonal]);
 
   // Handlers for name & email inputs in editor panel
   const handleNameChange = (val: string) => {
@@ -169,8 +171,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   // Save member modifications
-  const handleSaveMemberDetails = () => {
-    if (!editingMemberId) return;
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const handleSaveMemberDetails = async () => {
+    if (!editingMemberId || isSavingMember || isDeletingMember) return;
     const nameVal = validateMemberName(editName);
     const emailVal = validateMemberEmail(editEmail);
 
@@ -188,47 +191,49 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       color: editColor,
     } : m);
 
-    onUpdateMembers(updated);
-    setIsSaveToastVisible(true);
-    toast.success('Профиль участника успешно обновлен!');
-
-    setTimeout(() => {
-      setIsSaveToastVisible(false);
-    }, 2500);
+    setIsSavingMember(true);
+    try {
+      await onUpdateMembers(updated);
+      setIsSaveToastVisible(true);
+      toast.success('Профиль участника успешно обновлен!');
+      setTimeout(() => setIsSaveToastVisible(false), 2500);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить профиль участника');
+    } finally {
+      setIsSavingMember(false);
+    }
   };
 
   // Delete family member profile
+  const [isDeletingMember,setIsDeletingMember]=useState(false);
   const handleDeleteMember = async () => {
-    if (!editingMemberId) return;
-    if (members.length <= 1) {
-      toast.error('Невозможно удалить единственного участника пространства');
+    if (!editingMemberId || isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner) return;
+    if (members.length <= 1 || !currentFamilyId) {
+      toast.error('Удаление недоступно без активной семьи или для единственного участника');
       return;
     }
-
-    const target = members.find(m => m.id === editingMemberId);
-    if (!window.confirm(`Вы уверены, что хотите полностью удалить профиль «${target?.name}»? Все привязки будут аннулированы.`)) {
+    const target=members.find(m=>m.id===editingMemberId);
+    if(!target)return;
+    if(target.userId || target.isAdmin || target.email || transactions.some(t=>t.memberId===target.id)){
+      toast.error('Профиль связан с аккаунтом, приглашением или историей. Удаление недоступно.');
       return;
     }
-
-    triggerHaptic();
-    const updated = members.filter(m => m.id !== editingMemberId);
-    onUpdateMembers(updated);
-
-    if (currentFamilyId) {
-      try {
-        await deleteItem(currentFamilyId, 'members', editingMemberId);
-      } catch (err) {
-        console.error('Cloud delete fail:', err);
-      }
-    }
-
-    toast.success(`Профиль «${target?.name || ''}» удален`);
-    setEditingMemberId(updated[0]?.id || null);
+    if(!window.confirm(`Удалить неиспользуемый профиль «${target.name}»?`))return;
+    setIsDeletingMember(true);
+    try {
+      await deleteUnusedFamilyProfile(currentFamilyId,target.id);
+      triggerHaptic();
+      toast.success('Неиспользуемый профиль удалён');
+      setEditingMemberId(members.find(m=>m.id!==target.id)?.id||null);
+    } catch(error){
+      toast.error(error instanceof Error?error.message:'Не удалось удалить профиль');
+    } finally {setIsDeletingMember(false);}
   };
 
   // Create new user/participant profile
   const handleCreateNewMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(householdPersonal||!isHouseholdOwner||isSendingInvite)return;
     const nameVal = validateMemberName(inviteName);
     const emailVal = validateMemberEmail(inviteEmail);
 
@@ -321,7 +326,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     id="session-profile-link-desktop"
                     value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
                     onChange={(e) => void handleBindProfile(e.target.value)}
-                    disabled={isBindingProfile}
+                    disabled={isBindingProfile||householdPersonal}
                     className="w-full bg-white dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl px-3.5 py-3 pr-10 focus:ring-2 focus:ring-[#4A7C59] outline-none cursor-pointer appearance-none animate-none"
                   >
                     {members.map(m => (
@@ -529,6 +534,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     <button
                       type="button"
                       onClick={handleDeleteMember}
+                       disabled={isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner}
                       className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 px-1 cursor-pointer"
                     >
                       <Trash2 size={15} />
@@ -554,6 +560,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       <button
                         type="button"
                         onClick={handleSaveMemberDetails}
+                         disabled={isSavingMember}
                         className="px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3D6649] text-white text-xs font-bold transition-all shadow-3xs flex items-center gap-1.5 cursor-pointer"
                       >
                         <Check size={13} />
@@ -582,7 +589,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
         <section className="flex flex-col gap-3">
           <button 
             type="button"
-            onClick={() => setIsInviteModalOpen(true)}
+            disabled={householdPersonal||!isHouseholdOwner}
+             onClick={() => setIsInviteModalOpen(true)}
             className="w-full min-h-[48px] px-4 py-3 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
           >
             <UserPlus size={18} />
@@ -620,7 +628,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               <select 
                 value={mappedMember ? mappedMember.id : GUEST_MODE_ID}
                 onChange={(e) => void handleBindProfile(e.target.value)}
-                    disabled={isBindingProfile}
+                    disabled={isBindingProfile||householdPersonal}
                 className="w-full min-h-[46px] appearance-none bg-gray-50 dark:bg-[#18191C] text-gray-900 dark:text-white border border-gray-200/50 dark:border-white/5 text-xs sm:text-sm font-bold rounded-xl px-3.5 pr-10 focus:outline-none focus:bg-gray-100 dark:focus:bg-[#1E2023] transition-colors cursor-pointer"
               >
                 {members.map(m => (
@@ -792,6 +800,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               <button 
                 type="button"
                 onClick={handleDeleteMember}
+                       disabled={isDeletingMember || isSavingMember || householdPersonal || !isHouseholdOwner}
                 className="min-h-[44px] w-full inline-flex items-center justify-center gap-1.5 text-red-500 font-bold text-xs py-2 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
               >
                 <Trash2 size={16} />
@@ -816,6 +825,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 <button 
                   type="button"
                   onClick={handleSaveMemberDetails}
+                         disabled={isSavingMember}
                   className="min-h-[44px] px-4 py-2.5 bg-[#4A7C59] hover:bg-[#3d6749] text-white text-xs font-bold rounded-xl shadow-xs transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
                 >
                   <Check size={14} />
@@ -919,7 +929,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSendingInvite || !inviteName.trim()}
+                    disabled={isSendingInvite || householdPersonal || !isHouseholdOwner || !inviteName.trim()}
                     className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isSendingInvite ? 'Приглашение...' : 'Создать участника'}

@@ -6,6 +6,7 @@ import { AppSettings, FamilyMember } from '../../types';
 
 interface OverviewHeaderBarProps {
   budgetMode: 'family' | 'personal';
+  householdPersonal?:boolean;
   setBudgetMode: (mode: 'family' | 'personal') => void;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
@@ -24,6 +25,7 @@ interface OverviewHeaderBarProps {
 
 export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   budgetMode,
+  householdPersonal=false,
   setBudgetMode,
   settings,
   updateSettings,
@@ -42,8 +44,8 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   return (
     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-2 w-full min-w-0">
       {/* Mode Selector (Family / Personal) */}
-      <div className="w-full sm:w-auto grid grid-cols-2 sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start">
-        <button
+      <div className={`w-full sm:w-auto grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[#FAF8F5] dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-xs justify-self-start`}>
+        {!householdPersonal&&<button
           type="button"
           onClick={() => setBudgetMode('family')}
           aria-pressed={budgetMode === 'family'}
@@ -55,7 +57,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         >
           <Users size={15} />
           <span>Семейный</span>
-        </button>
+        </button>}
         <button
           type="button"
           onClick={() => setBudgetMode('personal')}

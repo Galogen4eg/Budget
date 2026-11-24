@@ -9,7 +9,8 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth, googleProvider, messaging } from '../firebase';
 import { onMessage } from 'firebase/messaging';
@@ -232,12 +233,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
           const res = await createUserWithEmailAndPassword(auth, email, pass);
           if (targetFamilyId && targetFamilyId.trim()) {
-              try {
-                  await joinFamily(res.user, targetFamilyId.trim());
-                  toast.success('Аккаунт создан, вы добавлены в семью!');
-              } catch (joinErr: any) {
-                  toast.error(`Аккаунт создан, но войти в семью не удалось: ${joinErr.message}`);
-              }
+              localStorage.setItem('pending_join_family',targetFamilyId.trim());
+              try{await sendEmailVerification(res.user);toast.info('Подтвердите email по письму, затем войдите повторно для присоединения к семье.');}
+              catch{toast.error('Аккаунт создан. Отправьте письмо подтверждения в настройках семьи.');}
           } else {
               toast.success('Добро пожаловать!');
           }

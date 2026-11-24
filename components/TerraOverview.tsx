@@ -67,7 +67,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     filteredTransactions, 
     currentMonthSpent, 
     goals,
-    settings, 
+    financialSettings: settings, householdPersonal,
     updateSettings, updateMandatoryPaymentBundle, 
     members, 
     categories, 
@@ -80,6 +80,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   } = useData();
   
   const { user: firebaseUser, familyId } = useAuth();
+  const showShopping=settings.widgets?.find(w=>w.id==='shopping')?.isVisible!==false;
+  const showWeekEvents=settings.widgets?.find(w=>w.id==='week_events')?.isVisible!==false;
 
   const [chartScale, setChartScale] = useState<'day' | 'week' | 'month'>('day');
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
@@ -330,7 +332,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
   // A family budget target must not be reported as a personal spending target.
-  const chartDailyLimit = budgetMode === 'family' ? dailyLimit : 0;
+  const chartDailyLimit = budgetMode === 'family' || householdPersonal ? dailyLimit : 0;
 
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
@@ -380,9 +382,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         max,
         limit: chartDailyLimit,
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : 'Личные расходы без семейного лимита',
+        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : householdPersonal?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -455,7 +457,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -473,7 +475,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }
     });
 
-    const monthlyLimit = budgetMode === 'family' ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
+    const monthlyLimit = budgetMode === 'family' || householdPersonal ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -510,9 +512,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' && !householdPersonal ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, householdPersonal, realToday, isCurrentCalendarMonth]);
 
   // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
@@ -729,8 +731,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
         <div className="px-4 my-3 w-full">
-          <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid grid-cols-2 gap-1">
-            <button
+          <div className={`w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} gap-1`}>
+            {!householdPersonal&&<button
               type="button"
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
@@ -742,7 +744,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             >
               <Users size={15} />
               <span>Семейный</span>
-            </button>
+            </button>}
             <button
               type="button"
               onClick={() => setBudgetMode('personal')}
@@ -982,7 +984,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 4. Список покупок Card (Extracted Widget) */}
-          <QuickShoppingWidget
+          {showShopping && <QuickShoppingWidget
             activeShoppingItems={activeShoppingItems}
             displayShoppingItems={displayShoppingItems}
             newShoppingTitle={newShoppingTitle}
@@ -991,10 +993,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             handleToggleShopping={handleToggleShopping}
             handleAddShoppingInline={handleAddShoppingInline}
             onNavigateTab={onNavigateTab}
-          />
+          />}
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
-          {upcomingWeekEvents.length > 0 && (
+          {showWeekEvents && upcomingWeekEvents.length > 0 && (
             <section className={`${SURFACE_CARD} space-y-3.5`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1162,6 +1164,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
+            householdPersonal={householdPersonal}
             setBudgetMode={setBudgetMode}
             settings={settings}
             updateSettings={updateSettings}
@@ -1198,7 +1201,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв семейного бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
+                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {householdPersonal?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
                   </p>
                 </div>
               </div>
@@ -1228,7 +1231,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#CADACF] dark:hover:border-white/15 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-primary font-bold text-[11px] uppercase tracking-wider">
-                <span>СЕМЕЙНЫЙ БАЛАНС</span>
+                <span>{householdPersonal?'ЛИЧНЫЙ БАЛАНС':'СЕМЕЙНЫЙ БАЛАНС'}</span>
               </div>
               <span className="text-[10px] bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 font-semibold px-2 py-0.5 rounded-full border border-[#D5E5D9] dark:border-transparent">
                 Общий
@@ -1329,13 +1332,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Card 4: СЕМЕЙНЫЙ РЕЗЕРВ */}
           <button type="button"
             onClick={() => setIsReserveModalOpen(true)}
-            aria-label="Открыть подробности семейного резерва"
+            aria-label={householdPersonal?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
             className="w-full text-left bg-white dark:bg-[#1C1C1E] rounded-2xl p-5 border border-surface-border dark:border-white/5 shadow-sm flex flex-col justify-between hover:border-[#E8DEC7] dark:hover:border-white/15 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                СЕМЕЙНЫЙ РЕЗЕРВ
+                {householdPersonal?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'}
               </span>
               <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%
@@ -1618,7 +1621,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* RIGHT COLUMN: 4 columns */}
           <div className="xl:col-span-4 flex flex-col gap-6">
             {/* Виджет «Список покупок» */}
-            <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
+            {showShopping && <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
               <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-primary-light dark:bg-primary/20 text-primary">
@@ -1703,10 +1706,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </div>
                 )}
               </form>
-            </div>
+            </div>}
 
             {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
-            {upcomingWeekEvents.length > 0 && (
+            {showWeekEvents && upcomingWeekEvents.length > 0 && (
               <div className="bg-white dark:bg-[#1C1C1E] border border-surface-border dark:border-white/5 rounded-3xl p-6 shadow-sm">
                 <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5">
                   <div className="flex items-center gap-2.5">
@@ -1907,7 +1910,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           futureExpenses={detailedMandatoryExpenses}
           manualReserved={manualReserved}
           onUpdateManualSavings={async (amt) => {
-            await updateSettings({ manualReservedAmount: amt });
+            await updateSettings(householdPersonal ? { personalManualReservedAmount: amt } : { manualReservedAmount: amt });
           }}
           onTogglePaid={handleToggleMandatoryPaid}
           onPayExpenses={handlePayMandatoryExpenses}

@@ -49,8 +49,8 @@ const DebtSnowball: React.FC<Props> = ({
   const [mode, setMode] = useState<CalculationMode>('manual');
   const [sortBy, setSortBy] = useState<DebtSortOption>('date');
   
-  const { familyId } = useAuth();
-  const { updateSettings } = useData();
+  const { familyId, user } = useAuth();
+  const { updateSettings, updateMandatoryPaymentBundle, householdPersonal, members } = useData();
 
   // Синхронизация режима расчета при открытии формы редактирования
   useEffect(() => {
@@ -269,19 +269,22 @@ const DebtSnowball: React.FC<Props> = ({
       linkedExpenseId: linkedExpenseId || null
     };
     
+    const owner=members.find(m=>m.userId && m.userId===user?.uid)?.id;
+    if(householdPersonal && (!owner || (editingDebt && editingDebt.memberId!==owner))) throw new Error('Долг недоступен');
     const debtId = editingDebt?.id || Date.now().toString();
     const newDebt = { 
       ...updatedDebt, 
-      id: debtId, 
+      id: debtId,
+      ...(editingDebt?.memberId || (!editingDebt && owner) ? {memberId:editingDebt?.memberId || owner} : {}),
       paidThisMonth: editingDebt?.paidThisMonth ?? false 
     } as unknown as Debt;
 
     if (editingDebt?.id) {
-      setDebts(debts.map(d => d.id === editingDebt.id ? newDebt : d));
       if (familyId) await updateItem(familyId, 'debts', editingDebt.id, newDebt);
+      setDebts(debts.map(d => d.id === editingDebt.id ? newDebt : d));
     } else {
-      setDebts([...debts, newDebt]);
       if (familyId) await addItem(familyId, 'debts', newDebt);
+      setDebts([...debts, newDebt]);
     }
 
     // Двусторонняя синхронизация с карточкой обязательного платежа
@@ -316,10 +319,7 @@ const DebtSnowball: React.FC<Props> = ({
         return exp;
       });
 
-      await updateSettings({
-        ...settings,
-        mandatoryExpenses: updatedExpenses
-      });
+      await updateMandatoryPaymentBundle({mandatoryExpenses:updatedExpenses,manualPaidExpenses:settings.manualPaidExpenses??{}},[]);
     }
 
     setEditingDebt(null);
@@ -348,8 +348,7 @@ const DebtSnowball: React.FC<Props> = ({
       paidThisMonth: !isCurrentlyPaid 
     };
 
-    setDebts(debts.map(d => d.id === id ? { ...d, ...updates } : d));
-    if (familyId) await updateItem(familyId, 'debts', id, updates);
+
 
     // Синхронизация статуса с обязательным платежом
     if (linkedExpense) {
@@ -364,19 +363,18 @@ const DebtSnowball: React.FC<Props> = ({
         newMonthIds = monthIds.filter(mid => mid !== linkedExpense.id);
       }
 
-      await updateSettings({
-        ...settings,
-        manualPaidExpenses: {
-          ...currentManuals,
-          [monthKey]: newMonthIds
-        }
-      });
+      await updateMandatoryPaymentBundle({mandatoryExpenses:settings.mandatoryExpenses??[],manualPaidExpenses:{[monthKey]:newMonthIds}},[{id,changes:updates}]);
+    } else {
+      if(!familyId)throw new Error('Семейный аккаунт недоступен');
+      await updateItem(familyId,'debts',id,updates);
+      setDebts(debts.map(d=>d.id===id?{...d,...updates}:d));
     }
   };
 
   const confirmDeleteDebt = async (id: string) => {
-    setDebts(debts.filter(d => d.id !== id));
+    if (!debts.some(d=>d.id===id)) throw new Error('Долг недоступен');
     if (familyId) await deleteItem(familyId, 'debts', id);
+    setDebts(debts.filter(d => d.id !== id));
     setDebtToDelete(null);
     if (editingDebt?.id === id) {
       setEditingDebt(null);

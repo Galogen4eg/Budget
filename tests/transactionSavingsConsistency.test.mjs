@@ -39,3 +39,12 @@ test('bulk deletion of savings transfers must not silently orphan goal balances'
 test('new savings targets cannot go below zero when correcting older balances',()=>{
  assert.equal(nextSavingsGoalAmount(5,1000,0),0);
 });
+
+test('confirmed external transfer preserves history without changing any goal balance',()=>{
+ const row={id:'bank',amount:1050,type:'expense',category:'savings',note:'Перевод на накопительный счет',externalSavingsConfirmed:true};
+ assert.equal(savingsContributionKopecks(row),0);
+ assert.equal(nextSavingsGoalAmount(500,savingsContributionKopecks(row),savingsContributionKopecks({...row,amount:1100})),500);
+ assert.equal(nextSavingsGoalAmount(500,savingsContributionKopecks(row),0),500);
+ assert.equal(savingsContributionKopecks({...row,externalSavingsConfirmed:false}),105000);
+ assert.equal(savingsContributionKopecks({...row,linkedGoalId:'real'}),105000);
+});

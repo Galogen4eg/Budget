@@ -23,7 +23,7 @@ import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
 import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
-import { restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
+import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -978,7 +978,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       const key='savings:'+issue.id,selected=ownershipChoices[key]||'';
                       return <div key={key} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
                         <p className="font-medium break-words">{issue.title}{typeof issue.amount==='number'?' · '+(settings.privacyMode?'•••':issue.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
-                        <p className="text-xs break-words text-gray-600 dark:text-gray-300">{issue.date?issue.date+' · ':''}Владелец: {members.find(m=>m.id===issue.owner)?.name??'Неизвестный участник'}. {issue.reason==='missing'?'Цель не указана.':issue.reason==='deleted'?'Прежняя цель не найдена.':'Цель: '+issue.targetTitle+'; владелец цели: '+(members.find(m=>m.id===issue.targetOwner)?.name??'Неизвестный участник')+'.'}</p>
+                        <p className="text-xs break-words text-gray-600 dark:text-gray-300">{issue.date?(Number.isNaN(new Date(issue.date).getTime())?issue.date:new Date(issue.date).toLocaleDateString('ru-RU'))+' · ':''}Владелец: {members.find(m=>m.id===issue.owner)?.name??'Неизвестный участник'}. {issue.reason==='missing'?'Цель не указана.':issue.reason==='deleted'?'Прежняя цель не найдена.':'Цель: '+issue.targetTitle+'; владелец цели: '+(members.find(m=>m.id===issue.targetOwner)?.name??'Неизвестный участник')+'.'}</p>
                         {issue.reason==='owner'&&issue.owner&&issue.targetOwner&&issue.targetId?<button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy} className="min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 disabled:opacity-50" onClick={async()=>{
                           if(!currentFamilyId||!currentUser?.uid||!issue.owner||!issue.targetOwner||!issue.targetId||!window.confirm('Назначить операции владельца накопительной цели? Подтвердите только если это фактический владелец. Сумма, дата и баланс цели не изменятся.'))return;
                           setOwnershipBusy(key);
@@ -996,7 +996,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             try{await restoreMissingSavingsLink(currentFamilyId,currentUser.uid,issue,selected);setOwnershipChoices(prev=>({...prev,[key]:''}));setReadiness(null);toast.success('Связь восстановлена. Повторите проверку.');}
                             catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось восстановить связь');}finally{setOwnershipBusy(null);}
                           }}>Восстановить связь</button>
-                        </div>:<p className="text-xs text-gray-600 dark:text-gray-300">Нет подтверждённой цели для исправления. Проверьте фактическую принадлежность операции и цели в разделе накоплений.</p>}
+                        </div>:<p className="text-xs text-gray-600 dark:text-gray-300">Нет цели этого владельца. Если это банковский перевод вне целей Terra, подтвердите его ниже.</p>}
+                        {issue.reason==='missing'&&issue.owner&&members.some(m=>m.id===issue.owner&&m.userId)&&<button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy} className="w-full sm:w-auto min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 text-left disabled:opacity-50" onClick={async()=>{
+                          if(!currentFamilyId||!currentUser?.uid||!window.confirm('Это банковский перевод, не относящийся к накопительной цели Terra? Сумма, дата, категория и владелец сохранятся. Балансы целей не изменятся.'))return;
+                          setOwnershipBusy(key);
+                          try{await confirmExternalSavingsTransfer(currentFamilyId,currentUser.uid,issue);toast.success('Перевод подтверждён');await checkReadiness();}
+                          catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось подтвердить перевод');}finally{setOwnershipBusy(null);}
+                        }}>Подтвердить перевод без цели</button>}
                       </div>;
                     })}
                     {readiness?.familyId===currentFamilyId&&readiness.warnings?.map((warning,index)=><p key={index} className="text-xs text-gray-600 dark:text-gray-300 break-words">{warning}</p>)}

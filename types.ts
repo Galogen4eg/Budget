@@ -16,6 +16,7 @@ export interface Transaction {
   rawNote?: string;
   projectId?: string; // Link to a project
   linkedGoalId?: string; // Explicit link to a savings goal
+  externalSavingsConfirmed?: boolean; // Explicitly reviewed historical bank transfer without a Terra goal
   linkedExpenseId?: string; // Explicit link to a mandatory expense
   linkedDebtId?: string; // Explicit link to a debt item
 }

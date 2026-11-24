@@ -125,3 +125,17 @@ test('preflight identifies all savings issues, including missing and removed goa
  assert.deepEqual(fixed.goals,before.goals);
  assert.deepEqual(fixed.transactions.map(row=>row.amount),before.transactions.map(row=>row.amount));
 });
+
+test('confirmed external savings can migrate without inventing a goal; real links and unknown owners remain blocked',()=>{
+ const f=fixture();
+ const external={id:'ext',memberId:'a',category:'savings',amount:1050,externalSavingsConfirmed:true};
+ const links={transactions:[external],goals:[],debts:[]};
+ const before=structuredClone(links);
+ assert.equal(prepareTransition({...f,links,records:[...f.records,external]}).policy,'personal');
+ assert.deepEqual(links,before);
+ const blocked=row=>assert.throws(()=>prepareTransition({...f,links:{...links,transactions:[row]},records:[...f.records,row]}));
+ blocked({...external,externalSavingsConfirmed:false});
+ blocked({...external,linkedGoalId:'deleted'});
+ blocked({...external,memberId:'unknown'});
+ assert.throws(()=>prepareTransition({...f,links:{...links,transactions:[{...external,linkedGoalId:'foreign'}],goals:[{id:'foreign',memberId:'b'}]}}),/Savings goal/);
+});

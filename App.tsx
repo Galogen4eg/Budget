@@ -50,7 +50,7 @@ import { useTelegramSync } from './hooks/useTelegramSync';
 import { stopTelegramBotListener } from './utils/telegramBotListener';
 import { auth } from './firebase';
 import { isSavingsTransfer, applySavingsTransferToGoals } from './utils/savingsSync';
-import { assertBulkDeleteSafe } from './utils/transactionSavingsConsistency';
+import { assertBulkDeleteSafe, isGoalSavingsTransfer } from './utils/transactionSavingsConsistency';
 import { learnedRuleChangesSavings } from './utils/importSafety';
 import { resolveImportMemberId, assertImportRowsBelongToMember } from './utils/importMemberIdentity';
 import { assertImportBatchReady } from './utils/importSafety';
@@ -385,9 +385,11 @@ export default function App() {
       ? { ...txData, id: editing.id }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
+    // The transaction form does not expose goal metadata. Preserve a reviewed external transfer on edit.
+    if(editing?.externalSavingsConfirmed===true&&!editing.linkedGoalId&&!transaction.linkedGoalId&&isSavingsTransfer(transaction))transaction.externalSavingsConfirmed=true;
     // Persist the goal link so future edits/deletions cannot select a different account.
-    const before=editing&&isSavingsTransfer(editing)?(editing.type==='expense'?editing.amount:-editing.amount):0;
-    const after=isSavingsTransfer(transaction)?(transaction.type==='expense'?transaction.amount:-transaction.amount):0;
+    const before=editing&&isGoalSavingsTransfer(editing)?(editing.type==='expense'?editing.amount:-editing.amount):0;
+    const after=isGoalSavingsTransfer(transaction)?(transaction.type==='expense'?transaction.amount:-transaction.amount):0;
     let affectedGoal: SavingsGoal|undefined;
     if(householdPersonal&&before!==0&&!editing?.linkedGoalId)throw new Error('Старый перевод не привязан к личной цели');
     if(after!==0||before!==0){
@@ -1223,7 +1225,7 @@ export default function App() {
                   const transactionToDelete = transactions.find(t => t.id === id);
                   if (!transactionToDelete) throw new Error('Операция недоступна');
                   let updatedSavings: ReturnType<typeof applySavingsTransferToGoals> | null = null;
-                  if (transactionToDelete && isSavingsTransfer(transactionToDelete) && goals.length > 0) {
+                  if (transactionToDelete && isGoalSavingsTransfer(transactionToDelete) && goals.length > 0) {
                     updatedSavings = applySavingsTransferToGoals(
                       goals,
                       transactionToDelete.amount,

@@ -993,14 +993,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy||!issue.availableGoals.some(g=>g.id===selected)} className="min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 disabled:opacity-50" onClick={async()=>{
                             if(!currentFamilyId||!currentUser?.uid||!window.confirm('Подтверждаете, что эта операция уже учтена в балансе выбранной цели? Будет изменена только ссылка, без изменения сумм.'))return;
                             setOwnershipBusy(key);
-                            try{await restoreMissingSavingsLink(currentFamilyId,currentUser.uid,issue,selected);setOwnershipChoices(prev=>({...prev,[key]:''}));setReadiness(null);toast.success('Связь восстановлена. Повторите проверку.');}
+                            try{await restoreMissingSavingsLink(currentFamilyId,currentUser.uid,issue,selected);setOwnershipChoices(prev=>({...prev,[key]:''}));setReadiness(prev=>prev?.familyId===currentFamilyId?{...prev,issues:['После исправления всех записей повторите проверку.'],savingsLinkIssues:prev.savingsLinkIssues?.filter(row=>row.id!==issue.id)}:prev);toast.success('Связь восстановлена');}
                             catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось восстановить связь');}finally{setOwnershipBusy(null);}
                           }}>Восстановить связь</button>
                         </div>:<p className="text-xs text-gray-600 dark:text-gray-300">Нет цели этого владельца. Если это банковский перевод вне целей Terra, подтвердите его ниже.</p>}
                         {issue.reason==='missing'&&issue.owner&&members.some(m=>m.id===issue.owner&&m.userId)&&<button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy} className="w-full sm:w-auto min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 text-left disabled:opacity-50" onClick={async()=>{
                           if(!currentFamilyId||!currentUser?.uid||!window.confirm('Это банковский перевод, не относящийся к накопительной цели Terra? Сумма, дата, категория и владелец сохранятся. Балансы целей не изменятся.'))return;
                           setOwnershipBusy(key);
-                          try{await confirmExternalSavingsTransfer(currentFamilyId,currentUser.uid,issue);toast.success('Перевод подтверждён');await checkReadiness();}
+                          try{await confirmExternalSavingsTransfer(currentFamilyId,currentUser.uid,issue);setReadiness(prev=>prev?.familyId===currentFamilyId?{...prev,issues:['После исправления всех записей повторите проверку.'],savingsLinkIssues:prev.savingsLinkIssues?.filter(row=>row.id!==issue.id)}:prev);toast.success('Перевод подтверждён');}
                           catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось подтвердить перевод');}finally{setOwnershipBusy(null);}
                         }}>Подтвердить перевод без цели</button>}
                       </div>;

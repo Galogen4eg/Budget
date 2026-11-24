@@ -889,12 +889,15 @@ export function subscribeToHouseholdBudgetPolicy(
 }
 
 type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];savingsLinkIssues?:SavingsLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
+let budgetPolicyRetryAt=0;
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
+  if(Date.now()<budgetPolicyRetryAt)throw new Error('Квота Firestore исчерпана. Повторные запросы временно приостановлены. Если достигнут суточный лимит, дождитесь его обновления.');
   const token=await auth.currentUser.getIdToken();
   const response=await fetch('/api/budget-policy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({familyId,target,preview})});
   const result=await response.json().catch(()=>null);
   if(!response.ok){
+    if(response.status===429&&result?.code==='firestore-quota')budgetPolicyRetryAt=Date.now()+300_000;
     if(response.status===504||response.status===408)throw new Error(preview?'Проверка заняла слишком много времени. Данные не изменены. Повторите проверку.':'Сервер не успел подтвердить переход. Проверьте текущий режим перед повтором.');
     throw new Error(typeof result?.error==='string'?result.error:'Сервер SET-12 недоступен (HTTP '+response.status+').');
   }

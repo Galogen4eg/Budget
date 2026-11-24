@@ -22,17 +22,23 @@ const waitForServer=async()=>{
   throw new Error('Budget preview server did not become healthy');
 };
 
+// Browser smoke is local-only. Never contact production Firebase or any other external service.
+const previewOrigin=new URL(baseURL).origin;
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(baseURL).hostname))throw new Error('Browser smoke requires a loopback preview');
+const isolate=async page=>page.route('**/*',route=>new URL(route.request().url()).origin===previewOrigin?route.continue():route.abort());
 let browser;
 try{
   await waitForServer();
   await mkdir('artifacts/budget-browser',{recursive:true});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   for(const [label,width,height] of [['phone-320',320,700],['phone-390',390,844],['tablet-768',768,1024],['laptop-1280',1280,800],['desktop-1440',1440,900],['desktop-1920',1920,1080]]){
-    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
+    const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,serviceWorkers:'block'});
+    await isolate(page);
     const errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     if(label==='phone-390'){
-      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce'});
+      const dark=await browser.newPage({viewport:{width,height},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
+      await isolate(dark);
       try{
         await dark.addInitScript(()=>localStorage.setItem('theme','dark'));
         // Pause only the app bundle: the inline theme bootstrap must already be dark.

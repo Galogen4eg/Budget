@@ -45,3 +45,31 @@ test('GitHub Action runtimes use maintained Node24-based versions',()=>{
  }
  assert.match(browser,/actions\/upload-artifact@v6/);
 });
+
+test('quota guard: smoke test blocks external network and service workers',()=>{
+ const smoke=read('tests/budgetBrowserSmoke.mjs');
+ assert.match(smoke,/Browser smoke requires a loopback preview/);
+ assert.match(smoke,/origin===previewOrigin\?route\.continue\(\):route\.abort\(\)/);
+ assert.equal((smoke.match(/serviceWorkers:'block'/g)||[]).length,2);
+ assert.match(smoke,/await isolate\(page\)/);
+ assert.match(smoke,/await isolate\(dark\)/);
+});
+test('quota guard: shared financial listeners do not restart on profile discovery',()=>{
+ const data=read('contexts/DataContext.tsx');
+ assert.match(data,/const financialQueryMemberId=householdPersonal\?linkedMemberId:undefined/);
+ assert.match(data,/\[familyId,user\?\.uid,policyReady,householdPersonal,financialQueryMemberId\]/);
+ assert.match(data,/familyId && user\?\.uid \? subscribeToGlobalRules/);
+});
+test('quota guard: correcting one savings row does not rescan the ledger',()=>{
+ assert.doesNotMatch(settings,/await confirmExternalSavingsTransfer[^\n]*await checkReadiness/);
+ assert.match(settings,/savingsLinkIssues:prev\.savingsLinkIssues\?\.filter\(row=>row\.id!==issue\.id\)/);
+ assert.match(settings,/После исправления всех записей повторите проверку/);
+ assert.match(settings,/!!readiness\.issues\.length/);
+});
+test('quota exhaustion produces explicit HTTP 429 and client cooldown',()=>{
+ const api=read('api/budget-policy.js'),db=read('utils/db.ts');
+ assert.match(api,/error\?\.code===8/);
+ assert.match(api,/res\.status\(429\)\.json\(\{code:'firestore-quota'/);
+ assert.match(db,/Date\.now\(\)<budgetPolicyRetryAt/);
+ assert.match(db,/budgetPolicyRetryAt=Date\.now\(\)\+300_000/);
+});

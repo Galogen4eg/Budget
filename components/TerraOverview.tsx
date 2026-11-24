@@ -382,7 +382,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         max,
         limit: chartDailyLimit,
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
-        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : 'Личные расходы без семейного лимита',
+        subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : householdPersonal?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
         complianceRate,
         complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
@@ -731,11 +731,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
         <div className="px-4 my-3 w-full">
-          <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid grid-cols-2 gap-1">
-            <button
+          <div className={`w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} gap-1`}>
+            {!householdPersonal&&<button
               type="button"
-              hidden={householdPersonal}
-              disabled={householdPersonal}
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
               className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
@@ -746,7 +744,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             >
               <Users size={15} />
               <span>Семейный</span>
-            </button>
+            </button>}
             <button
               type="button"
               onClick={() => setBudgetMode('personal')}
@@ -1166,6 +1164,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
+            householdPersonal={householdPersonal}
             setBudgetMode={setBudgetMode}
             settings={settings}
             updateSettings={updateSettings}

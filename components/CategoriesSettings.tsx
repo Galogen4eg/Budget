@@ -384,7 +384,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   }, [mainCategories, categories, searchQuery]);
 
   return (
-    <div className="w-full h-full bg-[#FAF6F0] dark:bg-[#1C1F1E] text-[#2E3230] dark:text-white flex flex-col overflow-hidden md:rounded-2xl md:border md:border-[#E4E0D8] dark:md:border-white/10 md:shadow-2xl">
+    <div className="w-full h-full min-h-0 bg-[#FAF6F0] dark:bg-[#1C1F1E] text-[#2E3230] dark:text-white flex flex-col overflow-hidden md:rounded-2xl md:border md:border-[#E4E0D8] dark:md:border-white/10 md:shadow-2xl">
       
       {/* Toast Notification */}
       {showToast && (
@@ -397,7 +397,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE VIEW (< md) */}
       {/* ========================================================================= */}
-      <div className="md:hidden flex-1 flex flex-col overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
+      <div data-testid="categories-scroll-container" className="md:hidden flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-y-contain pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
         
         {/* Interactive Search & Overview Header */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">

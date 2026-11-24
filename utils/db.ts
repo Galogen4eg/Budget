@@ -4,7 +4,6 @@ import {
   onSnapshot, query, orderBy, where, getDocs, getDocsFromServer, writeBatch, runTransaction, arrayUnion 
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
@@ -896,9 +895,12 @@ export function subscribeToHouseholdBudgetPolicy(
 type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
-  const callable=httpsCallable<{familyId:string;target:'family'|'personal';preview:boolean},HouseholdBudgetChangeResult>(getFunctions(undefined,'europe-west1'),'changeHouseholdBudgetPolicy');
-  const result=await callable({familyId,target,preview});
-  return result.data;
+  const token=await auth.currentUser.getIdToken();
+  const response=await fetch('/api/budget-policy',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({familyId,target,preview})});
+  const result=await response.json().catch(()=>null);
+  if(!response.ok)throw new Error(typeof result?.error==='string'?result.error:'Сервер SET-12 недоступен');
+  if(!result||!['family','personal'].includes(result.policy)||typeof result.enabled!=='boolean'||!Array.isArray(result.issues))throw new Error('Сервер вернул некорректный ответ');
+  return result as HouseholdBudgetChangeResult;
 };
 export async function saveHouseholdBudgetPolicy(familyId:string,actorUid:string,policy:'family'|'personal'):Promise<void>{
   const result=await requestHouseholdBudgetPolicy(familyId,actorUid,policy,false);

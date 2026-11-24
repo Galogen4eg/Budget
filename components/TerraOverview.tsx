@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
-  Calendar, Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
-  ShoppingBag, PieChart, Check, ChevronRight, ChevronLeft, ArrowRight,
+  Plus, Sparkles, Users, User, Settings, Eye, EyeOff, 
+  Check, ChevronRight, ChevronLeft, ArrowRight,
   HelpCircle, ShieldAlert, ChevronDown, ShoppingCart,
   Star, Smartphone, Utensils, Store, Tag, Gift, Activity, Car, CreditCard
 } from 'lucide-react';
@@ -914,7 +914,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* 3. Категории расходов Card */}
           <section className={`${SURFACE_CARD} space-y-3.5`}>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
                   Категории расходов
@@ -958,9 +958,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`}
                   onClick={() => onDrillDown(cat.id || 'all')}
                   aria-label={`Аналитика категории: ${cat.name}`}
-                  className="min-h-[44px] w-full text-left space-y-1.5 p-2 -mx-1 rounded-xl hover:bg-stone-100/60 dark:hover:bg-white/5 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="min-h-[44px] w-full text-left space-y-1.5 px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span 
                         className="w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0"
@@ -968,10 +968,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       >
                         {cat.icon}
                       </span>
-                      <span className="text-xs font-medium text-graphite dark:text-white truncate">{cat.name}</span>
+                      <span className="text-sm font-medium text-graphite dark:text-white truncate">{cat.name}</span>
                       <span className="text-xs text-graphite-muted dark:text-gray-400 shrink-0">{cat.percent}%</span>
                     </div>
-                    <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums shrink-0 ml-2">
+                    <span className="text-sm font-semibold text-graphite dark:text-white tabular-nums min-w-0 max-w-[46%] text-right [overflow-wrap:anywhere]">
                       {formatAmount(cat.amount)} ₽
                     </span>
                   </div>
@@ -1001,9 +1001,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
           {showWeekEvents && upcomingWeekEvents.length > 0 && (
             <section className={`${SURFACE_CARD} space-y-3.5`}>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Calendar size={18} className="text-[#4A7C59]" />
                   <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
                     События на этой неделе
                   </h3>
@@ -1015,7 +1014,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       onClick={onOpenAddEventModal}
                       title="Запланировать событие"
                       aria-label="Создать событие"
-                      className="min-h-[44px] min-w-[44px] rounded-full bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white hover:bg-[#4A7C59] hover:text-white transition flex items-center justify-center cursor-pointer"
+                      className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
                     >
                       <Plus size={15} strokeWidth={2.4} />
                     </button>
@@ -1023,7 +1022,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigateTab('plans')}
-                    className="flex items-center gap-0.5 text-xs font-medium text-[#4A7C59] dark:text-emerald-400 hover:underline transition cursor-pointer"
+                    className="min-h-[44px] px-2 rounded-lg flex items-center gap-0.5 text-sm font-medium text-primary dark:text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                   >
                     <span>Все</span>
                     <ChevronRight size={14} />
@@ -1031,7 +1030,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="divide-y divide-[var(--terra-border)]">
                 {upcomingWeekEvents.map((ev, idx) => {
                   const evDate = new Date(ev.date);
                   const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
@@ -1046,11 +1045,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       key={ev.id ? `mob-ev-${ev.id}` : `mob-ev-idx-${idx}`}
                       onClick={() => onEditEvent ? onEditEvent(ev) : onNavigateTab('plans')}
                       aria-label={`Открыть событие: ${ev.title}`}
-                      className="min-h-[48px] w-full text-left bg-[#EAE6DD]/40 dark:bg-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:bg-[#EAE6DD]/70 dark:hover:bg-white/10 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="min-h-[48px] w-full text-left px-1 py-2.5 flex items-center justify-between gap-3 hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[9px] font-bold text-graphite-muted dark:text-gray-400 uppercase leading-none">
+                          <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 uppercase leading-none">
                             {dayLabel}
                           </span>
                           <span className="text-xs font-bold text-[#2E3230] dark:text-white leading-none mt-0.5">
@@ -1059,7 +1058,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         </div>
 
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-graphite dark:text-white truncate">
+                          <p className="text-sm font-semibold text-graphite dark:text-white truncate">
                             {ev.title}
                           </p>
                           <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">

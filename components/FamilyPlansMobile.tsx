@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate } from '../utils/calendarDates';
+import { formatReminderLabel } from './EventModal';
+import { parseLocalCalendarDate, calendarEndTime } from '../utils/calendarDates';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
@@ -225,6 +226,13 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     }
     return week;
   }, [selectedDate]);
+
+  const changeDay = (increment: number) => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate()+increment);
+    setSelectedDate(nextDate);
+    setCurrentDate(new Date(nextDate.getFullYear(),nextDate.getMonth(),1));
+  };
 
   const changeWeek = (increment: number) => {
     const nextDate = new Date(selectedDate);
@@ -557,7 +565,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {weekAllEvents.length > 0 ? (
-            <div className="space-y-2 max-h-[280px] overflow-y-auto no-scrollbar">
+            <div className="space-y-2">
               {weekAllEvents.map(e => {
                 const primaryMemberId = e.memberIds && e.memberIds[0];
                 const memberMeta = primaryMemberId ? getMemberMeta(primaryMemberId) : null;
@@ -670,7 +678,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         </div>
 
         {/* Events List */}
-        <div className="space-y-2.5 max-h-[450px] overflow-y-auto no-scrollbar">
+        <div className="space-y-2.5">
           {listEvents.length > 0 ? (
             listEvents.map(e => {
               const primaryMemberId = e.memberIds && e.memberIds[0];
@@ -825,9 +833,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-xl sm:text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight truncate">
-                {viewMode === 'week' ? weekPeriodTitle : currentMonthTitle}
+                {viewMode === 'day' ? selectedDayFormattedTitle : viewMode === 'week' ? weekPeriodTitle : currentMonthTitle}
               </h2>
-              {viewMode !== 'week' && (
+              {viewMode !== 'week' && viewMode !== 'day' && (
                 <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#F0ECE4] dark:bg-white/10 text-[#6B6358] dark:text-gray-300 shrink-0">
                   {`${daysCountInCurrentMonth} дней`}
                 </span>
@@ -837,19 +845,19 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                onClick={() => viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
-                aria-label={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
+                onClick={() => viewMode === 'day' ? changeDay(-1) : viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
+                aria-label={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
                 className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
-                title={viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
+                title={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 type="button"
-                onClick={() => viewMode === 'week' ? changeWeek(1) : changeMonth(1)}
-                aria-label={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
+                onClick={() => viewMode === 'day' ? changeDay(1) : viewMode === 'week' ? changeWeek(1) : changeMonth(1)}
+                aria-label={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
                 className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F0ECE4] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white hover:bg-[#EAE6DE] active:scale-95 transition-all cursor-pointer"
-                title={viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
+                title={viewMode === 'day' ? "Следующий день" : viewMode === 'week' ? "Следующая неделя" : "Следующий месяц"}
               >
                 <ChevronRight size={18} />
               </button>
@@ -857,7 +865,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 2: Segmented Switcher (Месяц / Неделя / Расписание) */}
-          <div className="grid grid-cols-3 bg-[#F0ECE4] dark:bg-[#252528] p-1 rounded-2xl gap-1 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#F0ECE4] dark:bg-[#252528] p-1 rounded-2xl gap-1 w-full">
             <button
               type="button"
               onClick={() => setViewMode('month')}
@@ -886,6 +894,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               <span>Неделя</span>
             </button>
 
+            <button type="button" onClick={() => setViewMode('day')} aria-pressed={viewMode === 'day'}
+              className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? 'bg-white dark:bg-[#1E1E20] text-[#3B6347] dark:text-emerald-400 shadow-xs' : 'text-[#6B6358] dark:text-gray-400'}`}>
+              День
+            </button>
             <button
               type="button"
               onClick={() => setViewMode('list')}
@@ -1018,7 +1030,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                             style={{ backgroundColor: memberMeta?.color || '#D97706' }}
                           />
                           <span>
-                            {ev.time} {ev.duration ? `— ${String(Math.floor(parseInt(ev.time.split(':')[0], 10) + (ev.duration || 1))).padStart(2, '0')}:${ev.time.split(':')[1] || '00'}` : ''}
+                            {ev.time} {ev.duration ? `— ${calendarEndTime(ev.time,ev.duration)}` : ''}
                           </span>
                         </div>
 
@@ -1075,9 +1087,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-graphite-muted dark:text-gray-400 inline-flex items-center gap-1">
+                          <span className="text-xs text-graphite-muted dark:text-gray-400 inline-flex items-center gap-1 min-w-0 break-words">
                             <Bell size={13} />
-                            <span>за 30 мин</span>
+                            <span>{ev.reminders?.length ? ev.reminders.map(formatReminderLabel).join(', ') : 'Без напоминаний'}</span>
                           </span>
 
                           <button

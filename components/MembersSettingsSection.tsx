@@ -10,7 +10,7 @@ import { FamilyMember, Transaction } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { triggerHaptic } from '../utils/haptics';
-import { deleteItem, createFamilyMemberWithInvitation } from '../utils/db';
+import { deleteUnusedFamilyProfile, createFamilyMemberWithInvitation } from '../utils/db';
 import { bindFamilyProfile } from '../utils/familyProfileBinding';
 
 export const MIN_MEMBER_NAME_LENGTH = 2;
@@ -171,7 +171,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   // Save member modifications
   const [isSavingMember, setIsSavingMember] = useState(false);
   const handleSaveMemberDetails = async () => {
-    if (!editingMemberId || isSavingMember) return;
+    if (!editingMemberId || isSavingMember || isDeletingMember) return;
     const nameVal = validateMemberName(editName);
     const emailVal = validateMemberEmail(editEmail);
 
@@ -203,32 +203,29 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   // Delete family member profile
+  const [isDeletingMember,setIsDeletingMember]=useState(false);
   const handleDeleteMember = async () => {
-    if (!editingMemberId) return;
-    if (members.length <= 1) {
-      toast.error('Невозможно удалить единственного участника пространства');
+    if (!editingMemberId || isDeletingMember || isSavingMember) return;
+    if (members.length <= 1 || !currentFamilyId) {
+      toast.error('Удаление недоступно без активной семьи или для единственного участника');
       return;
     }
-
-    const target = members.find(m => m.id === editingMemberId);
-    if (!window.confirm(`Вы уверены, что хотите полностью удалить профиль «${target?.name}»? Все привязки будут аннулированы.`)) {
+    const target=members.find(m=>m.id===editingMemberId);
+    if(!target)return;
+    if(target.userId || target.isAdmin || target.email || transactions.some(t=>t.memberId===target.id)){
+      toast.error('Профиль связан с аккаунтом, приглашением или историей. Удаление недоступно.');
       return;
     }
-
-    triggerHaptic();
-    const updated = members.filter(m => m.id !== editingMemberId);
-    onUpdateMembers(updated);
-
-    if (currentFamilyId) {
-      try {
-        await deleteItem(currentFamilyId, 'members', editingMemberId);
-      } catch (err) {
-        console.error('Cloud delete fail:', err);
-      }
-    }
-
-    toast.success(`Профиль «${target?.name || ''}» удален`);
-    setEditingMemberId(updated[0]?.id || null);
+    if(!window.confirm(`Удалить неиспользуемый профиль «${target.name}»?`))return;
+    setIsDeletingMember(true);
+    try {
+      await deleteUnusedFamilyProfile(currentFamilyId,target.id);
+      triggerHaptic();
+      toast.success('Неиспользуемый профиль удалён');
+      setEditingMemberId(members.find(m=>m.id!==target.id)?.id||null);
+    } catch(error){
+      toast.error(error instanceof Error?error.message:'Не удалось удалить профиль');
+    } finally {setIsDeletingMember(false);}
   };
 
   // Create new user/participant profile
@@ -534,6 +531,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     <button
                       type="button"
                       onClick={handleDeleteMember}
+                       disabled={isDeletingMember || isSavingMember}
                       className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 px-1 cursor-pointer"
                     >
                       <Trash2 size={15} />
@@ -798,6 +796,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               <button 
                 type="button"
                 onClick={handleDeleteMember}
+                       disabled={isDeletingMember || isSavingMember}
                 className="min-h-[44px] w-full inline-flex items-center justify-center gap-1.5 text-red-500 font-bold text-xs py-2 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
               >
                 <Trash2 size={16} />

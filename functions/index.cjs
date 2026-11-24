@@ -6,7 +6,7 @@ const {initializeApp}=require('firebase-admin/app');
 const {getFirestore,FieldValue}=require('firebase-admin/firestore');
 const {getMessaging}=require('firebase-admin/messaging');
 const {dueForDevice}=require('./reminderEngine.cjs');
-const {prepareTransition}=require('./budgetMigration.cjs');
+const {changeHouseholdBudgetPolicy,PolicyError}=require('./budgetPolicyService.cjs');
 
 initializeApp();
 const region='europe-west1';
@@ -132,52 +132,8 @@ exports.sendCalendarReminders=onSchedule({
 });
 
 
-// SET-12: trusted migration; preview and actual commit use the same checks.
-// Deployment must explicitly opt in after the rules/emulator release gate.
+// Optional Firebase Functions adapter; Spark production uses Vercel instead.
 exports.changeHouseholdBudgetPolicy=onCall({region,timeoutSeconds:120},async(request)=>{
- const uid=request.auth?.uid;
- if(!uid)throw new HttpsError('unauthenticated','Войдите в Budget');
- const target=request.data?.target, preview=request.data?.preview===true;
- if(!['family','personal'].includes(target))throw new HttpsError('invalid-argument','Неизвестный режим');
- const familyId=await requireFamily(uid);
- if(request.data?.familyId!==familyId)throw new HttpsError('permission-denied','Семья изменилась');
- const db=getFirestore(), familyRef=db.doc(`families/${familyId}`);
- const sharedRef=familyRef.collection('config').doc('settings');
- const archiveRef=familyRef.collection('serverBudgetArchive').doc('shared');
- const enabled=process.env.BUDGET_SET12_ENABLED==='true';
- if(!preview&&!enabled)throw new HttpsError('failed-precondition','SET-12 ещё не активирован на сервере');
- return db.runTransaction(async tx=>{
-   const familySnap=await tx.get(familyRef), family=familySnap.data();
-   if(!family||family.ownerId!==uid||!Array.isArray(family.members)||!family.members.includes(uid))throw new HttpsError('permission-denied','Только администратор');
-   const current=family.budgetPolicy??'family';
-   if(current===target)return {policy:current,enabled,issues:[]};
-   const [profiles,shared,archive,transactions,goals,debts,accounts,subscriptions,meterReadings]=await Promise.all([
-      tx.get(familyRef.collection('members')),tx.get(sharedRef),tx.get(archiveRef),
-      tx.get(familyRef.collection('transactions')),tx.get(familyRef.collection('goals')),tx.get(familyRef.collection('debts')),
-      tx.get(familyRef.collection('accounts').limit(1)),tx.get(familyRef.collection('subscriptions').limit(1)),tx.get(familyRef.collection('meterReadings').limit(1))
-   ]);
-   const configs=Object.create(null),refs=Object.create(null);
-   for(const memberUid of family.members){
-     const ref=familyRef.collection('members').doc(memberUid).collection('config').doc('settings');
-     refs[memberUid]=ref;configs[memberUid]=(await tx.get(ref)).data()??{};
-   }
-   let result;
-   try{
-     result=prepareTransition({family,actor:uid,target,profiles:profiles.docs.map(p=>({...p.data(),id:p.id})),configs,shared:shared.data()??{},archive:archive.data(),records:[...transactions.docs,...goals.docs,...debts.docs].map(p=>p.data()),links:{transactions:transactions.docs.map(p=>({...p.data(),id:p.id})),goals:goals.docs.map(p=>({...p.data(),id:p.id})),debts:debts.docs.map(p=>({...p.data(),id:p.id}))},unsupported:[['accounts',accounts],['subscriptions',subscriptions],['meterReadings',meterReadings]].filter(([,snap])=>!snap.empty).map(([name])=>name)});
-   }catch(error){
-     if(preview)return {policy:current,enabled,issues:[error.message]};
-     throw new HttpsError('failed-precondition','Миграция заблокирована: '+error.message);
-   }
-   if(preview)return {policy:current,enabled,issues:[]};
-   if(target==='personal'){
-     tx.set(archiveRef,result.archive);
-     for(const [memberUid,patch] of Object.entries(result.userPatches))tx.set(refs[memberUid],patch,{merge:true});
-     tx.set(sharedRef,Object.fromEntries(result.removeShared.map(key=>[key,FieldValue.delete()])),{merge:true});
-   }else{
-     tx.set(sharedRef,result.sharedPatch,{merge:true});
-     tx.delete(archiveRef);
-   }
-   tx.update(familyRef,{budgetPolicy:target});
-   return {policy:target,enabled,issues:[]};
- });
+ try{return await changeHouseholdBudgetPolicy({db:getFirestore(),FieldValue,uid:request.auth?.uid,data:request.data,enabled:process.env.BUDGET_SET12_ENABLED==='true'});}
+ catch(error){if(error instanceof PolicyError)throw new HttpsError(error.code,error.message);throw error;}
 });

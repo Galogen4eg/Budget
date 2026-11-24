@@ -32,7 +32,7 @@ test('iteration 76: quick templates and repeat data remain family-scoped',()=>{
  assert.match(src,/subscribeShoppingListLibrary\(familyId/);
  assert.match(src,/saveFamilyShoppingTemplate\(familyId/);
  assert.match(src,/deleteFamilyShoppingTemplate\(familyId/);
- assert.match(src,/recordFamilyPurchase\(familyId, item\)/);
+ assert.match(src,/recordFamilyPurchases\(familyId, pending\)/);
  assert.match(src,/resolveShoppingMemberId\(members, user\?\.uid\)/);
 });
 

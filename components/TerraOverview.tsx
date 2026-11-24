@@ -67,7 +67,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     filteredTransactions, 
     currentMonthSpent, 
     goals,
-    settings, 
+    financialSettings: settings, householdPersonal,
     updateSettings, updateMandatoryPaymentBundle, 
     members, 
     categories, 
@@ -330,7 +330,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
   // A family budget target must not be reported as a personal spending target.
-  const chartDailyLimit = budgetMode === 'family' ? dailyLimit : 0;
+  const chartDailyLimit = budgetMode === 'family' || householdPersonal ? dailyLimit : 0;
 
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
@@ -473,7 +473,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }
     });
 
-    const monthlyLimit = budgetMode === 'family' ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
+    const monthlyLimit = budgetMode === 'family' || householdPersonal ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -512,7 +512,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       complianceRate,
       complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, householdPersonal, realToday, isCurrentCalendarMonth]);
 
   // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
@@ -732,6 +732,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="w-full bg-[#EAE6DD] dark:bg-[#252528] p-1 rounded-xl grid grid-cols-2 gap-1">
             <button
               type="button"
+              hidden={householdPersonal}
+              disabled={householdPersonal}
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
               className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
@@ -1907,7 +1909,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           futureExpenses={detailedMandatoryExpenses}
           manualReserved={manualReserved}
           onUpdateManualSavings={async (amt) => {
-            await updateSettings({ manualReservedAmount: amt });
+            await updateSettings(householdPersonal ? { personalManualReservedAmount: amt } : { manualReservedAmount: amt });
           }}
           onTogglePaid={handleToggleMandatoryPaid}
           onPayExpenses={handlePayMandatoryExpenses}

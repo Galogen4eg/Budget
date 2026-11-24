@@ -64,3 +64,17 @@ test('desktop metric cards use shared surfaces and readable wrapping labels',()=
  assert.match(section,/focus-visible:ring-2/);
  for(const name of ['sharedLedger','dailyLimit','spentToday','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
 });
+
+
+test('overview transaction history uses compact rows and preserves edit actions',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ for(const [marker,end] of [['overview-history-mobile','</section>'],['overview-history-desktop','{/* Reserve Details Modal */}']]){
+  const section=overview.split('data-testid="'+marker+'"')[1]?.split(end)[0];
+  assert.ok(section,marker);
+  assert.match(section,/divide-y divide-\[var\(--terra-border\)\]/);
+  assert.match(section,/min-h-\[56px\]/);
+  assert.match(section,/onEditTransaction\(tx\)/);
+  assert.match(section,/formatAmount\(tx.amount\)/);
+  assert.doesNotMatch(section,/СЕГОДНЯ|whitespace-nowrap/);
+ }
+});

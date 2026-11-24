@@ -16,12 +16,13 @@ import { auth } from '../firebase';
 import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
-import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, inspectPersonalBudgetReadiness } from '../utils/db';
+import { subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, inspectPersonalBudgetReadiness, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -53,7 +54,7 @@ interface SettingsModalProps {
   onOpenDuplicates?: () => void;
 }
 
-type SectionType = 'account' | 'appearance' | 'family' | 'budget' | 'categories' | 'integrations';
+type SectionType = 'account' | 'appearance' | 'family' | 'budget' | 'categories' | 'integrations' | 'diagnostics';
 
 interface SectionConfig {
   id: SectionType;
@@ -68,6 +69,7 @@ const SECTIONS: SectionConfig[] = [
   { id: 'family', label: 'Семья и доступ', subtitle: 'Участники, ID пространства, синхронизация', icon: <Users size={18} /> },
   { id: 'budget', label: 'Бюджет и зарплата', subtitle: 'Дни зарплаты, сбережения, резерв', icon: <Calculator size={18} /> },
   { id: 'categories', label: 'Категории и правила', subtitle: 'Категории трат и авто-правила', icon: <Tag size={18} /> },
+  { id: 'diagnostics', label: 'Диагностика', subtitle: 'Связь с сервером и локальные данные', icon: <Database size={18} /> },
   { id: 'integrations', label: 'Интеграции (Telegram и ИИ)', subtitle: 'Telegram бот, Chat ID, Gemini API', icon: <Send size={18} /> },
 ];
 
@@ -102,6 +104,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showMobileMenu, setShowMobileMenu] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { isOfflineMode }=useAuth();
+  const [networkOnline,setNetworkOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
+  const [syncStatus,setSyncStatus]=useState<{familyId:string;fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string}|null>(null);
+  const [settingsWriteFailed,setSettingsWriteFailed]=useState(false);
+  useEffect(()=>{
+    const update=()=>setNetworkOnline(navigator.onLine);
+    window.addEventListener('online',update);window.addEventListener('offline',update);
+    return ()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};
+  },[]);
+  useEffect(()=>{
+    setSyncStatus(null);
+    if(!currentFamilyId||isOfflineMode||activeSection!=='diagnostics')return;
+    return subscribeToFamilySyncStatus(currentFamilyId,status=>setSyncStatus(prev=>({
+      ...status,familyId:currentFamilyId,confirmedAt:status.confirmedAt??(prev?.familyId===currentFamilyId?prev.confirmedAt:undefined)
+    })));
+  },[currentFamilyId,isOfflineMode,activeSection]);
+  const confirmedSync=syncStatus?.familyId===currentFamilyId?syncStatus:null;
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -514,7 +534,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleChange = useCallback((key: keyof AppSettings, value: any) => {
-    void Promise.resolve().then(() => onUpdate({ [key]: value })).catch(error => {
+    void Promise.resolve().then(() => onUpdate({ [key]: value })).then(()=>setSettingsWriteFailed(false)).catch(error => {
+      setSettingsWriteFailed(true);
       console.error('Settings save failed', error);
       toast.error('Не удалось сохранить настройку. Повторите попытку.');
     });
@@ -1014,6 +1035,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               transactions={transactions}
               onUpdateTransactions={onUpdateTransactions}
             />
+          </div>
+        );
+
+      case 'diagnostics':
+        return (
+          <div className="space-y-4 w-full min-w-0">
+            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-4">
+              <h3 className="text-base font-semibold">Подключение и данные</h3>
+              <dl className="divide-y divide-gray-200 dark:divide-white/10 text-sm">
+                {[
+                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?'Семейный аккаунт':'Без семейного аккаунта'],
+                  ['Сеть устройства',networkOnline?'Доступна по данным браузера':'Нет подключения'],
+                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.fromCache?'Локальный кэш':confirmedSync.pending?'Ожидается подтверждение записи':'Получен с сервера')],
+                  ['Последний ответ сервера',confirmedSync?.confirmedAt?new Date(confirmedSync.confirmedAt).toLocaleString('ru-RU'):'Не подтверждён в этой сессии'],
+                  ['Сохранение настроек',settingsWriteFailed?'Последняя попытка завершилась ошибкой':'Нет зарегистрированной ошибки в этом окне']
+                ].map(([label,value])=><div key={label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3"><dt className="text-gray-500 dark:text-gray-400">{label}</dt><dd className="font-medium break-words min-w-0">{value}</dd></div>)}
+              </dl>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Проверяется документ семейного пространства, а не доставка каждой финансовой операции. Ключи, токены и суммы не выводятся.</p>
+            </section>
           </div>
         );
 

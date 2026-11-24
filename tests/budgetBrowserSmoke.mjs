@@ -233,7 +233,7 @@ try{
       const calendarDay=page.getByRole('button',{name:/^Выбрать 15 /}).filter({visible:true}).first();
       await calendarDay.click();
       assert.equal(await calendarDay.getAttribute('aria-pressed'),'true','1920: selected calendar day not reflected');
-      const expandDay=page.getByRole('button',{name:/Развернуть/}).filter({visible:true}).first();
+      const expandDay=page.getByRole('button',{name:'Операции за день',exact:true}).filter({visible:true}).first();
       const expandBounds=await expandDay.boundingBox();
       assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
       await expandDay.click();

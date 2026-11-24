@@ -892,7 +892,7 @@ export function subscribeToHouseholdBudgetPolicy(
   },onError);
 }
 
-type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[]};
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];ownershipIssues?:BudgetOwnershipIssue[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
   const token=await auth.currentUser.getIdToken();
@@ -930,24 +930,38 @@ export function subscribeToScopedFinancialCollection(
  * Only the household owner may do this, and only in shared mode.
  * Deployed Firestore rules must enforce the same conditions.
  */
+export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
 export async function assignLegacyFinancialOwner(
-  familyId:string, actorUid:string, kind:'goals'|'debts', recordId:string, memberId:string
+  familyId:string, actorUid:string, kind:BudgetOwnershipIssue['kind'], recordId:string, memberId:string, expectedOwner:string|null=null
 ):Promise<void>{
-  if(!familyId||!recordId||!memberId||!actorUid)throw new Error('Не указаны данные назначения владельца');
-  if(kind!=='goals'&&kind!=='debts')throw new Error('Недопустимый тип записи');
+  if(!familyId||!recordId||!memberId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Не указаны данные назначения владельца');
+  if(!['transactions','goals','debts','mandatoryExpenses'].includes(kind))throw new Error('Недопустимый тип записи');
   const familyRef=doc(db,'families',familyId);
-  const recordRef=doc(db,'families',familyId,kind,recordId);
+  const recordRef=kind==='mandatoryExpenses'?doc(db,'families',familyId,'config','settings'):doc(db,'families',familyId,kind,recordId);
   const memberRef=doc(db,'families',familyId,'members',memberId);
   await runTransaction(db,async tx=>{
     const family=await tx.get(familyRef);
     const record=await tx.get(recordRef);
     const member=await tx.get(memberRef);
-    assertBudgetPolicyOwner(family.data()?.ownerId,actorUid);
-    if(family.data()?.budgetPolicy==='personal')throw new Error('Назначение доступно только в совместном режиме');
-    if(!record.exists()||record.data().memberId)throw new Error('Запись уже назначена или недоступна');
+    const familyData=family.data();
+    assertBudgetPolicyOwner(familyData?.ownerId,actorUid);
+    if((familyData?.budgetPolicy??'family')!=='family')throw new Error('Назначение доступно только в совместном режиме');
     const uid=member.data()?.userId;
-    if(typeof uid!=='string'||!uid||!family.data()?.members?.includes(uid))throw new Error('Участник не привязан к семейному аккаунту');
-    tx.update(recordRef,{memberId});
+    if(typeof uid!=='string'||!uid||!familyData?.members?.includes(uid))throw new Error('Участник не привязан к семейному аккаунту');
+    if(!record.exists())throw new Error('Запись не найдена');
+    const expenses=kind==='mandatoryExpenses'?record.data().mandatoryExpenses:undefined;
+    const matches=Array.isArray(expenses)?expenses.filter(e=>e.id===recordId):[];
+    if(kind==='mandatoryExpenses'&&matches.length!==1)throw new Error('Платёж не найден или имеет повторяющийся ID');
+    const row=kind==='mandatoryExpenses'?matches[0]:record.data();
+    const previous=typeof row.memberId==='string'?row.memberId:null;
+    if(previous!==expectedOwner)throw new Error('Владелец изменился. Повторите проверку.');
+    if(previous){
+      if(previous.includes('/'))throw new Error('Некорректный ID владельца. Обратитесь к администратору.');
+      const old=await tx.get(doc(db,'families',familyId,'members',previous));
+      if(old.exists()&&familyData?.members?.includes(old.data().userId))throw new Error('У записи уже есть подтверждённый владелец');
+    }
+    if(kind==='mandatoryExpenses')tx.update(recordRef,{mandatoryExpenses:expenses.map((e:any)=>e.id===recordId?{...e,memberId}:e)});
+    else tx.update(recordRef,{memberId});
   });
 }
 

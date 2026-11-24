@@ -87,4 +87,24 @@ function prepareTransition({family,actor,target,profiles,configs,shared,records,
  const merged=merge(linked.map(p=>({memberId:p.id,mandatoryExpenses:configs[p.uid]?.personalMandatoryExpenses,manualPaidExpenses:configs[p.uid]?.personalManualPaidExpenses})),ids);
  return {policy:target,sharedPatch:{...archive,...merged}};
 }
-module.exports={partition,merge,prepareTransition,SHARED_FINANCE};
+// Diagnostic records are only returned by the authorized joint-mode preflight.
+function findUnownedFinancialRecords({family,profiles,links,shared}){
+ const ids=[];
+ for(const uid of family.members){
+   const matched=profiles.filter(p=>p.userId===uid);
+   if(matched.length!==1||!matched[0].id)return [];
+   ids.push(matched[0].id);
+ }
+ if(new Set(ids).size!==ids.length)return [];
+ const rows=[];
+ for(const [kind,records] of Object.entries({...links,mandatoryExpenses:shared.mandatoryExpenses??[]})){
+   for(const row of records){
+     if(ids.includes(row.memberId)||typeof row.id!=='string'||!row.id)continue;
+     const title=String(row.title||row.name||row.note||row.category||row.id).slice(0,180);
+     const amount=row.amount??row.currentBalance??row.currentAmount;
+     rows.push({kind,id:row.id,owner:typeof row.memberId==='string'?row.memberId:null,title,...(typeof row.date==='string'?{date:row.date}:{}),...(Number.isFinite(amount)?{amount}:{})});
+   }
+ }
+ return rows;
+}
+module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords};

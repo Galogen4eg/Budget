@@ -65,7 +65,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
     shoppingItems, setShoppingItems, 
     events, setEvents, 
     members, categories, 
-    settings,
+    settings, householdPersonal,
     currentMonthSpent, totalBalance
   } = useData();
   const { familyId, user } = useAuth();
@@ -256,6 +256,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
     if (output.actionType === 'add_transaction' && output.transactionPayload) {
       const p = output.transactionPayload;
+      const owner = members.find(m=>m.userId && m.userId===user?.uid)?.id;
+      if (householdPersonal && !owner) throw new Error('Личный финансовый профиль недоступен');
       const newTx: Transaction = {
         id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         amount: p.amount,
@@ -263,13 +265,12 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         category: p.categoryId,
         note: p.note || (p.type === 'expense' ? 'Расход' : 'Доход'),
         date: p.date,
-        memberId: members[0]?.id || user?.uid || 'user',
+        memberId: owner || members[0]?.id || user?.uid || 'user',
       };
 
+      if (!familyId) throw new Error('Семья не подключена');
+      await addItem(familyId, 'transactions', newTx);
       setTransactions(prev => [newTx, ...prev]);
-      if (familyId) {
-        await addItem(familyId, 'transactions', newTx);
-      }
       showToast(`Расход записан: ${newTx.amount.toLocaleString('ru-RU')} ₽`);
     }
   };
@@ -302,7 +303,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         {
           transactions,
           categories,
-          members,
+          members: householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members,
           shoppingItems,
           events,
           currency: settings.currency || '₽',

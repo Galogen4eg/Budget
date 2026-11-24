@@ -6,6 +6,7 @@ import {
 import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
 import { savingsContributionKopecks, nextSavingsGoalAmount } from './transactionSavingsConsistency';
+import { isSavingsTransfer as isSavingsTransferForRepair } from './savingsSync';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
 import { preparePantryMove } from './pantryMove';
 import { assertBudgetPolicyOwner } from './familyBudgetPolicy';
@@ -892,7 +893,7 @@ export function subscribeToHouseholdBudgetPolicy(
   },onError);
 }
 
-type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
+type HouseholdBudgetChangeResult={policy:'family'|'personal';enabled:boolean;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];savingsLinkIssues?:SavingsLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[]};
 const requestHouseholdBudgetPolicy=async(familyId:string,actorUid:string,target:'family'|'personal',preview:boolean):Promise<HouseholdBudgetChangeResult>=>{
   if(!familyId||!actorUid||auth.currentUser?.uid!==actorUid)throw new Error('Семейный аккаунт недоступен');
   const token=await auth.currentUser.getIdToken();
@@ -930,7 +931,8 @@ export function subscribeToScopedFinancialCollection(
  * Only the household owner may do this, and only in shared mode.
  * Deployed Firestore rules must enforce the same conditions.
  */
-export type BudgetLinkIssue={id:string;field:'linkedExpenseId'|'linkedDebtId';targetId:string;owner:string;targetOwner:string;title:string;targetTitle:string;amount?:number;date?:string};
+export type BudgetLinkIssue={id:string;field:'linkedExpenseId'|'linkedDebtId'|'linkedGoalId';targetId:string;owner:string;targetOwner:string;title:string;targetTitle:string;amount?:number;date?:string};
+export type SavingsLinkIssue={id:string;reason:'missing'|'deleted'|'owner';targetId:string|null;owner:string|null;targetOwner:string|null;title:string;targetTitle:string|null;amount:number|null;date:string|null;availableGoals:{id:string;title:string}[]};
 export type BudgetOwnershipIssue={kind:'transactions'|'goals'|'debts'|'subscriptions'|'mandatoryExpenses';id:string;owner:string|null;title:string;date?:string;amount?:number};
 export async function assignLegacyFinancialOwner(
   familyId:string, actorUid:string, kind:BudgetOwnershipIssue['kind'], recordId:string, memberId:string, expectedOwner:string|null=null
@@ -1048,10 +1050,10 @@ export async function deletePersonalItem(familyId:string,uid:string,kind:'rules'
 
 /** Explicit repair: never alter amounts, dates, or links silently. */
 export async function alignLinkedTransactionOwner(familyId:string,actorUid:string,issue:BudgetLinkIssue){
- if(auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!['linkedExpenseId','linkedDebtId'].includes(issue.field))throw new Error('Некорректные данные');
+ if(auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!['linkedExpenseId','linkedDebtId','linkedGoalId'].includes(issue.field))throw new Error('Некорректные данные');
  const familyRef=doc(db,'families',familyId);
  const txRef=doc(db,'families',familyId,'transactions',issue.id);
- const targetRef=issue.field==='linkedExpenseId'?doc(db,'families',familyId,'config','settings'):doc(db,'families',familyId,'debts',issue.targetId);
+ const targetRef=issue.field==='linkedExpenseId'?doc(db,'families',familyId,'config','settings'):doc(db,'families',familyId,issue.field==='linkedGoalId'?'goals':'debts',issue.targetId);
  await runTransaction(db,async t=>{
   const [family,transaction,target]=await Promise.all([t.get(familyRef),t.get(txRef),t.get(targetRef)]);
   const f=family.data(),row=transaction.data();
@@ -1062,5 +1064,25 @@ export async function alignLinkedTransactionOwner(familyId:string,actorUid:strin
   const member=await t.get(doc(db,'families',familyId,'members',issue.targetOwner));
   if(!f?.members?.includes(member.data()?.userId)||!member.data()?.userId)throw new Error('Владелец не подтверждён');
   t.update(txRef,{memberId:issue.targetOwner});
+ });
+}
+
+/** Metadata repair only: the administrator confirms the goal already includes this historical transfer. */
+export async function restoreMissingSavingsLink(familyId:string,actorUid:string,issue:SavingsLinkIssue,goalId:string){
+ if(auth.currentUser?.uid!==actorUid||!familyId||!issue.id||!issue.owner||!goalId||!['missing','deleted'].includes(issue.reason)||!issue.availableGoals.some(g=>g.id===goalId))throw new Error('Некорректные данные');
+ const owner=issue.owner;
+ const familyRef=doc(db,'families',familyId);
+ const rowRef=doc(db,'families',familyId,'transactions',issue.id);
+ const goalRef=doc(db,'families',familyId,'goals',goalId);
+ const memberRef=doc(db,'families',familyId,'members',owner);
+ const previousRef=issue.targetId?doc(db,'families',familyId,'goals',issue.targetId):null;
+ await runTransaction(db,async t=>{
+   const [family,transaction,goal,member]=await Promise.all([t.get(familyRef),t.get(rowRef),t.get(goalRef),t.get(memberRef)]);
+   const previous=previousRef?await t.get(previousRef):null;
+   const f=family.data(),row=transaction.data();
+   assertBudgetPolicyOwner(f?.ownerId,actorUid);
+   if((f?.budgetPolicy??'family')!=='family')throw new Error('Доступно только в совместном режиме');
+   if(!row||row.memberId!==owner||(row.linkedGoalId||null)!==issue.targetId||(Number.isFinite(row.amount)?row.amount:null)!==issue.amount||(typeof row.date==='string'?row.date:null)!==issue.date||!isSavingsTransferForRepair(row)||previous?.exists()||goal.data()?.memberId!==owner||!member.data()?.userId||!f?.members?.includes(member.data()?.userId))throw new Error('Записи изменились. Повторите проверку.');
+   t.update(rowRef,{linkedGoalId:goalId});
  });
 }

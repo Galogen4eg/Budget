@@ -22,8 +22,8 @@ import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
 import MembersSettingsSection from './MembersSettingsSection';
-import type { BudgetOwnershipIssue, BudgetLinkIssue } from '../utils/db';
-import { alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
+import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
+import { restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -192,7 +192,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isHouseholdOwner=Boolean(currentUser?.uid&&currentHouseholdPolicy?.ownerUid===currentUser.uid);
   const [ownershipBusy,setOwnershipBusy]=useState<string|null>(null);
   const [readinessBusy,setReadinessBusy]=useState(false);
-  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
+  const [readiness,setReadiness]=useState<{familyId:string;issues:string[];warnings?:string[];linkIssues?:BudgetLinkIssue[];savingsLinkIssues?:SavingsLinkIssue[];ownershipIssues?:BudgetOwnershipIssue[];enabled:boolean;target:'family'|'personal'}|null>(null);
   const [readinessError,setReadinessError]=useState<string|null>(null);
   const [policyBusy,setPolicyBusy]=useState(false);
   const checkReadiness=async()=>{
@@ -201,7 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setReadinessBusy(true);setReadiness(null);setReadinessError(null);
     try{
       const result=await previewHouseholdBudgetPolicy(currentFamilyId,currentUser.uid,target);
-      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,linkIssues:result.linkIssues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
+      setReadiness({familyId:currentFamilyId,issues:result.issues,warnings:result.warnings,linkIssues:result.linkIssues,savingsLinkIssues:result.savingsLinkIssues,ownershipIssues:result.ownershipIssues,enabled:result.enabled,target});
     }catch(error){setReadinessError(error instanceof Error?error.message:'Проверка не выполнена');}
     finally{setReadinessBusy(false);}
   };
@@ -974,6 +974,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         finally{setOwnershipBusy(null);}
                       }}>Назначить владельца обязательства</button>
                     </div>)}
+                    {readiness?.familyId===currentFamilyId&&readiness.savingsLinkIssues?.map(issue=>{
+                      const key='savings:'+issue.id,selected=ownershipChoices[key]||'';
+                      return <div key={key} className="rounded-xl border border-gray-200 dark:border-white/10 p-3 space-y-2">
+                        <p className="font-medium break-words">{issue.title}{typeof issue.amount==='number'?' · '+(settings.privacyMode?'•••':issue.amount.toLocaleString('ru-RU'))+' ₽':''}</p>
+                        <p className="text-xs break-words text-gray-600 dark:text-gray-300">{issue.date?issue.date+' · ':''}Владелец: {members.find(m=>m.id===issue.owner)?.name??'Неизвестный участник'}. {issue.reason==='missing'?'Цель не указана.':issue.reason==='deleted'?'Прежняя цель не найдена.':'Цель: '+issue.targetTitle+'; владелец цели: '+(members.find(m=>m.id===issue.targetOwner)?.name??'Неизвестный участник')+'.'}</p>
+                        {issue.reason==='owner'&&issue.owner&&issue.targetOwner&&issue.targetId?<button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy} className="min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 disabled:opacity-50" onClick={async()=>{
+                          if(!currentFamilyId||!currentUser?.uid||!issue.owner||!issue.targetOwner||!issue.targetId||!window.confirm('Назначить операции владельца накопительной цели? Подтвердите только если это фактический владелец. Сумма, дата и баланс цели не изменятся.'))return;
+                          setOwnershipBusy(key);
+                          try{await alignLinkedTransactionOwner(currentFamilyId,currentUser.uid,{id:issue.id,field:'linkedGoalId',targetId:issue.targetId,owner:issue.owner,targetOwner:issue.targetOwner,title:issue.title,targetTitle:issue.targetTitle??issue.targetId});setReadiness(null);toast.success('Владелец изменён. Повторите проверку.');}
+                          catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось изменить владельца');}finally{setOwnershipBusy(null);}
+                        }}>Назначить владельца цели</button>:issue.reason!=='owner'&&issue.availableGoals.length>0?<div className="space-y-2">
+                          <p className="text-xs text-gray-600 dark:text-gray-300">Восстановите связь только если перевод уже учтён в балансе выбранной цели. Деньги повторно не начисляются.</p>
+                          <select aria-label={'Накопительная цель: '+issue.title} disabled={!!ownershipBusy||policyBusy||readinessBusy} value={selected} onChange={event=>setOwnershipChoices(prev=>({...prev,[key]:event.target.value}))} className="w-full min-w-0 min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#242528] px-2 text-sm">
+                            <option value="">Выберите фактическую цель</option>
+                            {issue.availableGoals.map(goal=><option key={goal.id} value={goal.id}>{goal.title}</option>)}
+                          </select>
+                          <button type="button" disabled={!!ownershipBusy||policyBusy||readinessBusy||!issue.availableGoals.some(g=>g.id===selected)} className="min-h-[44px] rounded-lg border border-gray-200 dark:border-white/10 px-3 disabled:opacity-50" onClick={async()=>{
+                            if(!currentFamilyId||!currentUser?.uid||!window.confirm('Подтверждаете, что эта операция уже учтена в балансе выбранной цели? Будет изменена только ссылка, без изменения сумм.'))return;
+                            setOwnershipBusy(key);
+                            try{await restoreMissingSavingsLink(currentFamilyId,currentUser.uid,issue,selected);setOwnershipChoices(prev=>({...prev,[key]:''}));setReadiness(null);toast.success('Связь восстановлена. Повторите проверку.');}
+                            catch(error){setReadinessError(error instanceof Error?error.message:'Не удалось восстановить связь');}finally{setOwnershipBusy(null);}
+                          }}>Восстановить связь</button>
+                        </div>:<p className="text-xs text-gray-600 dark:text-gray-300">Нет подтверждённой цели для исправления. Проверьте фактическую принадлежность операции и цели в разделе накоплений.</p>}
+                      </div>;
+                    })}
                     {readiness?.familyId===currentFamilyId&&readiness.warnings?.map((warning,index)=><p key={index} className="text-xs text-gray-600 dark:text-gray-300 break-words">{warning}</p>)}
                   </div>
                   <button type="button" disabled={policyBusy||readinessBusy||!readiness?.enabled||!!readiness.issues.length||readiness.familyId!==currentFamilyId||readiness.target===currentHouseholdPolicy?.policy} onClick={()=>void changePolicy()} className="w-full sm:w-auto min-h-[44px] rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{policyBusy?'Перенос данных…':currentHouseholdPolicy?.policy==='personal'?'Вернуть совместный бюджет':'Включить личные бюджеты'}</button>

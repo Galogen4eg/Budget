@@ -71,15 +71,29 @@ function countHistoricalLinks(links,expenses){
  const bills=new Set(expenses.map(e=>e.id)),debts=new Set(links.debts.map(d=>d.id));
  return links.transactions.reduce((n,t)=>n+Number(Boolean(t.linkedExpenseId&&!bills.has(t.linkedExpenseId)))+Number(Boolean(t.linkedDebtId&&!debts.has(t.linkedDebtId))),0);
 }
+function isSavingsTransfer(t){
+ const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
+ return Boolean(t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word)));
+}
+function findSavingsLinkIssues(links){
+ if(!links)return [];
+ const goals=new Map(links.goals.map(g=>[g.id,g]));
+ const rows=[];
+ for(const t of links.transactions){
+   if(!isSavingsTransfer(t))continue;
+   const targetId=t.linkedGoalId||null,target=goals.get(targetId);
+   const reason=!targetId?'missing':!target?'deleted':target.memberId!==t.memberId?'owner':null;
+   if(!reason)continue;
+   rows.push({id:t.id,reason,targetId,owner:t.memberId??null,targetOwner:target?.memberId??null,title:String(t.note||t.rawNote||t.category||t.id),targetTitle:target?String(target.title||target.name||target.id):null,amount:Number.isFinite(t.amount)?t.amount:null,date:typeof t.date==='string'?t.date:null,availableGoals:reason==='owner'||!t.memberId?[]:links.goals.filter(g=>g.memberId===t.memberId).map(g=>({id:g.id,title:String(g.title||g.name||g.id)}))});
+ }
+ return rows;
+}
 function validateLinks(links,expenses){
  if(!links)return;
- const goals=new Map(links.goals.map(g=>[g.id,g]));
+ if(findSavingsLinkIssues(links).length)throw new Error('Savings goal link missing or belongs to another owner');
  const debts=new Map(links.debts.map(d=>[d.id,d]));
  const bills=new Map(expenses.map(e=>[e.id,e]));
  for(const t of links.transactions){
-   const note=(String(t.note||'')+' '+String(t.rawNote||'')).toLowerCase();
-   const savings=t.linkedGoalId||['savings','transfer_savings'].includes(t.category)||['накопительный счет','накопительный счёт','на накопительный','пополнение копилки','в копилку','копилка','накопления','сберегательный счет','сберегательный счёт','пополнение вклада','вклад','сбережения'].some(word=>note.includes(word));
-   if(savings&&(!t.linkedGoalId||goals.get(t.linkedGoalId)?.memberId!==t.memberId))throw new Error('Savings goal link missing or belongs to another owner');
    if(t.linkedExpenseId&&bills.has(t.linkedExpenseId)&&bills.get(t.linkedExpenseId).memberId!==t.memberId)throw new Error('Transaction obligation belongs to another owner');
    if(t.linkedDebtId&&debts.has(t.linkedDebtId)&&debts.get(t.linkedDebtId).memberId!==t.memberId)throw new Error('Transaction debt belongs to another owner');
  }
@@ -146,4 +160,4 @@ function findUnownedFinancialRecords({family,profiles,links,shared}){
  }
  return rows;
 }
-module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords,findFinancialLinkIssues};
+module.exports={partition,merge,prepareTransition,SHARED_FINANCE,findUnownedFinancialRecords,findFinancialLinkIssues,findSavingsLinkIssues};

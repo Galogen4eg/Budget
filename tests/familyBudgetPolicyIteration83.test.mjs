@@ -39,8 +39,8 @@ test('personal financial projection excludes shared balances, limits and payment
  assert.equal(personal.targetMonthlyBudget,0);
  assert.equal(personal.manualReservedAmount,0);
  assert.deepEqual(personal.categoryBudgets,{});
- assert.deepEqual(personal.mandatoryExpenses,[shared.mandatoryExpenses[0]]);
- assert.deepEqual(personal.manualPaidExpenses,{'2026-11':['a']});
+ assert.deepEqual(personal.mandatoryExpenses,[]);
+ assert.deepEqual(personal.manualPaidExpenses,{});
  assert.equal(shared.initialBalance,90000);
  assert.equal(projectPersonalFinance(shared,undefined).initialBalance,0);
 });

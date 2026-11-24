@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Settings, Upload } from 'lucide-react';
-import { PAGE_HEADING } from './filterUiTokens';
+import { PAGE_HEADING, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 
 interface TerraMobileHeaderProps {
   title: string;
@@ -38,7 +38,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onImport}
             aria-label={importTitle}
             title={importTitle}
-            className="w-11 h-11 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
           >
             <Upload size={18} strokeWidth={2.2} />
           </button>
@@ -50,7 +50,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onAdd}
             aria-label={addTitle}
             title={addTitle}
-            className="w-11 h-11 rounded-full bg-[#4A7C59] hover:bg-[#3D6849] active:scale-95 text-white flex items-center justify-center transition-colors cursor-pointer"
+            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_PRIMARY} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
           >
             <Plus size={20} strokeWidth={2.5} />
           </button>
@@ -62,7 +62,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onOpenSettings}
             aria-label="Настройки и профиль"
             title="Настройки и профиль"
-            className="w-11 h-11 rounded-full bg-[#EAE6DD] dark:bg-[#252528] hover:bg-[#E0DBD0] dark:hover:bg-white/10 active:scale-95 text-[#2E3230] dark:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
           >
             <Settings size={18} strokeWidth={2.2} />
           </button>

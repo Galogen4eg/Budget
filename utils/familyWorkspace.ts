@@ -10,7 +10,7 @@ export function chatMessageTime(timestamp:number):string {
 export function shouldFollowChat(height:number,viewport:number,top:number):boolean {
  return height-viewport-top<=120;
 }
-export function unseenPurchaseCompletions<T extends {id:string;title:string;completed:boolean;completedAt?:number}>(items:readonly T[],history:readonly {shoppingItemId:string;purchaseEventId?:string}[]):T[] {
+export function unseenPurchaseCompletions<T extends {id:string;title:string;completed?:boolean;completedAt?:number|null}>(items:readonly T[],history:readonly {shoppingItemId:string;purchaseEventId?:string}[]):T[] {
  const known=new Set(history.map(p=>p.purchaseEventId||p.shoppingItemId));
  return items.filter(item=>item.completed&&item.id&&item.title?.trim()&&!known.has(item.completedAt?`${item.id}@${item.completedAt}`:item.id));
 }

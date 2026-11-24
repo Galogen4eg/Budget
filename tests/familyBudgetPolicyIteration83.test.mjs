@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance,partitionMandatoryPayments} from '../utils/familyBudgetPolicy.ts';
+import {effectiveBudgetMode,assertBudgetPolicyOwner,resolveBudgetOpening,visibleBudgetRecords,projectPersonalFinance,partitionMandatoryPayments,mergePersonalMandatoryPayments} from '../utils/familyBudgetPolicy.ts';
 
 test('legacy households retain joint budget availability',()=>{
  assert.equal(effectiveBudgetMode(undefined,'family'),'family');
@@ -71,4 +71,21 @@ test('personal payment document is authoritative and never falls back to shared 
  assert.deepEqual(projectPersonalFinance(personal,'a').manualPaidExpenses,{'2026-11':['new']});
  assert.deepEqual(projectPersonalFinance(shared,'a').mandatoryExpenses,[]);
  assert.deepEqual(projectPersonalFinance(shared,'a').manualPaidExpenses,{});
+});
+
+
+test('return to shared mode retains current personal edits and payment history, not stale originals',()=>{
+ const result=mergePersonalMandatoryPayments([
+ {memberId:'a',mandatoryExpenses:[{id:'a1',memberId:'a',amount:1500}],manualPaidExpenses:{'2026-10':['a1']}},
+ {memberId:'b',mandatoryExpenses:[{id:'b2',memberId:'b',amount:800}],manualPaidExpenses:{'2026-10':['b2'],'2026-11':['b2']}}
+ ],['a','b']);
+ assert.deepEqual(result.issues,[]);
+ assert.deepEqual(result.mandatoryExpenses.map(e=>[e.id,e.amount]),[['a1',1500],['b2',800]]);
+ assert.deepEqual(result.manualPaidExpenses,{'2026-10':['a1','b2'],'2026-11':['b2']});
+});
+test('return to shared mode blocks missing members and duplicate or foreign records',()=>{
+ const result=mergePersonalMandatoryPayments([
+ {memberId:'a',mandatoryExpenses:[{id:'x',memberId:'a'},{id:'x',memberId:'a'},{id:'foreign',memberId:'b'}],manualPaidExpenses:{'2026-11':['missing']}}
+ ],['a','b']);
+ assert.ok(result.issues.length>=4);
 });

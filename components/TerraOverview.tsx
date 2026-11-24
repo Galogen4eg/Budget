@@ -384,7 +384,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : householdPersonal?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -457,7 +457,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' && !householdPersonal ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -512,7 +512,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' && !householdPersonal ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
   }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, householdPersonal, realToday, isCurrentCalendarMonth]);
 
@@ -1338,7 +1338,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-graphite dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Lock size={14} className="text-warm-amber" />
-                СЕМЕЙНЫЙ РЕЗЕРВ
+                {householdPersonal?'ЛИЧНЫЙ РЕЗЕРВ':'СЕМЕЙНЫЙ РЕЗЕРВ'}
               </span>
               <span className="text-[10px] bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
                 {reservePercent}%

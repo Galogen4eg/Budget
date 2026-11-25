@@ -43,10 +43,16 @@ test('services cards share surface style',()=>{
 });
 
 test('chat and shared mobile header use consistent page hierarchy and controls',()=>{
- assert.match(chat,/Создать тему/);
+ assert.doesNotMatch(chat,/Создать тему/,'Do not offer an unavailable action');
+ assert.equal((chat.match(/<TerraMobileHeader\b/g)||[]).length,2);
+ assert.match(chat,/setMobileView\('list'\)/);
+ assert.match(chat,/setIsSearching\(!isSearching\)/);
  assert.match(chat,/rounded-none md:rounded-2xl/);
- assert.match(mobileHeader,/PAGE_HEADING/);
- assert.match(mobileHeader,/\$\{ICON_ACTION\}/);
+ assert.match(mobileHeader,/<TerraPageHeader/);
+ assert.match(mobileHeader,/<TerraHeaderAction/);
+ const header=read('TerraPageHeader.tsx');
+ assert.match(header,/className=\{PAGE_HEADING\}/);
+ assert.match(header,/showLabel \? TOOLBAR_ACTION : ICON_ACTION/);
  assert.match(token,/ICON_ACTION = '[^']*h-11 w-11/);
 });
 

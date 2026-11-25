@@ -4,15 +4,19 @@ on:
     branches: [main]
     paths:
       - 'tests/productionQaAccess.mjs'
+      - 'tests/productionTransactionCrud.mjs'
       - '.github/workflows/budget-production-qa-access.yml'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: budget-production-qa
+  cancel-in-progress: false
 jobs:
   read-only-access:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/production-access-check')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -24,3 +28,13 @@ jobs:
           QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
           QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
         run: node tests/productionQaAccess.mjs
+      - name: Install browser test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify production transaction CRUD in isolated QA family
+        env:
+          QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
+          QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
+          QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
+        run: node tests/productionTransactionCrud.mjs

@@ -20,20 +20,23 @@ try {
       try {
         for (const [id, title, primary] of cases) {
           await page.goto(`${base}/iframe.html?id=terra-pageheader--${id}&viewMode=story&globals=theme:${theme}`);
+          await page.evaluate(() => document.fonts.ready);
           const header = page.locator('[data-terra-page-header]');
           await header.waitFor();
+          await header.getByRole('button', { name: 'Уведомления', exact: true }).waitFor();
+          await header.screenshot({ path: `terra-ui-screenshots/${id}-${theme}-${width}.png`, animations: 'disabled' });
           assert.equal(await header.count(), 1);
           assert.equal(await header.getByRole('heading', { name: title, exact: true }).count(), 1);
           assert.equal(await header.evaluate(e => e.scrollWidth <= e.clientWidth), true, `${id}: overflow at ${width}`);
-          for (const label of ['Уведомления', 'Настройки и профиль', ...(primary ? [primary] : [])]) {
+          const secondary = { overview: 'AI Ассистент', budget: 'Импорт выписки', plans: 'Голосовой ввод', shopping: 'Отправить список в Telegram' }[id];
+          for (const label of ['Уведомления', 'Настройки и профиль', ...(primary ? [primary] : []), ...(secondary ? [secondary] : [])]) {
             const button = header.getByRole('button', { name: label, exact: true });
             const rect = await button.boundingBox();
-            assert.ok(rect && rect.width >= 44 && rect.height >= 44, `${id}: target ${label}`);
+            assert.ok(rect && rect.width >= 44 && rect.height >= 44, `${id}/${theme}/${width}: target ${label} ${JSON.stringify(rect)}`);
             await button.click();
             await page.getByTestId('terra-action-result').getByText(label, { exact: true }).waitFor();
           }
           assert.equal(await page.locator('html').evaluate(e => e.classList.contains('dark')), theme === 'dark');
-          await header.screenshot({ path: `terra-ui-screenshots/${id}-${theme}-${width}.png`, animations: 'disabled' });
         }
       } finally { await page.close(); }
     }

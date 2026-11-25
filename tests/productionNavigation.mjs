@@ -184,6 +184,162 @@ async function checkSections(){
    action='close assistant';await expectVisible(close);await close.click();await close.waitFor({state:'hidden'});
  });
 }
+
+const controlResults=[];
+const unavailable=[];
+async function buttonScenario(id,fn){
+ await run('BUTTON-'+id,async()=>{
+  action='reset to authenticated app';await reload();
+  try{await fn();controlResults.push({viewport:label,id,result:'pass'});}
+  catch(error){controlResults.push({viewport:label,id,result:'fail',action});throw error;}
+ });
+}
+const check=(condition,msg)=>{if(!condition)throw new Error(msg);};
+const clickPressed=async(el)=>{
+ await el.click();check(await el.getAttribute('aria-pressed')==='true','Selected control not pressed');
+};
+const closeEvent=async()=>{
+ const d=page.getByRole('dialog').filter({has:page.locator('#event-title-input')});
+ await expectVisible(d);await button(d,'Закрыть редактор события').click();await d.waitFor({state:'hidden'});
+};
+async function checkButtons(){
+ if(!mobile())await buttonScenario('NAV-01-sidebar-toggle',async()=>{
+  await nav('overview','Обзор');
+  action='expand sidebar';const expanded=button(page,'Развернуть боковое меню');const collapsed=button(page,'Свернуть боковое меню');
+  if(await collapsed.count()){await collapsed.click();await expectVisible(expanded);}
+  await expanded.click();await expectVisible(collapsed);check(await collapsed.getAttribute('aria-expanded')==='true','Sidebar not expanded');
+  action='collapse sidebar';await collapsed.click();await expectVisible(expanded);check(await expanded.getAttribute('aria-expanded')==='false','Sidebar not collapsed');
+ });
+ await buttonScenario('OVR-06-category-analytics',async()=>{
+  await nav('overview','Обзор');action='open category analytics';
+  await first(panel('overview').getByTitle('Открыть аналитику всех категорий',{exact:true})).click();
+  const inspector=first(page.getByTitle('Реестр операций',{exact:true}));
+  const analytics=first(page.getByTitle('Аналитика и графики трат',{exact:true}));
+  await expectVisible(inspector);await expectVisible(analytics);
+  action='switch to analytics';await analytics.click();await expectVisible(first(page.getByText('Аналитика трат',{exact:true})));
+  action='switch back to registry';await inspector.click();await expectVisible(first(page.getByText('Реестр операций',{exact:true})));
+  action='close drilldown';await first(page.getByTitle('Закрыть',{exact:true})).click();await analytics.waitFor({state:'hidden'});
+ });
+ await buttonScenario('OVR-report-to-budget',async()=>{
+  await nav('overview','Обзор');action='open report via overview';
+  await button(panel('overview'),mobile()?/^К бюджету/:/^Подробный отчет/,false).click();
+  await expectVisible(panel('budget'));check(await button(page.locator('nav'),'Бюджет').getAttribute('aria-current')==='page','Budget nav not selected');
+ });
+ if(!mobile())await buttonScenario('OVR-05-reserve-details',async()=>{
+  await nav('overview','Обзор');action='open reserve';await button(panel('overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+  const h=page.getByRole('heading',{name:'Структура резерва',exact:true});await expectVisible(h);
+  action='close reserve';await button(h.locator('xpath=../../..'),'Закрыть').click();await h.waitFor({state:'hidden'});
+ });
+ await buttonScenario('OVR-11-shopping-shortcut',async()=>{
+  await nav('overview','Обзор');const p=panel('overview');
+  action='locate shopping widget';const h=first(p.getByRole('heading',{name:'Список покупок',exact:true}));
+  // The mobile widget can be conditionally absent. Never invent its presence.
+  if(!await h.count()){unavailable.push({viewport:label,id:'OVR-11-shopping-shortcut',reason:'widget not present'});throw new Error('Shopping widget fixture absent');}
+  action='open shopping via widget';await button(h.locator('xpath=../../..'),'Все').click();await expectVisible(panel('shopping'));
+ });
+ await buttonScenario('BUD-02-member-filter',async()=>{
+  await nav('budget','Бюджет');const group=first(panel('budget').getByRole('group',{name:'Участник бюджета'}));await expectVisible(group);
+  const choices=group.getByRole('button');check(await choices.count()>=2,'No QA member option');
+  action='select member';await clickPressed(choices.nth(1));check(await button(group,'Все').getAttribute('aria-pressed')==='false','All filter remained selected');
+  action='restore all members';await clickPressed(button(group,'Все'));check(await choices.nth(1).getAttribute('aria-pressed')==='false','Member filter remained selected');
+ });
+ await buttonScenario('BUD-04-select-calendar-day',async()=>{
+  await nav('budget','Бюджет');const p=panel('budget');const calendar=first(p.getByTestId(mobile()?'budget-calendar-mobile':'budget-calendar-desktop'));
+  await expectVisible(calendar);action='choose a different date';const choice=first(calendar.locator('[role="button"][aria-pressed="false"][aria-label^="Выбрать"]'));
+  const selected=await choice.getAttribute('aria-label');await clickPressed(choice);
+  check(await button(calendar,selected).getAttribute('aria-pressed')==='true','Selected date lost');
+ });
+ await buttonScenario('BUD-05-day-details',async()=>{
+  await nav('budget','Бюджет');action='open day details';await button(panel('budget'),mobile()?'Операции за выбранный день':'Операции за день').click();
+  const body=first(page.getByText('Финансовые операции и детальный баланс дня',{exact:true}));await expectVisible(body);
+  action='close day details';await first(page.getByTitle('Закрыть',{exact:true})).click();await body.waitFor({state:'hidden'});
+ });
+ await buttonScenario('BUD-16-new-payment-cancel',async()=>{
+  await nav('budget','Бюджет');action='open mandatory payment editor';await button(panel('budget'),'Добавить обязательный платёж').click();
+  const h=page.getByRole('heading',{name:'Новый обязательный платёж',exact:true});await expectVisible(h);
+  action='edit draft without saving';await page.locator('#paymentName').fill('QA unsaved draft');await page.locator('#paymentAmount').fill('123.45');
+  action='cancel payment editor';await button(h.locator('xpath=..'),'Закрыть').click();await h.waitFor({state:'hidden'});
+ });
+ await buttonScenario('PLN-01-agenda-filters',async()=>{
+  await nav('plans','Планы');const p=panel('plans');const toggle=first(p.locator('button[aria-controls="family-agenda-content"]'));
+  action='expand agenda';if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+  check(await toggle.getAttribute('aria-expanded')==='true','Agenda did not expand');
+  const group=first(p.getByRole('group',{name:'Период календаря'}));await expectVisible(group);
+  for(const name of ['Сегодня','7 дней','30 дней','Задачи']){action='agenda filter '+name;await clickPressed(button(group,name));}
+  action='collapse agenda';await toggle.click();check(await toggle.getAttribute('aria-expanded')==='false','Agenda did not collapse');await group.waitFor({state:'hidden'});
+ });
+ await buttonScenario('PLN-02-member-filter-and-month-date',async()=>{
+  await nav('plans','Планы');const p=panel('plans');
+  action='calendar member filter';const group=first(p.getByRole('group',{name:mobile()?'Фильтр участников планов':'Участник планов'}));await expectVisible(group);
+  const choices=group.locator('button[aria-pressed]');check(await choices.count()>=2,'No member filter');
+  const initial=await choices.evaluateAll(nodes=>nodes.findIndex(n=>n.getAttribute('aria-pressed')==='true'));
+  check(initial>=0,'Missing active filter');await clickPressed(choices.nth(initial===0?1:0));await clickPressed(choices.nth(initial));
+  action='month view';await clickPressed(button(p,'Месяц'));
+  action='choose another date';const cell=first(p.locator('[aria-label^="Выбрать"][aria-pressed="false"]'));await clickPressed(cell);
+ });
+ await buttonScenario('PLN-03-task-editor-cancel',async()=>{
+  await nav('plans','Планы');const p=panel('plans');
+  if(mobile()){const toggle=first(p.locator('button[aria-controls="family-agenda-content"]'));if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();}
+  action='open task editor';await button(p,'Задача').click();
+  const d=page.getByRole('dialog').filter({has:page.locator('#event-title-input')});await expectVisible(d);
+  const kind=d.locator('select').filter({has:d.locator('option[value="task"]')});
+  check(await kind.inputValue()==='task','Task editor opened as event');
+  action='cancel unsaved task';await closeEvent();
+ });
+ await buttonScenario('SHP-06-search-clear',async()=>{
+  await nav('shopping','Покупки');const p=panel('shopping');const input=p.getByRole('textbox',{name:'Поиск по товарам в семейном списке'});
+  action='search products';await input.fill('QA no match button audit');check(await input.inputValue()==='QA no match button audit','Search input did not update');
+  action='clear product search';if(mobile())await button(p,'Очистить поиск товаров').click();else await input.fill('');
+  check(await input.inputValue()==='','Shopping search not cleared');
+ });
+ await buttonScenario('SHP-02-editor-cancel',async()=>{
+  await nav('shopping','Покупки');action='open product editor';await button(panel('shopping'),'Добавить товар').click();
+  const close=button(page,'Закрыть редактор товара');await expectVisible(close);
+  action='cancel product editor';await close.click();await close.waitFor({state:'hidden'});
+ });
+ await buttonScenario('CHT-01-create-topic-placeholder',async()=>{
+  await nav('chat','Чат');const p=panel('chat');if(mobile())await button(p,'К спискам чатов').click();
+  action='click create topic';await button(p,'Создать тему').click();
+  const notice=first(page.getByText('Создание новых тем временно недоступно до подключения синхронизации.',{exact:true}));
+  await expectVisible(notice);
+  // A toast proves the button is a placeholder, not a functional topic flow.
+  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'confirmed placeholder on production'});
+  console.log('BUTTON LIMIT '+label+' CHT-01 topic creation explicitly unavailable');
+  throw new Error('Topic creation is unavailable');
+ });
+ await buttonScenario('SRV-04-wallet-editor-cancel',async()=>{
+  await nav('services','Сервисы');const p=panel('services');action='open wallet';await button(p,/^Карты лояльности/,false).click();
+  action='open card editor';await button(p,'Добавить карту').click();const h=page.getByRole('heading',{name:'Новая карта',exact:true});await expectVisible(h);
+  action='close unsaved card';await first(h.locator('xpath=..').getByTitle('Закрыть',{exact:true})).click();await h.waitFor({state:'hidden'});
+  action='return to service menu';await button(p,'Все сервисы').click();await expectVisible(p.locator('[data-purpose="service-cards-grid"]'));
+ });
+ await buttonScenario('SRV-02-debt-editor-cancel',async()=>{
+  await nav('services','Сервисы');const p=panel('services');action='open debts';await button(p,/^Долги/,false).click();
+  action='open new debt editor';await button(p,'Добавить долг').click();const h=page.getByRole('heading',{name:'Новый долг',exact:true});await expectVisible(h);
+  action='cancel debt editor';await button(page,'Закрыть окно').click();await h.waitFor({state:'hidden'});
+  action='return to service menu';await button(p,'Все сервисы').click();await expectVisible(p.locator('[data-purpose="service-cards-grid"]'));
+ });
+ await buttonScenario('SET-01-logout-cancel',async()=>{
+  await nav('overview','Обзор');const d=await openSettings();action='select profile';await button(d.getByRole('navigation',{name:'Разделы настроек'}),/^Профиль и безопасность/,false).click();
+  action='open logout confirmation without submitting';await button(d,'Выйти из профиля').click();
+  const h=page.getByRole('heading',{name:'Выйти из профиля?',exact:true});await expectVisible(h);
+  action='cancel logout';await button(page,'Остаться').click();await h.waitFor({state:'hidden'});await expectVisible(d);
+  action='close settings';await button(d,'Закрыть настройки').click();await d.waitFor({state:'hidden'});
+ });
+}
+async function extraViewportInventory(){
+ for(const [width,height] of [[320,568],[768,1024],[1280,800],[1920,1080]]){
+  label='viewport-'+width;await page.setViewportSize({width,height});await reload();
+  // At tablet widths the layout may be desktop or mobile per section.
+  // Only verify visible navigation and inventory here, not mobile-specific locators.
+  for(const [id,name] of sections)await run('MATRIX-NAV-'+id,async()=>{
+   action='activate section';const tab=button(page.locator('nav'),name);await tab.click();await expectVisible(panel(id));
+   check(await tab.getAttribute('aria-current')==='page','Navigation selected state missing');
+   action='wait for at least one visible interactive control';await first(panel(id).getByRole('button')).waitFor({state:'visible'});await inventory(id);
+  });
+ }
+}
+
 try{
  await page.route('**/*',route=>{
   const req=route.request(),url=new URL(req.url());
@@ -200,8 +356,10 @@ try{
  const user=await response.json();
  if(!response.ok()||user.localId!==family)throw new Error('QA login mismatch');
  await ready();
- await checkSections();
- label='mobile-390';await page.setViewportSize({width:390,height:844});await reload();await checkSections();
+ await checkSections();await checkButtons();
+ label='mobile-390';await page.setViewportSize({width:390,height:844});await reload();await checkSections();await checkButtons();
+ await extraViewportInventory();
+ console.log('BUTTON AUDIT SUMMARY '+JSON.stringify({controlResults,unavailable,scope:'explicit named actions; not exhaustive, no external calls or intentional financial writes'}));
  console.log('SUMMARY '+JSON.stringify({failures,counts}));
  if(failures.length)process.exitCode=1;
 }catch{console.error('FAIL production navigation suite setup or reset ('+label+')');process.exitCode=1;}

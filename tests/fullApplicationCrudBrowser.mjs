@@ -1,3 +1,4 @@
+import {makeFamilyFixtures} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
@@ -30,6 +31,23 @@ for(const [i,u] of users.entries()){
 await family.collection('config').doc('settings').set({currency:'₽',familyName:'CRUD QA',initialBalance:5000});
 await family.collection('categories').doc('food').set({id:'food',label:'Продукты',color:'#4A7C59',icon:'tag',transactionType:'expense'});
 await rows.doc(original.id).set(original);
+// Keep empty-state CRUD isolated. A separate populated run tests realistic history and layout.
+const populated=process.argv.includes('--populated');
+if(populated){
+ const fixtures=makeFamilyFixtures({now:new Date(date),members:users.map((u,i)=>({id:i?'b':'a',userId:u.uid}))});
+ // Seed once in the emulator, never in the production database.
+ const batch=db.batch();
+ for(const [kind,records] of Object.entries(fixtures)){
+  for(const record of records)batch.create(family.collection(kind).doc(record.id),record);
+ }
+ await batch.commit();
+ for(const [kind,records] of Object.entries(fixtures)){
+  const snapshot=await family.collection(kind).get();
+  assert.equal(snapshot.size,records.length+(kind==='transactions'?1:0),'fixture count '+kind);
+ }
+ console.log('PASS populated family fixture '+JSON.stringify(Object.fromEntries(Object.entries(fixtures).map(([k,v])=>[k,v.length]))));
+}
+
 let server,browser;
 const visible=(locator)=>locator.filter({visible:true}).first();
 const heading=(page,name)=>page.getByRole('heading',{name,exact:true});

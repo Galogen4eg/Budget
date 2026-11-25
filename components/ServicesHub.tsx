@@ -129,17 +129,17 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                   type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[#4A7C59]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] group cursor-pointer`}
+                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[var(--terra-primary-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] group cursor-pointer`}
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}
                     <div className="flex items-start justify-between mb-2 sm:mb-3.5">
                       {/* Icon with Sage/Mint Rounded Container */}
-                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
+                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[var(--terra-primary-soft)] flex items-center justify-center text-[var(--terra-primary-text)]  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
                         {app.icon}
                       </div>
 
-                      <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-0.5 sm:p-1">
+                      <div className="text-[var(--terra-muted)] group-hover:text-[var(--terra-primary-text)] transition-colors p-0.5 sm:p-1">
                         <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 " />
                       </div>
                     </div>

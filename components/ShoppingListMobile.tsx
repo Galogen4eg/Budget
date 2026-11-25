@@ -520,7 +520,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             disabled={isSendingTelegram}
             title="Отправить список в Telegram"
             aria-label="Отправить список в Telegram"
-            className="min-w-[44px] min-h-[44px] rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
+            className="min-w-[44px] min-h-[44px] rounded-xl bg-[var(--terra-soft)] hover:bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center transition-colors terra-press cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
           >
             {isSendingTelegram ? (
               <Loader2 size={18} className="animate-spin" />
@@ -592,7 +592,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col w-full max-w-md mx-auto px-4 pt-3 space-y-3.5">
+      <div className="flex flex-col w-full max-w-3xl mx-auto px-4 pt-3 space-y-4">
         
         {/* Status Counters Strip */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
@@ -1052,13 +1052,13 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               {isUrgent && (
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[#B45309] dark:text-[#FCD34D] text-[10px] font-bold">
+                <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[var(--terra-offline-text)] text-xs font-semibold">
                   <Zap size={10} className="fill-current" />
                   <span>Срочно</span>
                 </span>
               )}
               {item.note && (
-                <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 truncate max-w-[140px]">
+                <span className="text-xs text-[var(--terra-muted)] break-words [overflow-wrap:anywhere] max-w-full">
                   {item.note}
                 </span>
               )}
@@ -1082,7 +1082,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
           >
             -
           </button>
-          <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white px-1.5 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
+          <span className="text-sm font-semibold text-[var(--terra-ink)] px-2 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 

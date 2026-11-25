@@ -84,7 +84,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           <button
             type="button"
             onClick={() => setIsMonthPickerOpen(prev => !prev)}
-            aria-expanded={isMonthPickerOpen}
+            aria-expanded={isMonthPickerOpen} aria-controls="overview-month-options"
             aria-label={`Выбрать месяц. Сейчас: ${currentMonthName}`}
             className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
           >
@@ -99,7 +99,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                 className="fixed inset-0 z-20" 
                 onClick={() => setIsMonthPickerOpen(false)} 
               />
-              <div className="absolute left-0 xl:left-auto xl:right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
+              <div id="overview-month-options" role="group" aria-label="Доступные месяцы" className="absolute left-0 xl:left-auto xl:right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
                 {monthOptions.map(m => {
                   const isSelected = 
                     m.date.getMonth() === activeMonth.getMonth() && 

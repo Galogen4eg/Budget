@@ -186,7 +186,7 @@ try{
       const picker=page.getByRole('button',{name:/Выбрать месяц\. Сейчас:/});
       await picker.click();
       assert.equal(await picker.getAttribute('aria-expanded'),'true','1920: month picker did not open');
-      const options=page.locator('div.absolute.right-0.top-full').getByRole('button');
+      const options=page.getByRole('group',{name:'Доступные месяцы',exact:true}).getByRole('button');
       assert.ok(await options.count()>0,'1920: no month options');
       await options.first().click();
       assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: month picker did not close');
@@ -195,7 +195,7 @@ try{
       await picker.click();
       // Desktop month picker has month options but no "Current month" button.
       // The last option in this picker is the latest available period.
-      await page.locator('div.absolute.right-0.top-full').getByRole('button').last().click();
+      await page.getByRole('group',{name:'Доступные месяцы',exact:true}).getByRole('button').last().click();
       assert.equal(await picker.getAttribute('aria-expanded'),'false','1920: latest month picker did not close');
       const personal=page.getByRole('button',{name:/^Личный/}).first();
       const family=page.getByRole('button',{name:/^Семейный$/}).first();

@@ -840,7 +840,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
   return (
     <div className="flex-1 w-full h-full overflow-y-auto bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-stone-100 font-sans p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-20">
+      <div className="terra-shopping-layout w-full max-w-[1280px] mx-auto flex flex-col gap-5 pb-8">
         
         {/* Top Header & Summary */}
         <header className="flex flex-col gap-6">
@@ -938,10 +938,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         </header>
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
+        <div className="terra-shopping-columns grid gap-5 items-start w-full">
           
           {/* Main Left Area: Categories & Items Checklist */}
-          <div className="lg:col-span-8 flex flex-col gap-6 w-full min-w-0">
+          <div className="flex flex-col gap-5 w-full min-w-0">
             
             {/* Smart Quick Add Bar (Terra styled) */}
             <div className={`${SURFACE_CARD} w-full min-w-0`}>
@@ -1189,7 +1189,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           </div>
 
           {/* Right Column: Smart Summary, Quick Favorites & Sync */}
-          <div className="lg:col-span-4 flex flex-col gap-6 shrink-0">
+          <div className="flex flex-col gap-5 min-w-0">
             
             {/* Quick Add Templates (Dynamic Family Favorites) */}
             <div className={`${SURFACE_CARD} flex flex-col gap-3`}>
@@ -1509,7 +1509,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                   isVoiceListening ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'bg-[#4A7C59] text-white'
                 }`}>
-                  <Mic size={19} className={isVoiceListening ? 'animate-bounce' : ''} />
+                  <Mic size={19} />
                 </div>
                 <div>
                   <h3 className="font-serif text-lg font-bold text-[var(--terra-ink)] dark:text-white">
@@ -1542,15 +1542,13 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               {/* Voice Visualizer / Microphone Center */}
               <div className="flex flex-col items-center justify-center py-4 px-6 bg-white dark:bg-[var(--terra-soft)] rounded-2xl border border-[var(--terra-border)] dark:border-white/5 gap-3">
                 <div className="relative">
-                  {isVoiceListening && (
-                    <div className="absolute -inset-3 bg-rose-500/20 rounded-full animate-ping pointer-events-none" />
-                  )}
+
                   <button
                     onClick={isVoiceListening ? stopVoiceRecording : startVoiceRecording}
-                    className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 cursor-pointer ${
+                    className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                       isVoiceListening 
-                        ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/40 scale-105' 
-                        : 'bg-[#4A7C59] hover:bg-[#3D694B] text-white shadow-[#4A7C59]/30 hover:scale-105'
+                        ? 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]' 
+                        : 'bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)]'
                     }`}
                   >
                     {isVoiceListening ? <MicOff size={32} /> : <Mic size={32} />}

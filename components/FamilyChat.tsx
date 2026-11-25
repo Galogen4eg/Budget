@@ -398,7 +398,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                       <div className="flex items-baseline gap-2 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
-                        <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                        <span className="text-xs font-body text-[var(--terra-muted)]">
                           {chatMessageTime(msg.timestamp)}
                         </span>
                       </div>
@@ -456,12 +456,12 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <div className="flex items-baseline gap-2 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
-                        <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                        <span className="text-xs font-body text-[var(--terra-muted)]">
                           {chatMessageTime(msg.timestamp)}
                         </span>
                       </div>
 
-                      <div className="relative bg-surface-container-lowest dark:bg-[var(--terra-surface)] border border-outline-variant/20 dark:border-white/10 p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
+                      <div className="relative bg-[var(--terra-surface)] border border-[var(--terra-border)] p-3.5 break-words [overflow-wrap:anywhere] whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-sm sm:text-base leading-relaxed font-body">
                         <span data-testid="chat-message-text">{msg.text}</span>
 
                         <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -481,13 +481,13 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               return (
                 <div key={msg.id} className="flex flex-col items-end gap-1 self-end max-w-[88%] ml-auto">
                   <div className="flex items-baseline gap-2 px-1">
-                    <span className="text-[11px] font-body text-on-surface-variant dark:text-stone-400">
+                    <span className="text-xs font-body text-[var(--terra-muted)]">
                       {chatMessageTime(msg.timestamp)}
                     </span>
                     <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">Вы</span>
                   </div>
 
-                  <div className="bg-[#2D5A3F] text-white p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tr-sm text-[14.5px] leading-relaxed font-body font-medium">
+                  <div className="bg-[var(--terra-primary-soft)] text-[var(--terra-ink)] p-3.5 break-words [overflow-wrap:anywhere] whitespace-pre-wrap rounded-2xl rounded-tr-sm text-sm sm:text-base leading-relaxed font-body font-medium">
                     {msg.text}
                   </div>
                   {!!msg.heartUsers?.length&&<span className="text-xs text-graphite-muted dark:text-gray-400">♥ {msg.heartUsers.length}</span>}
@@ -542,7 +542,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               type="submit"
               aria-label="Отправить сообщение"
               disabled={isSendingMessage || !inputText.trim() || !familyId || !user}
-              className="h-11 px-3 sm:px-4 rounded-xl bg-[#2D5A3F] hover:bg-[#244933] text-white font-body font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
+              className="h-11 px-3 sm:px-4 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] font-body font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors terra-press shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
             >
               <span className="hidden sm:inline text-white">Отправить</span>
               <span className="material-symbols-outlined text-[17px] text-white">send</span>

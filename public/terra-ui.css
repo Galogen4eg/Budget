@@ -65,3 +65,9 @@ html.dark {
 @container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
 @container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:repeat(4,minmax(0,1fr));}}
 @container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
+
+/* Width belongs to the working area, not the browser viewport. */
+.terra-budget-layout,.terra-shopping-layout {container-type:inline-size;}
+.terra-budget-columns,.terra-shopping-columns {grid-template-columns:minmax(0,1fr);}
+@container (min-width:1060px) {.terra-budget-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
+@container (min-width:920px) {.terra-shopping-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}

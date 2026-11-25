@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -101,6 +102,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   currency = '₽'
 }) => {
   useBodyScrollLock(isOpen ?? true);
+  const surface=useModalSurface(onClose,{enabled:isOpen??true,initialSelector:'[aria-label="Закрыть"]'});
 
   const currentMonthName = useMemo(() => {
     const raw = new Date().toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
@@ -192,12 +194,12 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto">
-      <motion.div role="dialog" aria-modal="true" aria-labelledby="terra-reserve-heading"
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-reserve-heading"
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 16 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-5xl bg-[#FCFAF7] dark:bg-[#1C1C1E] border-0 sm:border border-stone-200/90 dark:border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-stone-900/15 overflow-hidden text-stone-800 dark:text-stone-100 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-5xl bg-[var(--terra-surface)] border-0 sm:border border-[var(--terra-border)] rounded-none sm:rounded-2xl shadow-xl overflow-hidden text-stone-800 dark:text-stone-100 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
 
         {/* Modal Header */}

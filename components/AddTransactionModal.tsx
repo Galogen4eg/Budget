@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -137,6 +138,7 @@ export default function AddTransactionModal({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
+  const surface=useModalSurface(()=>{if(!isSubmitting)onClose();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
 
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
@@ -333,12 +335,12 @@ export default function AddTransactionModal({
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
         transition={{ duration: 0.18 }}
-        onClick={onClose} 
+        onClick={()=>{if(!isSubmitting)onClose();}} 
         className="absolute inset-0 bg-[#2E3230]/65 backdrop-blur-xs" 
       />
       
       {/* 2-Column Modal Dialog Container */}
-      <motion.div role="dialog" aria-modal="true" aria-label={initialTransaction ? 'Редактирование операции' : 'Новая операция'}
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-label={initialTransaction ? 'Редактирование операции' : 'Новая операция'}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
@@ -440,7 +442,6 @@ export default function AddTransactionModal({
                                 ? 'text-xl sm:text-2xl' 
                                 : 'text-2xl sm:text-3xl'
                             }`}
-                            autoFocus={!initialTransaction}
                           />
                           <span ref={spanRef} className={`absolute invisible whitespace-pre font-headline font-bold ${
                             amount.length > 9 
@@ -658,7 +659,7 @@ export default function AddTransactionModal({
                     </AnimatePresence>
 
                     {/* Категория (Выбор) */}
-                    <div 
+                    <button type="button" aria-label="Выбрать категорию" aria-haspopup="dialog" aria-expanded={isDesktopCategoryPickerOpen||isMobileCategoryPickerOpen}
                       onClick={() => {
                         if (typeof window !== 'undefined' && window.innerWidth >= 768) {
                           setIsDesktopCategoryPickerOpen(true);
@@ -666,7 +667,7 @@ export default function AddTransactionModal({
                           setIsMobileCategoryPickerOpen(true);
                         }
                       }}
-                      className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
+                      className="w-full min-h-[44px] text-left bg-[var(--terra-surface)] rounded-xl p-3 border border-[var(--terra-border)] hover:border-[var(--terra-primary-text)] flex items-center justify-between cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div 
@@ -691,7 +692,7 @@ export default function AddTransactionModal({
                         </div>
                       </div>
                       <ChevronRight size={16} className="text-graphite-muted group-hover:text-primary group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
-                    </div>
+                    </button>
                   </div>
 
                   {/* Right Block: Metadata Details & Notes */}

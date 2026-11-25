@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -69,6 +70,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
       !categories.some(category => category.id === item.category)),
     [items, categories]
   );
+  const surface=useModalSurface(()=>{if(openPickerId)setOpenPickerId(null);else onClose();},{enabled:isOpen,variant:remaining.length?'items':'done'});
   const analyses = useMemo(() => new Map<string, AnalysisResult>(
     remaining.map(item => [
       item.id,
@@ -106,10 +108,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [role="dialog"] [contenteditable]')) return;
-      if (event.key === 'Escape') {
-        if (openPickerId) setOpenPickerId(null);
-        else onClose();
-      }
+      if(event.defaultPrevented)return;
       if (viewMode !== 'single' || openPickerId) return;
       if (event.key === 'ArrowLeft') setCurrentIndex(index => Math.max(0, index - 1));
       if (event.key === 'ArrowRight') setCurrentIndex(index => Math.min(remaining.length - 1, index + 1));
@@ -199,7 +198,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   if (!remaining.length) {
     return createPortal(
       <div className="fixed inset-0 z-[3000] bg-stone-950/60 flex items-center justify-center p-4">
-        <div role="dialog" aria-modal="true" aria-label="Разбор завершён"
+        <div {...surface} role="dialog" aria-modal="true" aria-label="Разбор завершён"
           className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-7 max-w-6xl w-full h-[88dvh] max-h-[820px] flex flex-col items-center justify-center text-center gap-4 shadow-2xl">
           <CheckCheck className="mx-auto text-[#4A7C59]" size={38} />
           <h2 className="text-xl font-bold text-stone-900 dark:text-white">Все категории назначены</h2>
@@ -216,7 +215,7 @@ export const UnrecognizedAnalyzerModal: React.FC<UnrecognizedAnalyzerModalProps>
   return createPortal(
     <div className="fixed inset-0 z-[3000] bg-stone-950/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-5"
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-label="Разбор операций"
+      <div {...surface} role="dialog" aria-modal="true" aria-label="Разбор операций"
         className="bg-[#FAF8F5] dark:bg-[#1C1C1E] text-stone-900 dark:text-white w-full max-w-6xl h-[100dvh] sm:h-[88dvh] sm:max-h-[820px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         <header className="bg-white dark:bg-[#252528] border-b border-stone-200 dark:border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">

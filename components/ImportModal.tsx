@@ -1,3 +1,6 @@
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Check, X, FileText, ArrowDownRight, ArrowUpRight, 
@@ -87,6 +90,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  useBodyScrollLock();
+  const surface=useModalSurface(()=>{if(!isConfirmingImport)onCancel();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
   const pendingRulesRef = useRef<LearnedRule[]>([]);
   // Snapshot of saved family history, not the changing preview, keeps ranking stable.
   const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
@@ -572,7 +577,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     });
   }, [items, filterTab, searchQuery, categories]);
 
-  return (
+  return createPortal(
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -583,7 +588,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     >
       
       {/* Модальное диалоговое окно */}
-      <div 
+      <div {...surface}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -1218,7 +1223,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           // Stay in the analyzer; only its explicit Close button returns to the preview.
         }}
       />
-    </div>
+    </div>,document.body
   );
 };
 

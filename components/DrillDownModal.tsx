@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
@@ -439,6 +440,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     : 'Текущий месяц';
 
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const surface=useModalSurface(onClose,{enabled:!isMobile,initialSelector:'[aria-label="Закрыть"]'});
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -565,7 +567,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       />
       
       {/* Main Modal Inspector Card with LOCKED CONSTANT HEIGHT to prevent size jumping */}
-      <motion.div role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
         initial={{ opacity: 0, scale: 0.98, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: 6 }}

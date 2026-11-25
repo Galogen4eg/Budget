@@ -71,3 +71,7 @@ html.dark {
 .terra-budget-columns,.terra-shopping-columns {grid-template-columns:minmax(0,1fr);}
 @container (min-width:1060px) {.terra-budget-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
 @container (min-width:920px) {.terra-shopping-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
+
+[data-terra-dialog]:focus {outline:none;}
+[data-terra-dialog] :is(button,a[href],input,select,textarea,[tabindex]):focus-visible {outline:2px solid var(--terra-focus);outline-offset:2px;}
+@media(prefers-reduced-motion:reduce){[data-terra-dialog] {animation:none!important;}}

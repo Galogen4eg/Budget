@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -37,6 +38,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   transactions = []
 }) => {
   useModalBackHandler(isOpen, onClose);
+  const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть"]'});
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
 
@@ -300,8 +302,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/25 backdrop-blur-[2px] overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
+          {...surface} role="dialog"
+          aria-modal="true" aria-label="Выбор категории"
         >
       <motion.div 
         initial={{ scale: 0.94, opacity: 0, y: 18 }}

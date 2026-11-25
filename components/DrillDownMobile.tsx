@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -95,6 +96,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   categories = []
 }) => {
   const [showFilterOptions, setShowFilterOptions] = useState(false);
+  const surface=useModalSurface(()=>{if(viewMode==='analytics')setViewMode('inspector');else onClose();},{initialSelector:'[aria-label="Закрыть или вернуться назад"]'});
 
   const peakInfo = useMemo(() => chartData.reduce<{label:string;maxVal:number}|null>((peak,item)=>{
     const volume=item.expense+item.income;
@@ -133,7 +135,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   const memberInitial = (currentMember?.name || 'П').charAt(0).toUpperCase();
 
   return (
-    <motion.div role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
+    <motion.div {...surface} role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

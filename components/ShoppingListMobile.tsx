@@ -508,7 +508,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-4 md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
-        title="Список покупок"
+        title="Покупки"
         onAdd={handleOpenAdd}
         addTitle="Добавить товар"
         onOpenSettings={onOpenSettings}

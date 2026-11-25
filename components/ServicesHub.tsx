@@ -17,13 +17,15 @@ interface ServicesHubProps {
   onClearService?: () => void;
   onNavigateHome?: () => void;
   onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 const ServicesHub: React.FC<ServicesHubProps> = ({ 
   initialService, 
   onClearService, 
   onNavigateHome,
-  onOpenSettings
+  onOpenSettings,
+  onOpenNotifications
 }) => {
   const isValidService = (value: string | null | undefined): value is ServiceType =>
     value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
@@ -111,16 +113,17 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
       <div className="md:hidden shrink-0">
         <TerraMobileHeader 
           title="Сервисы" 
-          onOpenSettings={onOpenSettings} 
+          onOpenSettings={onOpenSettings}
+          onOpenNotifications={onOpenNotifications} 
         />
       </div>
 
-      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
+      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-[1280px] mx-auto px-4 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-4 md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
             <h1 className={`hidden md:block ${PAGE_HEADING}`}>Сервисы</h1>
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
-            <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" data-purpose="service-cards-grid">
+            <div className="terra-service-grid grid gap-3 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <button
                   type="button"

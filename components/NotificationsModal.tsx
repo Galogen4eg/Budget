@@ -1,9 +1,10 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { notificationView, markNotificationsRead, type NotificationFilter } from '../utils/notificationView';
 
 interface NotificationsModalProps { readonly onClose: () => void; }
@@ -15,16 +16,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
  const headingId = useId();
  const closeRef = useRef<HTMLButtonElement>(null);
  useBodyScrollLock();
- useEffect(()=>{
-  const previous=document.activeElement;
-  closeRef.current?.focus();
-  return ()=>{if(previous instanceof HTMLElement&&previous.isConnected)previous.focus();};
- },[]);
+ const dialogRef=useRef<HTMLDivElement>(null);
+ const onDialogKeyDown=useDialogFocus(dialogRef,closeRef,onClose);
  return createPortal(
   <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center sm:p-4">
    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={onClose} aria-hidden="true" className="absolute inset-0 bg-black/40"/>
-   <motion.div role="dialog" aria-modal="true" aria-labelledby={headingId}
-    onKeyDown={event=>{if(event.key==='Escape'){event.stopPropagation();onClose();}}}
+   <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={headingId}
+    onKeyDown={onDialogKeyDown}
     initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:8}} transition={{duration:0.18,ease:'easeOut'}}
     className="relative w-full max-w-[480px] h-[100dvh] sm:h-auto sm:max-h-[85dvh] bg-[var(--terra-surface)] text-[var(--terra-ink)] sm:rounded-2xl sm:border border-[var(--terra-border)] flex flex-col overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
     <header className="px-4 py-3 border-b border-[var(--terra-border)] flex items-center justify-between gap-2 shrink-0">

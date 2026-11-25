@@ -39,6 +39,7 @@ export interface ShoppingListMobileProps {
   onSendToTelegram: (items: ShoppingItem[]) => Promise<boolean>;
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
+  beforeContent?: React.ReactNode;
 }
 
 export const AISLES = [
@@ -67,7 +68,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   onMoveToPantry,
   onSendToTelegram,
   onOpenSettings,
-  onOpenNotifications
+  onOpenNotifications,
+  beforeContent
 }) => {
   const { familyId, user } = useAuth();
 
@@ -503,13 +505,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
 
   return (
-    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
+    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-4 md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
         title="Список покупок"
         onAdd={handleOpenAdd}
         addTitle="Добавить товар"
         onOpenSettings={onOpenSettings}
+        onOpenNotifications={onOpenNotifications}
         rightExtra={
           <button 
             type="button"
@@ -527,6 +530,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           </button>
         }
       />
+      {beforeContent}
       
       {/* Hidden file input for scanner */}
       <input 

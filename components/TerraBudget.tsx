@@ -46,6 +46,7 @@ interface TerraBudgetProps {
   onAddMandatoryExpense?: () => void;
   onSelectCategory?: (categoryId: string) => void;
   onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 /**
@@ -70,7 +71,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onEditMandatoryExpense,
   onAddMandatoryExpense,
   onSelectCategory,
-  onOpenSettings
+  onOpenSettings,
+  onOpenNotifications
 }) => {
   const { displayGoals:goals, householdPersonal, personalDisplayOnly, personalOpeningKnown, financialSettings, transactions:allTransactions } = useData();
   const personalOnly=householdPersonal||personalDisplayOnly;
@@ -398,6 +400,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           onImport={onImportClick}
           importTitle="Импорт выписки"
           onOpenSettings={onOpenSettings}
+          onOpenNotifications={onOpenNotifications}
           rightExtra={
             <div className="relative">
               <button 
@@ -456,7 +459,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         />
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
           <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
@@ -1746,7 +1749,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 <option value="income">Доходы</option>
               </select>
             </div>
-            <div className="max-h-72 overflow-y-auto divide-y divide-[var(--terra-border)] overscroll-contain">
+            <div className="divide-y divide-[var(--terra-border)]">
               {visibleHistory.length===0 && (
                 <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
                   {historySearch.trim() || historyType!=='all'

@@ -1,3 +1,4 @@
+import { useMobileViewport } from './hooks/useMobileViewport';
 import { FinancialDataState } from './components/FinancialDataState';
 
 import TerraSplash from './components/TerraSplash';
@@ -98,6 +99,7 @@ const pageVariants = {
 };
 
 export default function App() {
+  const mobileViewport=useMobileViewport();
   const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
   const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
   const importFileDigestRef = useRef<string | null>(null);
@@ -210,7 +212,7 @@ export default function App() {
   useEffect(()=>{
     setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setDrillDownState(null);setIsDuplicatesOpen(false);
   },[familyId,user?.uid,householdPersonal]);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(()=>typeof window==='undefined'||window.innerWidth>=1024);
   
   // Offline / Network Status
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -867,24 +869,8 @@ export default function App() {
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => setPinMode(null)} onForgot={() => logout()} /></Suspense>;
 
   return (
-    <div className="h-[100dvh] w-full bg-[#F8F6F2] dark:bg-[#121214] text-graphite dark:text-white flex overflow-hidden font-sans relative selection:bg-primary/20 selection:text-primary-dark">
+    <div data-terra-shell data-keyboard-open={mobileViewport.keyboardOpen?'true':'false'} style={mobileViewport.height===null?undefined:{height:mobileViewport.height}} className="terra-shell h-[100dvh] w-full bg-[var(--terra-canvas)] text-[var(--terra-ink)] flex flex-col md:flex-row overflow-hidden font-sans relative selection:bg-primary/20 selection:text-primary-dark">
       <Toaster position="top-center" richColors theme={resolvedTheme === 'dark' ? 'dark' : 'light'} />
-
-      {/* Mobile Top Header (only on non-overview tabs, since overview has its own topbar) */}
-      {activeTab !== 'overview' && (
-        <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#FAF8F5]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-surface-border dark:border-white/5 px-4 py-3 pt-safe flex justify-between items-center shrink-0">
-           <div className="text-xl font-headline font-black tracking-tighter text-graphite dark:text-white flex items-center gap-2">
-             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center font-headline font-bold text-white shadow-sm shadow-[#4A7C59]/20">
-               <Leaf className="w-4.5 h-4.5 text-white stroke-[2.2]" />
-             </div>
-             <span className="text-base font-headline font-extrabold tracking-tight">Terra</span>
-           </div>
-           <div className="flex gap-2">
-               <button onClick={() => setShowNotifications(true)} className="relative p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><Bell size={18} />{unreadNotificationsCount > 0 && <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black"/>}</button>
-               <button type="button" aria-label="Настройки" onClick={() => setIsSettingsOpen(true)} className="min-h-[44px] min-w-[44px] p-2 bg-surface-subtle dark:bg-[#2C2C2E] rounded-xl transition-colors motion-reduce:transition-none text-graphite-muted"><SettingsIcon size={18} /></button>
-           </div>
-        </div>
-      )}
 
       {/* BEGIN: LeftSidebar (Desktop Terra - Collapsed by default) */}
       <aside className={`hidden md:flex ${isSidebarExpanded ? 'w-56' : 'w-[72px]'} bg-[#FAF8F5] dark:bg-[#1C1C1E] border-r border-surface-border dark:border-white/5 flex-col justify-between shrink-0 min-h-0 z-30 transition-[width] duration-200 motion-reduce:transition-none`}>
@@ -1001,7 +987,7 @@ export default function App() {
       {/* Main Content Area */}
       <main 
         ref={mainRef} 
-        className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-hidden relative"
+        className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-hidden relative"
       >
         {/* Offline Alert Banner */}
         {!isOnline && (
@@ -1013,7 +999,8 @@ export default function App() {
 
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
-                {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)}/>:<TerraOverview 
+                {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<TerraOverview 
+                    onOpenNotifications={()=>setShowNotifications(true)}
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1039,7 +1026,8 @@ export default function App() {
             
             <div key={tabScope+'-budget'} data-tab-panel="budget" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 {mountTab('budget') && <Suspense fallback={<TabLoading/>}>
-                  {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)}/>:<TerraBudget
+                  {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<TerraBudget
+                    onOpenNotifications={()=>setShowNotifications(true)}
                     key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
                     transactions={displayTransactions}
                     categories={categories}
@@ -1123,7 +1111,7 @@ export default function App() {
 
             <div key={tabScope+'-chat'} data-tab-panel="chat" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'chat' ? 'flex' : 'hidden'}`}>
               {mountTab('chat') && <Suspense fallback={<TabLoading/>}>
-                  <FamilyChat active={activeTab==='chat'} />
+                  <FamilyChat active={activeTab==='chat'} onOpenSettings={()=>setIsSettingsOpen(true)} onOpenNotifications={()=>setShowNotifications(true)} />
                 </Suspense>}
 
             </div>
@@ -1131,6 +1119,7 @@ export default function App() {
             <div key={tabScope+'-services'} data-tab-panel="services" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'services' ? 'flex' : 'hidden'}`}>
               {mountTab('services') && <Suspense fallback={<TabLoading/>}>
                   <ServicesHub 
+                onOpenNotifications={()=>setShowNotifications(true)}
                 initialService={targetService} 
                 onClearService={() => setTargetService(null)} 
                 onNavigateHome={() => setActiveTab('overview')}
@@ -1143,7 +1132,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar matching screenshot */}
-      <nav aria-label="Основная навигация" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FAF7F2]/98 dark:bg-[#1C1C1E]/98 border-t border-[#E5E0D5] dark:border-white/10 px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+      <nav aria-label="Основная навигация" data-terra-tabbar className="md:hidden shrink-0 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] px-1 py-2 flex overflow-x-auto overscroll-x-contain items-center z-40 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
          {visibleTabs.map(tab => {
              const isActive = activeTab === tab.id;
              return (

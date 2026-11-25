@@ -56,6 +56,7 @@ interface FamilyPlansMobileProps {
   
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
+  beforeContent?: React.ReactNode;
 }
 
 const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
@@ -77,7 +78,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   isProcessingVoice,
   startListening,
   onOpenSettings,
-  onOpenNotifications
+  onOpenNotifications,
+  beforeContent
 }) => {
   const [filterMemberId, setFilterMemberId] = useState<string | 'all' | 'common'>('all');
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
@@ -745,6 +747,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         onAdd={() => onOpenEvent(null)}
         addTitle="Добавить событие"
         onOpenSettings={onOpenSettings}
+        onOpenNotifications={onOpenNotifications}
         rightExtra={
           <button
             type="button"
@@ -764,8 +767,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         }
       />
 
-      {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
-      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md sm:max-w-3xl mx-auto w-full">
+      {beforeContent}
+      {/* Main scroll content */}
+      <div className="px-3.5 pt-3 pb-4 md:pb-6 space-y-3.5 max-w-md sm:max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (

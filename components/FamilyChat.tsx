@@ -1,3 +1,4 @@
+import { Bell, Settings } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -42,7 +43,7 @@ const INITIAL_TOPICS: TopicItem[] = [
 
 const INITIAL_MESSAGES_MAP: Record<string, ChatMessage[]> = { general: [] };
 
-export default function FamilyChat({active=true}:{active?:boolean}) {
+export default function FamilyChat({active=true,onOpenSettings,onOpenNotifications}:{active?:boolean;onOpenSettings?:()=>void;onOpenNotifications?:()=>void}) {
   const { user, familyId } = useAuth();
   const { members, settings } = useData();
 
@@ -62,6 +63,8 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
   
   // UI states
   const [inputText, setInputText] = useState('');
+  const composerRef=useRef<HTMLTextAreaElement>(null);
+  useEffect(()=>{const el=composerRef.current;if(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,128)+'px';}},[inputText]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<ChatMessage['receiptData'] | null>(null);
@@ -126,11 +129,6 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
     setMobileView('chat');
     setIsSearching(false);
     setSearchQuery('');
-  };
-
-  // Topic metadata is not persisted yet. Do not offer a misleading local-only chat.
-  const handleCreateTopic = () => {
-    toast.info('Создание новых тем временно недоступно до подключения синхронизации.');
   };
 
   // Send only confirmed messages; retain the draft when saving fails.
@@ -216,14 +214,14 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
   });
 
   return (
-    <div className="w-full h-full flex-1 flex bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[var(--terra-border)] dark:md:border-white/10 select-none min-h-0">
+    <div className="w-full h-full flex-1 flex bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[var(--terra-border)] dark:md:border-white/10 min-h-0">
       
       {/* LEFT COLUMN: CHAT FOLDERS / TOPICS LIST (Always visible on desktop md+, toggleable on mobile) */}
-      <aside className={`w-full md:w-72 lg:w-80 border-r border-outline-variant/30 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] flex-col shrink-0 h-full ${
-        mobileView === 'list' ? 'flex' : 'hidden md:flex'
+      <aside className={`w-full lg:w-72 xl:w-80 border-r border-outline-variant/30 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] flex-col shrink-0 h-full ${
+        mobileView === 'list' ? 'flex' : 'hidden lg:flex'
       }`}>
         {/* Sidebar Header */}
-        <header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
+        <header data-terra-mobile-header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
           <div>
             <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
@@ -231,19 +229,11 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
               <span>{members.length} участников семьи</span>
             </p>
           </div>
-          <button 
-            type="button"
-            onClick={handleCreateTopic}
-            title="Создать тему"
-            aria-label="Создать тему"
-            className="w-11 h-11 rounded-full bg-primary-container/60 hover:bg-primary-container text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">add</span>
-          </button>
+          <div className="flex items-center gap-1 shrink-0">{onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}<button type="button" disabled aria-label="Создать тему" title="Создание тем пока недоступно" className="w-11 h-11 rounded-xl bg-[var(--terra-soft)] opacity-50 flex items-center justify-center cursor-not-allowed"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span></button></div>
         </header>
 
         {/* Topics List */}
-        <div data-testid="chat-topics-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-2 space-y-1.5 custom-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-2">
+        <div data-testid="chat-topics-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-2 space-y-1.5 custom-scrollbar pb-4 md:pb-2">
           {topics.map(t => {
             const isActive = t.id === activeTopicId;
             return (
@@ -279,12 +269,12 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
 
       {/* RIGHT COLUMN: ACTIVE CHAT FEED (Always visible on desktop md+, toggleable on mobile) */}
       <section className={`flex-1 flex flex-col h-full bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] min-w-0 relative ${
-        mobileView === 'chat' ? 'flex' : 'hidden md:flex'
+        mobileView === 'chat' ? 'flex' : 'hidden lg:flex'
       }`}>
         
         {/* Chat Header */}
-        <header className="sticky top-0 w-full z-40 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] border-b border-[var(--terra-border)] dark:border-white/10 shrink-0">
-          <div className="h-16 px-3.5 flex items-center justify-between gap-2">
+        <header data-terra-mobile-header className="sticky top-0 w-full z-40 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] border-b border-[var(--terra-border)] dark:border-white/10 shrink-0">
+          <div className="min-h-16 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
             
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Back Button for Mobile View */}
@@ -292,7 +282,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                 type="button"
                 aria-label="К спискам чатов" 
                 onClick={() => setMobileView('list')}
-                className="md:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
+                className="lg:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
               </button>
@@ -331,9 +321,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                 <span className="material-symbols-outlined text-[22px]">delete</span>
               </button>
 
-              <div className="w-8 h-8 rounded-full bg-[#4A7C59] !text-white flex items-center justify-center shrink-0 ml-1 shadow-xs">
-                <span className="material-symbols-outlined text-[18px]">person</span>
-              </div>
+              {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}
             </div>
 
           </div>
@@ -461,7 +449,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
 
               if (!isMe) {
                 return (
-                  <div key={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
+                  <div key={msg.id} data-chat-message-id={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
                       {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
@@ -474,7 +462,7 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
                       </div>
 
                       <div className="relative bg-surface-container-lowest dark:bg-[var(--terra-surface)] border border-outline-variant/20 dark:border-white/10 p-3.5 break-words whitespace-pre-wrap rounded-2xl rounded-tl-sm text-on-surface dark:text-stone-100 text-[14.5px] leading-relaxed font-body">
-                        {msg.text}
+                        <span data-testid="chat-message-text">{msg.text}</span>
 
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <button type="button" aria-label="Реакция сердце" aria-pressed={Boolean(user?.uid&&msg.heartUsers?.includes(user.uid))}
@@ -525,8 +513,8 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
         </main>
 
         {/* Composer Bar */}
-        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-3">
-          <form className="p-2 sm:p-3 flex items-center gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
+        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-4 md:pb-3">
+          <form className="p-2 sm:p-3 flex items-end gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
             <input 
               ref={fileInputRef}
               type="file"
@@ -543,13 +531,11 @@ export default function FamilyChat({active=true}:{active?:boolean}) {
             </button>
 
             <div className="flex-1 bg-surface-container-low dark:bg-[var(--terra-canvas)] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
-              <input 
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Сообщение семье..."
-                className="w-full bg-transparent text-[14px] text-on-surface dark:text-white placeholder:text-on-surface-variant/70 focus:outline-none font-body leading-normal"
-              />
+              <textarea ref={composerRef} rows={1} value={inputText}
+                onChange={e=>setInputText(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229&&!window.matchMedia('(pointer:coarse)').matches){e.preventDefault();void handleSendMessage();}}}
+                placeholder="Сообщение семье..." aria-label="Сообщение семье"
+                className="w-full min-w-0 resize-none max-h-32 overflow-y-auto bg-transparent text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus:outline-none font-body leading-normal"/>
             </div>
 
             <button 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Plus, Settings, Upload } from 'lucide-react';
+import { Plus, Settings, Upload, Bell } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
 import { PAGE_HEADING, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 
 interface TerraMobileHeaderProps {
@@ -9,6 +10,7 @@ interface TerraMobileHeaderProps {
   onImport?: () => void;
   importTitle?: string;
   onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
   rightExtra?: React.ReactNode;
 }
 
@@ -19,17 +21,20 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
   onImport,
   importTitle = 'Импорт выписки',
   onOpenSettings,
+  onOpenNotifications,
   rightExtra,
 }) => {
+  const {notifications=[]}=useData();
+  const unread=notifications.filter(n=>!n.isRead).length;
   return (
-    <header className="sticky top-0 z-30 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] px-4 pt-[calc(12px+env(safe-area-inset-top,0px))] pb-3 flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 shrink-0 transition-colors">
+    <header data-terra-mobile-header className="sticky top-0 z-30 bg-[var(--terra-canvas)] px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--terra-border)] shrink-0 transition-colors">
       {/* Section Title without app name with safe wrapping and truncation */}
-      <h1 className={`${PAGE_HEADING} truncate mr-3 min-w-0 flex-1`}>
+      <h1 className={`${PAGE_HEADING} break-words min-w-[76px] flex-1`}>
         {title}
       </h1>
 
       {/* Action Buttons with correct accessibility tap targets (minimum 44x44px) */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-full">
         {rightExtra}
 
         {onImport && (
@@ -56,6 +61,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
           </button>
         )}
 
+        {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className={`relative w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]`}><Bell size={18} aria-hidden="true"/>{unread>0&&<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-600" aria-hidden="true"/>}</button>}
         {onOpenSettings && (
           <button
             type="button"

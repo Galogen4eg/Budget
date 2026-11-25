@@ -38,3 +38,10 @@ html.dark { --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A2
 .terra-appearance-grid { display:grid; gap:12px; }
 .terra-appearance-grid > section { margin-top:0 !important; min-width:0; }
 @media(min-width:1024px){ .terra-appearance-grid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; } .terra-appearance-grid > section:nth-child(2), .terra-appearance-grid > section:nth-child(4) { grid-column:1 / -1; } }
+
+.terra-service-grid {grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));}
+@media(max-width:767px) {
+ .terra-shell {padding-top:env(safe-area-inset-top,0px);}
+ .terra-shell[data-keyboard-open="true"] [data-terra-tabbar] {display:none;}
+ :is(.terra-shell,[role="dialog"]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),textarea,select){font-size:16px;}
+}

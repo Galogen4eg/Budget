@@ -38,6 +38,7 @@ interface TerraOverviewProps {
   onOpenAddModal: () => void;
   onOpenAIChat: () => void;
   onOpenSettings: () => void;
+  onOpenNotifications?: () => void;
   onEditTransaction: (tx: Transaction) => void;
   onNavigateTab: (tabId: string) => void;
   onDrillDown: (categoryId: string) => void;
@@ -52,6 +53,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   onOpenAddModal,
   onOpenAIChat,
   onOpenSettings,
+  onOpenNotifications,
   onEditTransaction,
   onNavigateTab,
   onDrillDown,
@@ -623,7 +625,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [events]);
 
   return (
-    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[#FAF6F0] dark:bg-[#121214] overflow-y-auto overscroll-y-contain no-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
@@ -634,6 +636,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           onAdd={onOpenAddModal}
           addTitle="Добавить операцию"
           onOpenSettings={onOpenSettings}
+          onOpenNotifications={onOpenNotifications}
           rightExtra={
             <button type="button" onClick={onOpenAIChat}
               aria-label="AI Ассистент" title="AI Ассистент"
@@ -1158,7 +1161,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* ========================================================= */}
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1720px] mx-auto w-full">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full">
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}

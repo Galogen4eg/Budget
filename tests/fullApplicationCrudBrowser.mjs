@@ -134,6 +134,22 @@ if(process.argv.includes('--navigation')){
   for(const k of ['amount','date','category','memberId','userId','rawNote','type'])assert.equal(stored[k],original[k],k);
   await edit(a,title).waitFor({state:'visible',timeout:20000});
   console.log('PASS edit imported operation with populated family, server reread and second user');
+  const legacy=await rows.where('note','==','Старая банковская операция (QA)').get();
+  assert.equal(legacy.size,1);
+  const legacyRef=legacy.docs[0].ref;
+  const legacyBefore=legacy.docs[0].data();
+  await edit(a,legacyBefore.note).click();
+  await nameField(a).fill('QA старая операция изменена');
+  await a.getByRole('textbox',{name:'Сумма операции'}).fill('84.21');
+  await save(a,true);
+  const legacyAfter=(await legacyRef.get()).data();
+  assert.equal(legacyAfter.note,'QA старая операция изменена');
+  assert.equal(Math.round(legacyAfter.amount*100),8421);
+  assert.equal(legacyAfter.memberId,legacyBefore.memberId);
+  assert.equal(legacyAfter.userId,undefined);
+  assert.equal(legacyAfter.date,legacyBefore.date);
+  await edit(b,legacyAfter.note).waitFor({state:'visible',timeout:20000});
+  console.log('PASS legacy transaction edit with missing optional metadata');
  }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;

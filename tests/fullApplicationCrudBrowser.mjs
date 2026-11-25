@@ -119,6 +119,7 @@ async function nav(p,id,name){
 }
 async function reset(p){
  await p.reload({waitUntil:'domcontentloaded'});
+ await p.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:60000});
  await btn(p.locator('nav'),'Бюджет').waitFor({state:'visible',timeout:45000});
 }
 async function scenario(name,fn){
@@ -129,7 +130,7 @@ const eventDialog=p=>p.getByRole('dialog').filter({has:p.locator('#event-title-i
 const openEvent=async(p,title)=>{
  await nav(p,'plans','Планы');
  await btn(panel(p,'plans'),'День').click();
- await btn(panel(p,'plans'),new RegExp('^Открыть событие: '+title+'(?:,|$)'),false).click();
+ const row=p.viewportSize().width<1024?btn(panel(p,'plans'),'Открыть событие: '+title):btn(panel(p,'plans'),new RegExp('^(?:Открыть событие: )?'+title+'(?:,|$|\\s)'),false);await row.click();
  await eventDialog(p).waitFor({state:'visible'});
 };
 await scenario('PLN-03/04/06 event create, cross-user edit, checklist, delete',async()=>{
@@ -167,7 +168,7 @@ await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/resto
  await currentDoc(saved.ref,x=>x.exists&&x.data().title==='QA молоко изменено','shopping rename');
  phase='desktop quantity and complete';await btn(p,'Увеличить количество: QA молоко изменено').click();
  await currentDoc(saved.ref,x=>x.exists&&Number(x.data().amount)===2,'shopping quantity');
- await btn(p,'Отметить купленным: QA молоко изменено').click();
+ await p.getByRole('checkbox',{name:'Отметить купленным: QA молоко изменено',exact:true}).locator('xpath=..').click();
  await currentDoc(saved.ref,x=>x.exists&&x.data().completed===true,'shopping purchased');
  phase='restore from completed';await btn(p,'Вернуть в список: QA молоко изменено').click();
  await currentDoc(saved.ref,x=>x.exists&&x.data().completed===false,'shopping restore');
@@ -233,11 +234,11 @@ await scenario('SVC-debts create, edit, payment toggle, delete',async()=>{
  await b.locator('input[name="monthlyPayment"]').fill('100.00');
  await b.locator('input[name="dueDate"]').fill(due.toISOString().slice(0,10));
  await btn(b,'Сохранить').click();
- const saved=await findOne('debts','name','QA долг');assert.equal(saved.data().currentBalance,900.25);
+ const saved=await findOne('debts','name','QA долг');assert.equal(saved.data().currentBalance,900.25);assert.equal(saved.data().memberId,'b','New debt must have creator member');
  phase='debt edit';await btn(b,'Редактировать параметры долга').click();
  await b.locator('input[name="title"]').fill('QA долг изменён');
  await btn(b,'Сохранить').click();
- await currentDoc(saved.ref,x=>x.exists&&x.data().name==='QA долг изменён','debt rename');
+ await currentDoc(saved.ref,x=>x.exists&&x.data().name==='QA долг изменён'&&x.data().memberId==='b','debt rename preserves owner');
  phase='debt payment';await btn(b,'Внести платёж').click();
  await currentDoc(saved.ref,x=>x.exists&&x.data().currentBalance===800.25,'debt payment');
  phase='undo debt payment';await btn(b,'Отменить платёж').click();

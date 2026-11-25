@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { toast } from 'sonner';
 import { assertDebtDeletionSafe } from '../utils/familyWorkspace';
+import { resolveDebtOwnerForSave } from '../utils/debtOwner';
 import { addItem, updateItem, deleteItem } from '../utils/db';
 import { 
   findLinkedExpenseForDebt, 
@@ -272,12 +273,14 @@ const DebtSnowball: React.FC<Props> = ({
     };
     
     const owner=members.find(m=>m.userId && m.userId===user?.uid)?.id;
-    if(householdPersonal && (!owner || (editingDebt && editingDebt.memberId!==owner))) throw new Error('Долг недоступен');
+    let memberId: string | undefined;
+    try { memberId = resolveDebtOwnerForSave(editingDebt, owner, householdPersonal); }
+    catch(error) { toast.error(error instanceof Error ? error.message : 'Долг недоступен'); return; }
     const debtId = editingDebt?.id || Date.now().toString();
     const newDebt = { 
       ...updatedDebt, 
       id: debtId,
-      ...(editingDebt?.memberId || (!editingDebt && owner) ? {memberId:editingDebt?.memberId || owner} : {}),
+      ...(memberId ? { memberId } : {}),
       paidThisMonth: editingDebt?.paidThisMonth ?? false 
     } as unknown as Debt;
 

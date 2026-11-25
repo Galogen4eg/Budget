@@ -62,7 +62,7 @@ function idOf(doc,collection){
 async function query(collection,key,value){
  check(collections.has(collection),'Unexpected collection');
  const data=await request(familyDoc()+':runQuery',{method:'POST',body:{structuredQuery:{from:[{collectionId:collection}],...(key?{where:{fieldFilter:{field:{fieldPath:key},op:'EQUAL',value:{stringValue:value}}}}:{limit:2})}}});
- check(Array.isArray(data),'Unexpected query response');return data.flatMap(x=>x.document?[x.document]:[]);
+ check(Array.isArray(data)&&!data.some(x=>x.error),'Unexpected query response');return data.flatMap(x=>x.document?[x.document]:[]);
 }
 async function poll(fn,label){
  for(let n=0;n<30;n++){const result=await fn();if(result)return result;await new Promise(r=>setTimeout(r,300));}
@@ -90,7 +90,7 @@ async function cleanupMarked(collection,key,values){
   for(const doc of docs){
    check(scalar(doc,key)===title&&title.startsWith(marker)&&doc.updateTime,'Cleanup refused invalid marker');
    if(collection==='events'||collection==='chat')check(scalar(doc,'userId')===uid,'Cleanup owner mismatch');
-   if(collection==='debts')check(!scalar(doc,'linkedExpenseId')&&scalar(doc,'memberId')===uid,'Cleanup refused linked debt');
+   if(collection==='debts')await verifyUnlinkedQaDebt(doc);
    if(collection==='transactions')check(scalar(doc,'rawNote')===marker&&scalar(doc,'type')==='income'&&scalar(doc,'userId')===uid&&scalar(doc,'memberId')===uid&&!scalar(doc,'linkedGoalId')&&!scalar(doc,'linkedExpenseId')&&!bool(doc,'externalSavingsConfirmed'),'Cleanup refused unexpected transaction');
    const id=idOf(doc,collection);
    await request(ref(collection,id)+'?currentDocument.updateTime='+encodeURIComponent(doc.updateTime),{method:'DELETE'});
@@ -120,12 +120,16 @@ async function loginBrowser(){
 }
 async function ready(){await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:45000});}
 async function reset(width=1440){await page.setViewportSize({width,height:width===390?844:900});await page.reload({waitUntil:'domcontentloaded'});await ready();}
-async function nav(id,name){await btn(page.locator('nav'),name).click();await panel(id).waitFor({state:'visible'});}
+async function nav(id,name){
+ await ready();const tab=btn(page.locator('nav'),name);await tab.click();await panel(id).waitFor({state:'visible'});
+ const controls={overview:()=>panel(id).getByRole('group',{name:/Период динамики расходов/}),budget:()=>btn(panel(id),'Добавить операцию'),plans:()=>panel(id).getByTestId('plans-scroll-container'),shopping:()=>btn(panel(id),/Быстрые списки/,false),chat:()=>page.viewportSize().width<768?btn(panel(id),'К спискам чатов'):panel(id).getByRole('heading',{name:'Семейные беседы',exact:true}),services:()=>panel(id).getByTestId('services-scroll-container')};
+ await visible(controls[id]()).first().waitFor({state:'visible',timeout:30000});check(await tab.getAttribute('aria-current')==='page','Navigation selected state missing');
+}
 async function mutation(action){await guard();apiError='none';await action();}
 async function run(name,fn,cleanup){
  phase='preflight';apiError='none';let passed=false,skip=false;
  try{await guard();await reset();await fn();passed=true;}
- catch(e){if(e instanceof Blocked){blocked.push({name,phase});skip=true;console.log('BLOCKED LIVE '+name+' at '+phase+' (safety prerequisite)');}else{failures.push({name,phase});console.log('FAIL LIVE '+name+' at '+phase+' ('+(e?.name==='TimeoutError'?'timeout':'assertion/action')+'; Firebase '+apiError+')');}}
+ catch(e){if(e instanceof Blocked){blocked.push({name,phase});skip=true;console.log('BLOCKED LIVE '+name+' at '+phase+' (safety prerequisite)');}else{failures.push({name,phase});const msg=String(e?.message??'');const kind=e?.name==='TimeoutError'?'timeout':msg.startsWith('Firestore HTTP ')?msg.match(/^Firestore HTTP \d{3} [A-Z0-9_]+/)?.[0]??'Firestore HTTP failure':msg.startsWith('Server verification failed:')?'server assertion failed':'assertion/action';const action=msg.match(/locator\.(click|fill|waitFor|selectOption|getAttribute|innerText)/)?.[1]??'unknown';console.log('FAIL LIVE '+name+' at '+phase+' ('+kind+'; action '+action+'; intercepted '+/intercepts pointer events/.test(msg)+'; Firebase '+apiError+')');}}
  finally{
   // Close the active page to stop delayed/retried writes before fallback cleanup.
   if(!skip&&cleanup){try{await page.close();await cleanup();await loginBrowser();}catch{failures.push({name,phase:'cleanup'});console.error('FAIL LIVE '+name+' cleanup; halted to protect QA data');throw new Error('Cleanup failed');}}
@@ -150,7 +154,7 @@ async function patchOnly(url,doc,keys,restore){
 async function restorePersonal(){
  if(!settingsChanged)return;
  const current=await request(personalSettings(),{allowMissing:true});
- if(equal(settingSnapshot(current,settingKeys),themeBaseline))return;
+ if(equal(settingSnapshot(current,settingKeys),themeBaseline)){console.log('PASS LIVE personal settings unchanged or restored');return;}
  check(current&&['light','dark','system'].includes(scalar(current,'theme'))&&typeof bool(current,'privacyMode')!=='string','Unexpected preference state');
  // Restore only the two deliberately modified keys, not the rest of the profile.
  await patchOnly(personalSettings(),current,settingKeys,themeBaseline);
@@ -198,6 +202,26 @@ async function cleanupQuick(){
  await patchOnly(library(),doc,['templates'],{templates:{arrayValue:{values:templates.filter(x=>fields(x).name?.stringValue!==original)}}});
  console.log('PASS LIVE removed exact marked quick-list template');
 }
+async function verifyUnlinkedQaDebt(doc){
+ await guard();const id=idOf(doc,'debts');const owner=scalar(doc,'memberId');
+ check((owner===uid||!owner)&&!scalar(doc,'linkedExpenseId')&&number(doc,'totalAmount')===1000.5&&number(doc,'monthlyPayment')===100&&[900.25,800.25].includes(number(doc,'currentBalance')),'Cleanup refused unexpected debt');
+ const shared=await request(sharedSettings(),{allowMissing:true}),personal=await request(personalSettings(),{allowMissing:true});
+ check(!bills(shared).some(x=>x.linkedDebtId?.stringValue===id)&&!array(personal,'personalMandatoryExpenses').map(fields).some(x=>x.linkedDebtId?.stringValue===id),'Cleanup refused linked obligation');
+ check((await query('transactions','linkedDebtId',id)).length===0,'Cleanup refused linked transactions');
+}
+async function recoverPriorQaDebt(){
+ await guard();const records=await query('debts');if(!records.length)return;
+ // Match the exact prior test's time window, immutable fixture and absence of references.
+ const start=Date.parse('2026-11-25T14:03:04Z'),end=Date.parse('2026-11-25T14:03:11Z');
+ const matching=records.filter(d=>{
+  const created=Date.parse(d.createTime??''),id=scalar(d,'id'),millis=Number(id);
+  return /^QA [a-p]{32} запись$/.test(scalar(d,'name')??'')&&!scalar(d,'memberId')&&number(d,'currentBalance')===900.25&&number(d,'totalAmount')===1000.5&&number(d,'monthlyPayment')===100&&scalar(d,'dueDate')==='2026-12-02'&&scalar(d,'finalClosingDate')==='2027-11-25'&&bool(d,'paidThisMonth')===false&&created>=start&&created<=end&&millis>=start&&millis<=end&&id===d.name.split('/').at(-1)&&d.createTime===d.updateTime;
+ });
+ if(records.length!==1||matching.length!==1){console.log('BLOCKED LIVE prior debt recovery: exact historical fixture not established');return;}
+ const doc=matching[0];await verifyUnlinkedQaDebt(doc);const id=idOf(doc,'debts');
+ await request(ref('debts',id)+'?currentDocument.updateTime='+encodeURIComponent(doc.updateTime),{method:'DELETE'});
+ await absent('debts',doc);console.log('PASS LIVE recovered exact isolated QA debt from failed run 45629046092');
+}
 async function inspectDebtResidue(){
  await guard();
  const records=await query('debts');
@@ -205,7 +229,19 @@ async function inspectDebtResidue(){
  console.log('SAFE DEBT STATE '+JSON.stringify({nonempty:records.length>0,qaSignatureCount:qaLike.length,matchingOwner:qaLike.filter(d=>scalar(d,'memberId')===uid).length,missingOwner:qaLike.filter(d=>!scalar(d,'memberId')).length}));
 }
 const eventDialog=()=>page.getByRole('dialog').filter({has:page.locator('#event-title-input')});
-async function eventOpen(title){await nav('plans','Планы');await btn(panel('plans'),'День').click();const p=panel('plans');const event=visible(p.getByRole('button',{name:new RegExp('^(?:Открыть событие: )?'+title+'(?:,|$|\\s)'),exact:false})).first();await event.click();await eventDialog().waitFor({state:'visible'});}
+async function eventOpen(title){
+ phase='event reopen: navigate';await nav('plans','Планы');const p=panel('plans');
+ phase='event reopen: day selection';const day=btn(p,'День');await day.click();
+ check(await day.getAttribute('aria-pressed')==='true','Calendar day not active');
+ phase='event reopen: locate row';
+ const event=page.viewportSize().width<1024?btn(p,'Открыть событие: '+title):visible(p.getByRole('button',{name:new RegExp('^(?:Открыть событие: )?'+title+'(?:,|$|\\s)'),exact:false})).first();
+ try{await event.waitFor({state:'visible'});}catch(error){
+  console.log('SAFE EVENT STATE '+JSON.stringify({mobile:page.viewportSize().width<1024,dayActive:await day.getAttribute('aria-pressed')==='true',titleVisible:await visible(p.getByText(title,{exact:true})).count()>0,storedCount:(await query('events','title',title)).length}));
+  throw error;
+ }
+ phase='event reopen: click row';await event.click();
+ phase='event reopen: editor visible';await eventDialog().waitFor({state:'visible'});
+}
 try{
  const response=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+encodeURIComponent(apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true}),signal:AbortSignal.timeout(25000)});
  const auth=await response.json();check(response.ok&&auth.idToken&&auth.localId,'Production auth failed');
@@ -213,6 +249,7 @@ try{
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  await loginBrowser();console.log('PASS LIVE production isolated account authenticated');
  await inspectDebtResidue();
+ await recoverPriorQaDebt();
  await run('PLN-event-CRUD',async()=>{
   await empty('events');await nav('plans','Планы');await btn(panel('plans'),'День').click();
   phase='open new event';await btn(panel('plans'),'Добавить событие').click();
@@ -223,7 +260,7 @@ try{
   const doc=await created('events','title',original);
   check(scalar(doc,'userId')===uid&&fields(array(doc,'checklist')[0]).text?.stringValue==='QA пункт','Event persistence mismatch');
   phase='mobile reload and rename';await reset(390);await eventOpen(original);await eventDialog().locator('#event-title-input').fill(renamed);
-  await mutation(()=>btn(eventDialog(),'Сохранить').click());await eventDialog().waitFor({state:'hidden'});
+  phase='event rename: save';await mutation(()=>btn(eventDialog(),'Сохранить').click());await eventDialog().waitFor({state:'hidden'});
   await same('events',doc,x=>scalar(x,'title')===renamed&&scalar(x,'date')===scalar(doc,'date'),'event rename');
   phase='delete event';await eventOpen(renamed);await btn(eventDialog(),'Удалить событие').click();await mutation(()=>btn(eventDialog(),'Да, удалить').click());await eventDialog().waitFor({state:'hidden'});await absent('events',doc);
  },()=>cleanupMarked('events','title',[original,renamed]));
@@ -285,7 +322,8 @@ try{
   const doc=await created('transactions','note',original);
   check(scalar(doc,'type')==='income'&&number(doc,'amount')===321.09&&scalar(doc,'rawNote')===marker&&scalar(doc,'userId')===uid&&scalar(doc,'memberId')===uid&&!scalar(doc,'linkedGoalId')&&!scalar(doc,'linkedExpenseId'),'Income persistence mismatch');
   phase='history search and type filter';
-  const history=panel('budget');
+  const history=panel('budget').getByRole('region',{name:'История операций бюджета'});
+  await history.waitFor({state:'visible'});
   const search=history.getByRole('searchbox',{name:'Поиск по истории операций'});
   const type=history.getByLabel('Тип операций в истории');
   const edit=title=>btn(history,'Редактировать операцию: '+title);
@@ -298,7 +336,7 @@ try{
   await mutation(()=>btn(eh.locator('xpath=../..'),'Сохранить изменения').click());await eh.waitFor({state:'hidden'});
   await same('transactions',doc,x=>scalar(x,'note')===renamed&&number(x,'amount')===321.09&&scalar(x,'type')==='income'&&scalar(x,'rawNote')===marker,'income rename');
   phase='mobile reload and delete income';await reset(390);await nav('budget','Бюджет');
-  await edit(renamed).click();
+  await btn(panel('budget'),'Редактировать операцию: '+renamed).click();
   await btn(page,'Удалить операцию').click();await mutation(()=>btn(page,'Подтвердить удаление').click());await eh.waitFor({state:'hidden'});await absent('transactions',doc);
  },()=>cleanupMarked('transactions','note',[original,renamed]));
  await run('BUD-mandatory-payment-CRUD',async()=>{
@@ -338,11 +376,11 @@ try{
   const privacy=()=>d.getByRole('switch',{name:/Скрывать суммы/});
   const initialPrivacy=await privacy().getAttribute('aria-checked')==='true';
   const next=initial==='dark'?'light':'dark';
-  phase='save theme and privacy';settingsChanged=true;
-  await mutation(()=>btn(group(),labels[next]).click());
-  await poll(async()=>scalar(await request(personalSettings()),'theme')===next,'theme write');
-  await mutation(()=>privacy().click());
-  await poll(async()=>bool(await request(personalSettings()),'privacyMode')===!initialPrivacy,'privacy write');
+  settingsChanged=true;
+  phase='theme: click option';await mutation(()=>btn(group(),labels[next]).click());
+  phase='theme: server persistence';await poll(async()=>scalar(await request(personalSettings(),{allowMissing:true}),'theme')===next,'theme write');
+  phase='privacy: click switch';await mutation(()=>privacy().click());
+  phase='privacy: server persistence';await poll(async()=>bool(await request(personalSettings(),{allowMissing:true}),'privacyMode')===!initialPrivacy,'privacy write');
   phase='reload preferences at mobile width';await reset(390);d=await openAppearance();
   check(await btn(group(),labels[next]).getAttribute('aria-pressed')==='true'&&await privacy().getAttribute('aria-checked')===String(!initialPrivacy),'Personal preferences lost on reload');
   phase='restore preferences in UI';await mutation(()=>btn(group(),labels[initial]).click());

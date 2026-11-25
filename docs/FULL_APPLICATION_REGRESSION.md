@@ -24,3 +24,7 @@ Income create/edit/delete and history filtering, mandatory payments create/edit/
 ## Remaining coverage
 
 Actual XLSX commit/reimport/idempotence, bank-specific fixtures and duplicate handling; category/rule/goal CRUD; pantry and repeat-purchase history; recurring calendar event edits; all nested controls; responsive visual QA at additional widths; offline and physical device; second production account/reactions; Telegram/Gemini/FNS/bank integrations. Source code inspection is not execution. Do not claim full coverage until verified or explicitly blocked.
+
+## Regression corrections
+
+Run 45632628747: six live scenarios passed, event/income/preferences failed, debt blocked by ownerless fixture. Debt owner resolution now uses persisted ID; three focused helper tests cover creation, preserving owner, and personal-mode rejection. New test diagnostics split event reopen and settings writes, scope income history to its actual region and verify navigation readiness. Prior debt recovery is narrowly conditional on exact fixture and documented run time plus no financial references. If any condition fails, no deletion. The current production build remains unchanged until reviewed Git release, so a production test of debt creation before deployment can still reproduce the defect. Emulator suite uses readiness and verifies new debt owner. Results pending actual CI and post-release live verification.

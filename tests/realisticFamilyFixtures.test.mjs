@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeFamilyFixtures } from './fixtures/realisticFamily.mjs';
+import { makeFamilyFixtures, fixtureSettings, fixtureCategories } from './fixtures/realisticFamily.mjs';
 
 const now=new Date('2026-11-26T12:00:00Z');
 const members=[{id:'a',userId:'qa-a'},{id:'b',userId:'qa-b'}];
@@ -41,4 +41,22 @@ test('repeatable dataset, stable IDs and safe month rollover; single-member QA r
  assert.throws(()=>makeFamilyFixtures({now,members:[]}));
  assert.throws(()=>makeFamilyFixtures({now,members:[{id:'a'}]}));
  for(const [kind,rows] of Object.entries(f))if(Array.isArray(rows))assert.ok(rows.every(r=>r.id.startsWith('qa-fixture-v1-')),kind);
+});
+
+test('every operation uses a known category and every bill link is defined in the fixture settings',()=>{
+ const f=fixture(), settings=fixtureSettings(members);
+ const ids=new Set(fixtureCategories.map(c=>c.id));
+ const bills=new Map(settings.mandatoryExpenses.map(b=>[b.id,b]));
+ for(const r of f.transactions){
+  assert.ok(ids.has(r.category),r.category);
+  if(r.linkedExpenseId){
+   const b=bills.get(r.linkedExpenseId);
+   assert.ok(b&&b.memberId===r.memberId);
+   assert.equal(Math.round(b.amount*100),Math.round(r.amount*100));
+  }
+ }
+ assert.ok(f.transactions.some(r=>r.externalSavingsConfirmed&&!r.linkedGoalId));
+ assert.ok(f.transactions.some(r=>r.linkedGoalId&&r.type==='income'));
+ assert.ok(f.transactions.some(r=>r.subcategory));
+ assert.ok(Object.values(f).reduce((n,rows)=>n+rows.length,0)+fixtureCategories.length+1<=500);
 });

@@ -42,6 +42,6 @@ jobs:
         if: always() && !cancelled()
         run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs"
 
-      - name: Verify authenticated navigation, controls and responsive states in emulator
+      - name: Verify authenticated navigation, controls and responsive states with populated family
         if: always() && !cancelled()
-        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs --navigation"
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs --navigation --populated"

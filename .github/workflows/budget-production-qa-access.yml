@@ -1,0 +1,26 @@
+name: Budget production QA access
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/productionQaAccess.mjs'
+      - '.github/workflows/budget-production-qa-access.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-access:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/production-access-check')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Verify secrets and read-only production access
+        env:
+          QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
+          QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
+          QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
+        run: node tests/productionQaAccess.mjs

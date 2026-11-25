@@ -80,3 +80,15 @@ html.dark {
 .terra-boot-error h2{font-size:20px;font-weight:700;}
 .terra-boot-error p{max-width:440px;font-size:14px;color:var(--terra-muted);}
 .terra-boot-error button{min-height:44px;padding:10px 20px;border:0;border-radius:12px;background:var(--terra-primary-solid);color:var(--terra-on-primary);font-weight:600;cursor:pointer;}
+
+/* Shared page header: navigation controls stay on the first row; page actions on the second. */
+.terra-page-header {position:sticky;top:0;z-index:30;flex-shrink:0;min-width:0;background:var(--terra-canvas);border-bottom:1px solid var(--terra-border);}
+.terra-page-header-main {display:flex;align-items:center;gap:8px;min-height:64px;padding:10px 16px;min-width:0;}
+.terra-page-header-title {flex:1 1 0;min-width:0;overflow-wrap:anywhere;}
+.terra-page-header-title :is(h1,h2) {margin:0;line-height:1.2;}
+.terra-page-header-subtitle {margin:4px 0 0;font-size:12px;line-height:1.4;color:var(--terra-muted);}
+.terra-page-header-global,.terra-page-header-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.terra-page-header-global {flex:0 0 auto;justify-content:flex-end;}
+.terra-page-header-actions {padding:0 16px 12px;}
+.terra-page-header-actions > button {max-width:100%;}
+.terra-page-header button:focus-visible {outline:2px solid var(--terra-focus);outline-offset:2px;}

@@ -1,6 +1,6 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
@@ -10,6 +10,8 @@ import {
   CreditCard, Home, Link2
 } from 'lucide-react';
 import { MandatoryExpense } from '../types';
+import { reserveSelection } from '../utils/reserveSelection';
+import { parseDebtAmount } from '../utils/debtEdit';
 
 export interface DetailedMandatoryExpense {
   expense: MandatoryExpense;
@@ -24,74 +26,39 @@ export interface DetailedMandatoryExpense {
 export interface ReserveDetailsModalProps {
   isOpen?: boolean;
   onClose: () => void;
-  totalBalance?: number;
-  reservedAmount?: number;
+  totalBalance: number;
+  reservedAmount: number;
   totalReserved?: number;
   savingsAmount?: number;
   manualReserved?: number;
   manualReservedAmount?: number;
   mandatoryAmount?: number;
-  unpaidMandatoryTotal?: number;
-  availableBalance?: number;
+  unpaidMandatoryTotal: number;
+  availableBalance: number;
   availableForSavings?: number;
   dailyBudget?: number;
   daysRemaining?: number;
   savingsRate?: number;
   settings?: any;
-  futureExpenses?: DetailedMandatoryExpense[];
+  futureExpenses: DetailedMandatoryExpense[];
   onUpdateManualSavings?: (amount: number) => void | Promise<any>;
-  onTogglePaid?: (expenseId: string, isPaid: boolean) => void;
-  onPayExpenses?: (expenseIds: string[]) => void;
+  onTogglePaid?: (expenseId: string, isPaid: boolean) => Promise<boolean>;
+  onPayExpenses?: (expenseIds: string[]) => Promise<boolean>;
   onEditExpense?: (expense: MandatoryExpense) => void;
   privacyMode?: boolean;
   currency?: string;
   [key: string]: any;
 }
 
-const DEFAULT_SAMPLE_BILLS: DetailedMandatoryExpense[] = [
-  {
-    expense: { id: 'sample-phone', name: 'Телефон', amount: 448, day: 15, remind: true },
-    amountNeeded: 448,
-    isPaid: false,
-    isManuallyPaid: false,
-    isOverdue: true,
-    subtitle: 'Мобильная связь и тариф'
-  },
-  {
-    expense: { id: 'sample-camera', name: 'Фотоаппарат', amount: 10640, day: 18, remind: true },
-    amountNeeded: 10640,
-    isPaid: false,
-    isManuallyPaid: false,
-    isOverdue: true,
-    subtitle: 'Рассрочка на технику (платеж 3/6)'
-  },
-  {
-    expense: { id: 'sample-mortgage', name: 'Ипотека', amount: 27741.9, day: 20, remind: true },
-    amountNeeded: 27741.9,
-    isPaid: false,
-    isManuallyPaid: false,
-    isOverdue: true,
-    subtitle: 'Ежемесячный обязательный платеж в банк'
-  },
-  {
-    expense: { id: 'sample-internet', name: 'Интернет', amount: 660, day: 25, remind: true },
-    amountNeeded: 660,
-    isPaid: false,
-    isManuallyPaid: false,
-    isOverdue: false,
-    subtitle: 'Домашний оптоволоконный интернет'
-  }
-];
-
 export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   isOpen,
   onClose,
-  totalBalance = 184320,
-  reservedAmount = 39490,
+  totalBalance,
+  reservedAmount,
   savingsAmount = 0,
   manualReserved = 0,
-  unpaidMandatoryTotal = 39490,
-  availableBalance = 7911,
+  unpaidMandatoryTotal,
+  availableBalance,
   savingsRate = 0,
   futureExpenses,
   onUpdateManualSavings,
@@ -110,15 +77,11 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   }, []);
 
   const [manualInput, setManualInput] = useState<string>(() => String(manualReserved || 0));
-  const [isSuccessPaid, setIsSuccessPaid] = useState<boolean>(false);
+  const [busy,setBusy]=useState(false);
+  const pending=useRef(false);
+  const [actionError,setActionError]=useState('');
 
-  // Use provided expenses or fallback to the sample list
-  const rawBillsList = useMemo(() => {
-    if (futureExpenses && futureExpenses.length > 0) {
-      return futureExpenses;
-    }
-    return DEFAULT_SAMPLE_BILLS;
-  }, [futureExpenses]);
+  const rawBillsList=futureExpenses;
 
   // Selected bills for payment
   const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(() => {
@@ -129,15 +92,21 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
     setManualInput(String(manualReserved || 0));
   }, [manualReserved]);
 
-  // Handle manual input change
-  const handleManualBlur = () => {
-    const num = parseFloat(manualInput.replace(',', '.'));
-    const safeVal = isNaN(num) || num < 0 ? 0 : num;
-    setManualInput(String(safeVal));
-    if (onUpdateManualSavings) {
-      onUpdateManualSavings(safeVal);
-    }
-  };
+  async function saveManual(raw:string){
+    if(pending.current||!onUpdateManualSavings)return;
+    setActionError('');
+    try{
+      const value=parseDebtAmount(raw);
+      if(value===manualReserved){setManualInput(String(value));return;}
+      pending.current=true;setBusy(true);
+      await onUpdateManualSavings(value);
+      setManualInput(String(value));
+    }catch(error){
+      setActionError(pending.current?'Не удалось сохранить резерв. Повторите попытку.':error instanceof Error?error.message:'Проверьте сумму.');
+      setManualInput(raw);
+    }finally{pending.current=false;setBusy(false);}
+  }
+  const handleManualBlur=()=>{void saveManual(manualInput);};
 
   const handleToggleBill = (id: string) => {
     setSelectedBillIds(prev => {
@@ -151,40 +120,24 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
     });
   };
 
-  // Selected count & total sum
-  const { selectedCount, selectedTotal } = useMemo(() => {
-    let sum = 0;
-    let count = 0;
-    rawBillsList.forEach(item => {
-      if (selectedBillIds.has(item.expense.id)) {
-        count++;
-        sum += item.amountNeeded > 0 ? item.amountNeeded : item.expense.amount;
-      }
-    });
-    return { selectedCount: count, selectedTotal: sum };
-  }, [rawBillsList, selectedBillIds]);
-
-  // Handle cancellation of paid expense
-  const handleCancelExpense = (e: React.MouseEvent, expenseId: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (onTogglePaid) {
-      onTogglePaid(expenseId, false);
-    }
+  const selection=useMemo(()=>reserveSelection(rawBillsList,selectedBillIds),[rawBillsList,selectedBillIds]);
+  const selectedCount=selection.ids.length,selectedTotal=selection.total;
+  async function performPayment(action:()=>Promise<boolean>){
+    if(pending.current)return;
+    pending.current=true;setBusy(true);setActionError('');
+    try{
+      if(!await action())setActionError('Отметка не изменена. Проверьте данные и повторите попытку.');
+    }catch{
+      setActionError('Не удалось сохранить отметку. Повторите попытку.');
+    }finally{pending.current=false;setBusy(false);}
+  }
+  const handleCancelExpense=(e:React.MouseEvent,expenseId:string)=>{
+    e.stopPropagation();e.preventDefault();
+    if(onTogglePaid)void performPayment(()=>onTogglePaid(expenseId,false));
   };
-
-  // Handle payment action
-  const handlePay = () => {
-    const ids = Array.from(selectedBillIds);
-    if (onPayExpenses) {
-      onPayExpenses(ids);
-    } else if (onTogglePaid) {
-      ids.forEach(id => onTogglePaid(id, true));
-    }
-    setIsSuccessPaid(true);
-    setTimeout(() => {
-      setIsSuccessPaid(false);
-    }, 3000);
+  const handlePay=()=>{
+    if(!onPayExpenses||!selection.ids.length)return;
+    void performPayment(()=>onPayExpenses(selection.ids));
   };
 
   const formatMoney = (val: number) => {
@@ -238,7 +191,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
           <div className="lg:col-span-5 space-y-4 sm:space-y-5">
             
             {/* Top Hero Card: Всего в резерве */}
-            <div className="w-full relative overflow-hidden rounded-2xl p-5 sm:p-6 text-stone-900 dark:text-white bg-gradient-to-br from-[#E2EFE5] via-[#EAF3EC] to-[#F1F7F2] dark:from-[#233529] dark:via-[#1F2F24] dark:to-[#19241C] border border-primary/25 dark:border-primary/40 shadow-sm">
+            <div className="w-full relative overflow-hidden rounded-2xl p-5 sm:p-6 text-stone-900 dark:text-white bg-[var(--terra-primary-soft)] border border-[var(--terra-border)]">
               <div className="relative z-10 flex flex-col items-start justify-between">
                 <div className="flex items-center justify-between w-full">
                   <span className="text-[11px] uppercase tracking-widest text-[#3d6849] dark:text-green-400 font-bold">
@@ -246,17 +199,16 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary dark:text-green-400 bg-white/70 dark:bg-black/40 px-2 py-0.5 rounded-full border border-primary/15 dark:border-primary/30">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Защищено
+                    Учтено в бюджете
                   </span>
                 </div>
                 <div className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-stone-900 dark:text-white mt-2">
                   {formatMoney(reservedAmount)} {currency}
                 </div>
                 <p className="text-xs text-stone-600 dark:text-stone-300 mt-1.5 font-normal">
-                  Сумма заблокирована до даты списания регулярных счетов
+                  Эта сумма исключена из доступных средств при расчёте бюджета
                 </p>
               </div>
-              <div className="absolute -top-10 -right-10 w-28 h-28 bg-primary/10 rounded-full blur-xl pointer-events-none" />
             </div>
 
             {/* 4 Breakdown Metric Cards (2x2 Grid) */}
@@ -315,13 +267,11 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                   {/* Interactive Input */}
                   <div className="relative flex items-center mt-0.5 group/input">
                     <input 
-                      type="number"
-                      min="0"
-                      step="100"
+                      type="text" inputMode="decimal" disabled={busy||!onUpdateManualSavings}
                       value={manualInput}
                       onChange={(e) => setManualInput(e.target.value)}
                       onBlur={handleManualBlur}
-                      onKeyDown={(e) => e.key === 'Enter' && handleManualBlur()}
+                      onKeyDown={(e) => {if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}
                       className="w-full text-xl sm:text-2xl font-display font-bold text-stone-900 dark:text-white tracking-tight bg-stone-50/80 dark:bg-stone-800/80 hover:bg-stone-100/80 dark:hover:bg-stone-800 focus:bg-white dark:focus:bg-[#1E1E20] border border-stone-200/90 dark:border-white/10 hover:border-emerald-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-2.5 py-1 pr-10 transition outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0"
                       aria-label="Сумма вручную"
@@ -360,15 +310,11 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                 <div className="mt-3">
                   <button 
                     type="button"
-                    onClick={() => {
-                      if (onUpdateManualSavings) {
-                        const newAmt = (manualReserved || 0) + (availableBalance > 0 ? availableBalance : 0);
-                        onUpdateManualSavings(newAmt);
-                      }
-                    }}
+                    disabled={busy||!onUpdateManualSavings||availableBalance<=0}
+                    onClick={()=>void saveManual(String(Math.round((manualReserved+availableBalance)*100)/100))}
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAF2EC] dark:bg-primary/20 text-primary dark:text-green-400 border border-primary/30 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition"
                   >
-                    Можно в копилку →
+                    Добавить свободную сумму в резерв
                   </button>
                 </div>
               </div>
@@ -404,6 +350,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
 
               {/* List of Bills */}
               <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1 no-scrollbar">
+                {rawBillsList.length===0&&<p className="text-sm text-[var(--terra-muted)] py-4">Нет обязательных платежей</p>}
                 {rawBillsList.map((item) => {
                   const isChecked = selectedBillIds.has(item.expense.id);
                   const isPaid = item.isPaid;
@@ -466,7 +413,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                           </div>
                           <button
                             type="button"
-                            onClick={(e) => handleCancelExpense(e, item.expense.id)}
+                            onClick={(e) => handleCancelExpense(e, item.expense.id)} disabled={busy||!onTogglePaid}
                             title="Отменить отметку об оплате"
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#252528] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-stone-600 dark:text-stone-300 hover:text-rose-600 dark:hover:text-rose-400 border border-stone-200 dark:border-white/10 hover:border-rose-200 dark:hover:border-rose-800/40 text-xs font-semibold transition active:scale-95 shadow-xs cursor-pointer"
                           >
@@ -490,7 +437,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                       <div className="flex items-center gap-3.5">
                         <input 
                           type="checkbox"
-                          checked={isChecked}
+                          checked={isChecked} disabled={busy} aria-label={`Выбрать платёж: ${item.expense.name}`}
                           onChange={() => handleToggleBill(item.expense.id)}
                           className="w-4 h-4 rounded text-primary focus:ring-primary border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 cursor-pointer"
                         />
@@ -558,31 +505,23 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
             <div className="pt-3 border-t border-stone-200 dark:border-white/10 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-500 dark:text-stone-400">
-                  Выбрано к оплате: <strong className="text-stone-800 dark:text-stone-100">{selectedCount} {selectedCount === 1 ? 'платеж' : selectedCount < 5 ? 'платежа' : 'платежей'}</strong>
+                  Выбрано для отметки: <strong className="text-stone-800 dark:text-stone-100">{selectedCount} {selectedCount === 1 ? 'платеж' : selectedCount < 5 ? 'платежа' : 'платежей'}</strong>
                 </span>
                 <span className="font-display font-bold text-stone-900 dark:text-white text-sm">
                   Итого: {formatMoney(selectedTotal)} {currency}
                 </span>
               </div>
 
+              {actionError&&<p role="alert" className="text-sm text-[var(--terra-danger-text)]">{actionError}</p>}
               <div className="flex items-center gap-3">
                 <button 
                   type="button"
                   onClick={handlePay}
-                  disabled={selectedCount === 0}
+                  disabled={busy||selectedCount===0||!onPayExpenses} aria-busy={busy}
                   className="w-full py-3.5 rounded-2xl bg-primary hover:bg-[#3d6849] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition shadow-md shadow-primary/20 flex items-center justify-center gap-2"
                 >
-                  {isSuccessPaid ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                      <span>Отмечено как оплачено!</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Оплатить обязательные платежи</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  <span>{busy?'Сохранение…':'Отметить выбранные как оплаченные'}</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true"/>
                 </button>
               </div>
             </div>

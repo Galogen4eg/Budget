@@ -30,7 +30,10 @@ interface ImportItem extends Omit<Transaction, 'id'> {
   accountMask?: string;
 }
 
+import type { AlfaParseReport } from '../utils/alfaRowValidation';
+
 interface ImportModalProps {
+  report?: AlfaParseReport|null;
   preview: Omit<Transaction, 'id'>[];
   onConfirm: (items?: Omit<Transaction, 'id'>[]) => Promise<boolean>;
   onCancel: () => void;
@@ -75,7 +78,7 @@ function extractAccountMask(text?: string): string | undefined {
 }
 
 export const ImportModal: React.FC<ImportModalProps> = ({ 
-  preview, 
+  preview, report,
   onConfirm, 
   onCancel, 
   settings, 
@@ -631,6 +634,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
             </div>
 
+            {report&&<p role="status" className="text-xs text-[var(--terra-muted)]">Строк операций: {report.operationRows} · Готово: {items.length-unassignedCount} · Нужна проверка: {unassignedCount} · Дубликаты: {report.duplicates} · Ошибки: {report.errors.length}</p>}
             {/* Сводка и селектор авторов */}
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               

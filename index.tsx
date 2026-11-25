@@ -38,28 +38,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     // Fix: Properly accessing state property
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Что-то пошло не так 😔</h2>
-          <div style={{ maxWidth: '400px', background: '#FFEEEE', color: 'red', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.85rem', wordBreak: 'break-word' }}>
-            {/* Fix: Accessing error property from state */}
-            {this.state.error?.message}
-          </div>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{ 
-              padding: '12px 24px', 
-              borderRadius: '16px', 
-              background: '#007AFF', 
-              color: 'white', 
-              border: 'none', 
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,122,255,0.3)'
-            }}
-          >
-            Перезагрузить приложение
-          </button>
-        </div>
+        <main className="terra-boot-error" role="alert">
+          <h2>Не удалось загрузить приложение</h2>
+          <p>Обновите страницу. Если ошибка повторяется, проверьте соединение.</p>
+          <button type="button" onClick={()=>window.location.reload()}>Попробовать снова</button>
+        </main>
       );
     }
 

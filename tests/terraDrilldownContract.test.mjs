@@ -11,3 +11,15 @@ test('drilldown layouts expose actual view state and no fabricated claims',()=>{
  assert.match(audit,/mobile\(\)\?'Назад к операциям':'Реестр операций'/);
  assert.match(audit,/data-view="analytics"/);assert.match(audit,/data-view="inspector"/);
 });
+
+test('analytics passes privacy to mobile and suppresses raw financial chart and labels',()=>{
+ const desktop=read('components/DrillDownModal.tsx'),mobile=read('components/DrillDownMobile.tsx'),list=read('components/drilldown/DrillDownTransactionList.tsx');
+ assert.match(desktop,/privacyMode=\{settings.privacyMode===true\}/);
+ assert.match(mobile,/privacyMode\?'•••':formatBudgetMoney/);
+ assert.match(desktop,/График скрыт в режиме приватности/);
+ assert.match(mobile,/График скрыт в режиме приватности/);
+ assert.match(list,/settings.privacyMode\?'•••':group.totalSpent/);
+ assert.doesNotMatch(mobile,/const sampled|Math.max\(12,|Math.max\(15,/);
+ assert.match(mobile,/const mobileBars=chartData/);
+ assert.doesNotMatch(read('components/TerraOverview.tsx'),/targetReserveGoal|reservePercent/);
+});

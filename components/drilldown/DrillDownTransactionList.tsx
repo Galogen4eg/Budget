@@ -1,3 +1,4 @@
+import { formatBudgetMoney } from '../../utils/budgetFinancialMath';
 import React, { useMemo } from 'react';
 import { ArrowUpDown, Check } from 'lucide-react';
 import { Transaction, Category, FamilyMember, AppSettings } from '../../types';
@@ -113,9 +114,9 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
                     {group.dateTitle}
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-[#F5F1EA] dark:bg-stone-800 text-[#2E3230] dark:text-stone-300 font-bold text-[11px]">
-                    {group.totalSpent > 0 
-                      ? `-${group.totalSpent.toLocaleString('ru-RU')} ₽` 
-                      : `+${group.totalIncome.toLocaleString('ru-RU')} ₽`}
+                    {settings.privacyMode?'•••':group.totalSpent > 0 
+                      ? `-${formatBudgetMoney(group.totalSpent)} ₽` 
+                      : `+${formatBudgetMoney(group.totalIncome)} ₽`}
                   </span>
                 </div>
 
@@ -166,7 +167,7 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
                           <span className={`font-headline font-bold text-sm ${
                             tx.type === 'income' ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#2E3230] dark:text-white'
                           }`}>
-                            {tx.type === 'income' ? '+' : '-'}{settings.privacyMode ? '•••' : `${Math.round(tx.amount).toLocaleString('ru-RU')} ₽`}
+                            {tx.type === 'income' ? '+' : '-'}{settings.privacyMode ? '•••' : `${formatBudgetMoney(tx.amount)} ₽`}
                           </span>
                         </div>
                       </div>

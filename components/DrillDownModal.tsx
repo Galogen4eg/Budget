@@ -1,3 +1,5 @@
+import { chartBarPercent } from '../utils/analyticsPresentation';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -40,6 +42,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   onLearnRule, onApplyRuleToExisting, onEditTransaction,
   currentMonth, selectedDate
 }) => {
+  const formatAmount=(value:number)=>settings.privacyMode?'•••':formatBudgetMoney(value);
   useModalBackHandler(true, onClose);
   const isOtherOrTraining = categoryId === 'other' || categoryId === 'uncategorized';
   const isAllTransactions = categoryId === 'all' || (!categoryId && !merchantName);
@@ -249,7 +252,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
         const subcatMatch = (t.subcategory || '').toLowerCase().includes(q);
         const noteMatch = (t.note || '').toLowerCase().includes(q);
         const rawNoteMatch = (t.rawNote || '').toLowerCase().includes(q);
-        const amountMatch = String(t.amount).includes(q);
+        const amountMatch = !settings.privacyMode&&String(t.amount).includes(q);
         const member = members.find(m => m.id === t.memberId);
         const memberMatch = member ? member.name.toLowerCase().includes(q) : false;
         return payeeMatch || subcatMatch || noteMatch || rawNoteMatch || amountMatch || memberMatch;
@@ -261,7 +264,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       const timeB = new Date(b.date).getTime();
       return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
     });
-  }, [familyTransactions, typeFilter, payeeFilter, searchQuery, sortOrder, members]);
+  }, [familyTransactions, typeFilter, payeeFilter, searchQuery, sortOrder, members,settings.privacyMode]);
 
   // Calculate Financial KPIs
   const totalExpense = useMemo(() => {
@@ -518,6 +521,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   if (isMobile) {
     return createPortal(
       <DrillDownMobile
+        privacyMode={settings.privacyMode===true}
         categoryTitle={categoryTitle}
         categoryIcon={categoryIcon}
         currentMonthFormatted={currentMonthFormatted}
@@ -704,7 +708,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                       <span>{cat.label}</span>
                       <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
-                        ({spent.toLocaleString('ru-RU')} ₽)
+                        ({formatAmount(spent)} ₽)
                       </span>
                     </button>
                   );
@@ -726,7 +730,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     >
                       <span>{sub.label}</span>
                       <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
-                        ({spent.toLocaleString('ru-RU')} ₽)
+                        ({formatAmount(spent)} ₽)
                       </span>
                     </button>
                   );
@@ -779,7 +783,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 >
                   <span>{payee}</span>
                   <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-[#68726B]'}`}>
-                    ({spent.toLocaleString('ru-RU')} ₽)
+                    ({formatAmount(spent)} ₽)
                   </span>
                 </button>
               );
@@ -879,10 +883,10 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                           <span>Итого</span>
                         </span>
                         <div className="mt-1 text-xl font-headline font-extrabold text-[#2E3230] dark:text-white">
-                          {settings.privacyMode ? '••••••' : `${netBalance.toLocaleString('ru-RU')} ₽`}
+                          {settings.privacyMode ? '••••••' : `${formatAmount(netBalance)} ₽`}
                         </div>
                       </div>
-                      {prevMonthExpense > 0 && (
+                      {!settings.privacyMode&&prevMonthExpense > 0 && (
                         <span className="px-2.5 py-1 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 text-xs font-semibold text-[#68726B] dark:text-stone-300">
                           {trendPercent > 0 ? `+${trendPercent}%` : `${trendPercent}%`} к прошл. мес
                         </span>
@@ -898,7 +902,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                           <span>Доход</span>
                         </div>
                         <div className="mt-1 text-base font-headline font-bold text-[#4A7C59] dark:text-green-400">
-                          +{settings.privacyMode ? '•••' : `${totalIncome.toLocaleString('ru-RU')} ₽`}
+                          +{settings.privacyMode ? '•••' : `${formatAmount(totalIncome)} ₽`}
                         </div>
                         <span className="block text-[10px] text-[#68726B] dark:text-stone-400 mt-0.5">
                           {incomeCount} пополнений
@@ -912,7 +916,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                           <span>Расход</span>
                         </div>
                         <div className="mt-1 text-base font-headline font-bold text-rose-600 dark:text-rose-400">
-                          -{settings.privacyMode ? '•••' : `${totalExpense.toLocaleString('ru-RU')} ₽`}
+                          -{settings.privacyMode ? '•••' : `${formatAmount(totalExpense)} ₽`}
                         </div>
                         <span className="block text-[10px] text-[#68726B] dark:text-stone-400 mt-0.5">
                           {expenseCount} списаний
@@ -930,7 +934,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                       <span className="text-[11px] text-[#68726B] dark:text-stone-400">Доля объёма</span>
                     </div>
 
-                    {memberBreakdown.map(({ member, expense, income, count, share }, index) => {
+                    {settings.privacyMode?<p className="text-sm text-[var(--terra-muted)]">Суммы и доли скрыты</p>:memberBreakdown.map(({ member, expense, income, count, share }, index) => {
                       const name = member ? member.name : 'Без автора';
                       const initial = name.charAt(0).toUpperCase();
 
@@ -950,13 +954,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                               </span>
                             </div>
                             <span className="font-headline font-semibold text-xs text-[#2E3230] dark:text-white">
-                              {expense > 0 ? `-${expense.toLocaleString('ru-RU')} ₽` : `+${income.toLocaleString('ru-RU')} ₽`}
+                              {expense > 0 ? `-${formatAmount(expense)} ₽` : `+${formatAmount(income)} ₽`}
                             </span>
                           </div>
                           <div className="w-full bg-[#EAE6DE] dark:bg-stone-800 h-1.5 rounded-full overflow-hidden">
                             <div 
                               className="h-full rounded-full transition-all duration-500" 
-                              style={{ width: `${Math.max(share, 5)}%`, backgroundColor: member?.color || '#4A7C59' }}
+                              style={{ width: `${chartBarPercent(share,100)}%`, backgroundColor: member?.color || '#4A7C59' }}
                             />
                           </div>
                         </div>
@@ -999,7 +1003,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                   </div>
                   <div className="mt-2.5">
                     <div className="text-2xl font-headline font-extrabold text-[#2E3230] dark:text-white tracking-tight">
-                      {settings.privacyMode ? '••••••' : `${totalExpense.toLocaleString('ru-RU')} ₽`}
+                      {settings.privacyMode ? '••••••' : `${formatAmount(totalExpense)} ₽`}
                     </div>
 
                   </div>
@@ -1015,12 +1019,12 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                   </div>
                   <div className="mt-2.5">
                     <div className="text-2xl font-headline font-extrabold text-[#2E3230] dark:text-white tracking-tight">
-                      {settings.privacyMode ? '••••••' : `${aggregatedChartData.avgDaily.toLocaleString('ru-RU')} ₽`}
+                      {settings.privacyMode ? '••••••' : `${formatAmount(aggregatedChartData.avgDaily)} ₽`}
                     </div>
                     <div className="mt-1 flex items-center gap-1.5 text-xs text-[#68726B] dark:text-stone-400">
                       <Zap className="w-4 h-4 text-amber-600" />
                       <span>
-                        Пик ({chartGranularity === 'daily' ? 'день' : 'неделя'}): <strong className="text-[#2E3230] dark:text-white font-bold">{aggregatedChartData.peakItem?.label || '—'} — {((aggregatedChartData.peakItem?.expense || 0) + (aggregatedChartData.peakItem?.income || 0)).toLocaleString('ru-RU')} ₽</strong>
+                        Пик ({chartGranularity === 'daily' ? 'день' : 'неделя'}): <strong className="text-[#2E3230] dark:text-white font-bold">{aggregatedChartData.peakItem?.label || '—'} — {formatAmount((aggregatedChartData.peakItem?.expense || 0) + (aggregatedChartData.peakItem?.income || 0))} ₽</strong>
                       </span>
                     </div>
                   </div>
@@ -1036,11 +1040,11 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                   </div>
                   <div className="mt-2.5">
                     <div className="text-2xl font-headline font-extrabold text-[#4A7C59] dark:text-green-400 tracking-tight">
-                      +{settings.privacyMode ? '••••••' : `${totalIncome.toLocaleString('ru-RU')} ₽`}
+                      +{settings.privacyMode ? '••••••' : `${formatAmount(totalIncome)} ₽`}
                     </div>
                     <div className="mt-1 flex items-center gap-1.5 text-xs text-[#68726B] dark:text-stone-400">
                       <Scale className="w-4 h-4 text-[#4A7C59]" />
-                      <span>Чистый баланс: <strong className="text-rose-600 dark:text-rose-400 font-bold">{netBalance.toLocaleString('ru-RU')} ₽</strong></span>
+                      <span>Чистый баланс: <strong className="text-rose-600 dark:text-rose-400 font-bold">{formatAmount(netBalance)} ₽</strong></span>
                     </div>
                   </div>
                 </div>
@@ -1048,14 +1052,14 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
               </div>
 
               {/* 2. Interactive SVG Chart Section (CLIPPED TO PREVENT LINES LEAKING OUTSIDE) */}
-              <DrillDownAnalyticsChart
+              {settings.privacyMode?<p role="status" className="rounded-xl bg-[var(--terra-surface)] p-4 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<DrillDownAnalyticsChart
                 familyTransactions={familyTransactions}
                 currentMonth={currentMonth}
                 settings={settings}
                 activeSubcategoryId={activeSubcategoryId}
                 monthLabel={monthLabel}
                 categories={categories}
-              />
+              />}
 
               {/* Actual distribution by member */}
               <div className="grid grid-cols-1 gap-5">
@@ -1073,7 +1077,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                   </div>
 
                   <div className="space-y-3.5">
-                    {memberBreakdown.map(({ member, expense, count, share }, index) => {
+                    {settings.privacyMode?<p className="text-sm text-[var(--terra-muted)]">Суммы и доли скрыты</p>:memberBreakdown.map(({ member, expense, count, share }, index) => {
                       const name = member ? member.name : 'Семья';
                       const initial = name.charAt(0).toUpperCase();
 
@@ -1091,13 +1095,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                               <span className="text-[11px] text-[#68726B]">({count} операций)</span>
                             </div>
                             <span className="font-headline font-bold text-[#2E3230] dark:text-white text-sm">
-                              {expense.toLocaleString('ru-RU')} ₽ <span className="text-xs font-normal text-[#68726B]">({share}% от объёма)</span>
+                              {formatAmount(expense)} ₽ <span className="text-xs font-normal text-[#68726B]">({share}% от объёма)</span>
                             </span>
                           </div>
                           <div className="w-full bg-[#EAE6DE] dark:bg-stone-800 h-2.5 rounded-full overflow-hidden">
                             <div 
                               className="h-full rounded-full transition-all duration-500" 
-                              style={{ width: `${Math.max(share, 5)}%`, backgroundColor: member?.color || '#4A7C59' }} 
+                              style={{ width: `${chartBarPercent(share,100)}%`, backgroundColor: member?.color || '#4A7C59' }} 
                             />
                           </div>
                         </div>

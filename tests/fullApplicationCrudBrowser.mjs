@@ -219,6 +219,34 @@ await scenario('SET-02 personal theme persistence and isolation',async()=>{
  await btn(theme,'Светлая').click();await currentDoc(ref,x=>x.exists&&x.data().theme==='light','personal light theme');
  await btn(d,'Закрыть настройки').click();
 });
+await scenario('OVR-drilldown privacy on desktop and mobile',async()=>{
+ const refs=users.map(u=>family.collection('members').doc(u.uid).collection('config').doc('settings'));
+ const record=rows.doc('qa-privacy-amount');
+ await record.set({...original,id:'qa-privacy-amount',amount:987654.32,date:new Date().toISOString(),note:'QA приватная сумма',payee:'QA приватная сумма'});
+ try{
+  await Promise.all(refs.map(ref=>ref.set({privacyMode:true},{merge:true})));
+  for(const page of [a,b]){
+   phase='privacy overview '+page.viewportSize().width;
+   await reset(page);await nav(page,'overview','Обзор');
+   await btn(panel(page,'overview'),'Аналитика всех категорий').click();
+   const dialog=page.getByTestId('transaction-drilldown');
+   await dialog.getByText('QA приватная сумма',{exact:true}).first().waitFor({state:'visible'});
+   const inspect=async()=>{
+    const text=(await dialog.innerText()).replace(/[\s\u00a0\u202f]/g,'');
+    assert.doesNotMatch(text,/987654(?:[,.]32)?/,'Raw amount leaked from private drilldown');
+    assert.match(text,/•••/,'Expected masked financial amounts');
+   };
+   await inspect();
+   phase='privacy analytics '+page.viewportSize().width;
+   await btn(dialog,page.viewportSize().width<768?'Аналитика и график трат':'Аналитика и графики трат').click();
+   await dialog.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'visible'});
+   await inspect();
+   await btn(dialog,page.viewportSize().width<768?'Назад к операциям':'Реестр операций').click();
+   await btn(dialog,page.viewportSize().width<768?'Закрыть или вернуться назад':'Закрыть').click();
+   await dialog.waitFor({state:'hidden'});
+  }
+ }finally{await Promise.all(refs.map(ref=>ref.set({privacyMode:false},{merge:true})));await record.delete();}
+});
 await scenario('SVC-wallet create, rename, second-user read, delete',async()=>{
  await nav(b,'services','Сервисы');
  await btn(panel(b,'services'),/^Карты лояльности/,false).click();
@@ -286,6 +314,26 @@ await scenario('BUD-16/17/18 mandatory payments persistence',async()=>{
  await btn(b,'Удалить платеж').click();await btn(b,'Подтвердить удаление').click();
  await currentDoc(ref,x=>!entry(x),'mandatory delete');
 });
+await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
+ const ref=family.collection('config').doc('settings');
+ await ref.set({mandatoryExpenses:[],manualPaidExpenses:{}},{merge:true});
+ await nav(b,'overview','Обзор');
+ phase='empty reserve';await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+ const dialog=b.getByRole('dialog',{name:'Структура резерва'});
+ await dialog.getByText('Нет обязательных платежей',{exact:true}).waitFor({state:'visible'});
+ assert.equal(await btn(dialog,'Отметить выбранные как оплаченные').isDisabled(),true);
+ assert.equal(await dialog.getByRole('checkbox').count(),0);
+ await btn(dialog,'Закрыть').click();
+ phase='real reserve payment';await ref.set({mandatoryExpenses:[{id:'qa-reserve',name:'QA резерв',amount:100.25,day:10,remind:false}]},{merge:true});
+ await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+ const checkbox=dialog.getByRole('checkbox',{name:'Выбрать платёж: QA резерв',exact:true});
+ await checkbox.waitFor({state:'visible'});
+ await checkbox.check();
+ await btn(dialog,'Отметить выбранные как оплаченные').click();
+ await currentDoc(ref,snapshot=>Object.values(snapshot.data()?.manualPaidExpenses??{}).some(ids=>Array.isArray(ids)&&ids.includes('qa-reserve')),'confirmed reserve paid mark');
+ await dialog.getByText('Оплачено',{exact:true}).waitFor({state:'visible'});
+ await btn(dialog,'Закрыть').click();
+});
 await scenario('SVC-debt linked obligation create, edit, unlink and conflict rejection',async()=>{
  const ref=family.collection('config').doc('settings');
  await ref.set({mandatoryExpenses:[{id:'qa-link',name:'QA связанный платёж',amount:90,day:8,remind:true},{id:'qa-occupied',name:'QA занятый платёж',amount:50,day:4,remind:false,linkedDebtId:'other-debt'}]},{merge:true});
@@ -321,7 +369,7 @@ await scenario('SVC-debt linked obligation create, edit, unlink and conflict rej
  await b.getByRole('heading',{name:'Удалить долг?'}).waitFor({state:'visible'});
  await btn(b,'Удалить').click();await currentDoc(saved.ref,x=>!x.exists,'linked debt delete after unlink');
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:8,passed:8-failures.length}));
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:10,passed:10-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

@@ -38,7 +38,7 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
     budgetMode = 'personal', onToggleBudgetMode, onInvite, className = '', transactions = [] 
 }) => {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
-  const { updateSettings, members, categories } = useData();
+  const { updateSettings, updateMandatoryPaymentBundle, members, categories } = useData();
   const { user: firebaseUser } = useAuth();
 
   const now = new Date();
@@ -143,20 +143,19 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
   const dailyBudget = availableBalance / daysRemaining;
 
   const handleUpdateManualSavings = async (amount: number) => {
-      await updateSettings({ ...settings, manualReservedAmount: amount });
+      await updateSettings({ manualReservedAmount: amount });
   };
 
-  const handleTogglePaid = async (expenseId: string, isPaid: boolean) => {
-      const currentManuals = settings.manualPaidExpenses || {};
-      const monthIds = currentManuals[currentMonthKey] || [];
-      let newMonthIds = isPaid ? [...monthIds, expenseId] : monthIds.filter(id => id !== expenseId);
-
-      const newSettings = { 
-          ...settings, 
-          manualPaidExpenses: { ...currentManuals, [currentMonthKey]: newMonthIds }
-      };
-      await updateSettings(newSettings);
+  const markPayments=async(ids:string[],isPaid:boolean):Promise<boolean>=>{
+    if(!ids.length||ids.some(id=>!relevantMandatoryExpenses.some(e=>e.id===id)))return false;
+    if(!isPaid&&currentMonthTransactions.some(tx=>tx.type==='expense'&&ids.includes(tx.linkedExpenseId??'')))return false;
+    const existing=settings.manualPaidExpenses?.[currentMonthKey]??[];
+    const next=isPaid?[...new Set([...existing,...ids])]:existing.filter(id=>!ids.includes(id));
+    const debtIds=[...new Set(relevantMandatoryExpenses.filter(e=>ids.includes(e.id)&&e.linkedDebtId).map(e=>e.linkedDebtId!))];
+    await updateMandatoryPaymentBundle({mandatoryExpenses:settings.mandatoryExpenses,manualPaidExpenses:{[currentMonthKey]:next}},debtIds.map(id=>({id,changes:{paidThisMonth:isPaid}})));
+    return true;
   };
+  const handleTogglePaid=(expenseId:string,isPaid:boolean)=>markPayments([expenseId],isPaid);
 
   return (
     <>
@@ -253,16 +252,19 @@ const SmartHeader: React.FC<SmartHeaderProps> = ({
         {isReserveModalOpen && (
             <ReserveDetailsModal 
                 onClose={() => setIsReserveModalOpen(false)}
-                totalReserved={reservedAmount}
+                totalBalance={balance}
+                reservedAmount={reservedAmount}
                 savingsAmount={savingsAmount}
-                manualReservedAmount={manualReserved}
-                mandatoryAmount={unpaidMandatoryTotal}
-                availableForSavings={availableBalance}
+                manualReserved={manualReserved}
+                unpaidMandatoryTotal={unpaidMandatoryTotal}
+                availableBalance={availableBalance}
                 settings={settings}
                 savingsRate={savingsRate}
                 futureExpenses={futureExpenses}
                 onUpdateManualSavings={handleUpdateManualSavings}
                 onTogglePaid={handleTogglePaid}
+                onPayExpenses={ids=>markPayments(ids,true)}
+                privacyMode={settings.privacyMode}
             />
         )}
     </AnimatePresence>

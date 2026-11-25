@@ -96,17 +96,15 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div data-testid="login-scroll-container" className="h-[100dvh] min-h-0 overflow-y-auto overscroll-y-contain bg-[#f7f4ee] flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans text-[#1c241f] selection:bg-[#c8e8d0] selection:text-[#002110]">
+    <div data-testid="login-scroll-container" className="h-[100dvh] min-h-0 overflow-y-auto overscroll-y-contain bg-[var(--terra-canvas)] flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans text-[var(--terra-ink)] selection:bg-[#c8e8d0] selection:text-[#002110]">
       {/* Главный контейнер */}
       <main className="w-full max-w-[420px] mx-auto my-auto shrink-0">
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="bg-[#faf7f2]/95 backdrop-blur-xl border border-[#e8e2d8] rounded-[2rem] p-7 sm:p-9 shadow-[0_20px_50px_-10px_rgba(40,50,45,0.08),0_0_1px_1px_rgba(255,255,255,0.8)_inset] relative overflow-hidden"
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-6 sm:p-8 relative overflow-hidden"
         >
-          {/* Фоновое свечение */}
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-32 bg-[#d7e6d9]/60 blur-2xl rounded-full pointer-events-none" />
 
           {/* Эмблема и заголовок */}
           <header className="text-center relative z-10 flex flex-col items-center">
@@ -116,25 +114,23 @@ export const LoginScreen: React.FC = () => {
               </div>
             </div>
 
-            <h1 className="text-2xl sm:text-[28px] font-black tracking-tight text-[#1c241f] leading-tight font-headline">
+            <h1 className="text-2xl sm:text-[28px] font-black tracking-tight text-[var(--terra-ink)] leading-tight font-headline">
               Terra
             </h1>
-            <p className="text-xs font-semibold tracking-wide text-[#6b776d] mt-1.5 flex items-center gap-1.5">
+            <p className="text-xs font-semibold tracking-wide text-[var(--terra-muted)] mt-1.5 flex items-center gap-1.5">
               <span>Семейный бюджет</span>
-              <span>—</span>
-              <span>{mode === 'login' ? 'Авторизация' : 'Регистрация'}</span>
             </p>
           </header>
 
           {/* Табы режима: Вход / Создать аккаунт */}
-          <div className="mt-5 p-1 bg-[#ece7df] rounded-xl flex items-center text-xs font-semibold text-[#6b776d] relative">
+          <div className="mt-5 p-1 bg-[var(--terra-soft)] rounded-xl flex items-center text-xs font-semibold text-[var(--terra-muted)] relative">
             <button
               type="button"
               onClick={() => setMode('login')}
-              className={`flex-1 py-2 rounded-lg text-center transition-all duration-200 cursor-pointer ${
+              className={`flex-1 py-2 rounded-lg text-center transition-colors duration-200 cursor-pointer ${
                 mode === 'login'
-                  ? 'bg-white text-[#1c241f] shadow-xs font-bold'
-                  : 'hover:text-[#1c241f] font-semibold'
+                  ? 'bg-[var(--terra-surface)] text-[var(--terra-ink)] shadow-xs font-bold'
+                  : 'hover:text-[var(--terra-ink)] font-semibold'
               }`}
             >
               Вход
@@ -142,10 +138,10 @@ export const LoginScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => setMode('register')}
-              className={`flex-1 py-2 rounded-lg text-center transition-all duration-200 cursor-pointer ${
+              className={`flex-1 py-2 rounded-lg text-center transition-colors duration-200 cursor-pointer ${
                 mode === 'register'
-                  ? 'bg-white text-[#1c241f] shadow-xs font-bold'
-                  : 'hover:text-[#1c241f] font-semibold'
+                  ? 'bg-[var(--terra-surface)] text-[var(--terra-ink)] shadow-xs font-bold'
+                  : 'hover:text-[var(--terra-ink)] font-semibold'
               }`}
             >
               Регистрация
@@ -169,7 +165,7 @@ export const LoginScreen: React.FC = () => {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="например: alexander или family1"
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#f5f2eb] border border-[#e4ded3] rounded-xl text-sm placeholder-[#9ba59d] text-[#1c241f] focus:bg-white focus:border-[#3e6b48] focus:ring-3 focus:ring-[#3e6b48]/15 focus:outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[var(--terra-soft)] border border-[var(--terra-control-border)] rounded-xl text-sm placeholder-[#9ba59d] text-[var(--terra-ink)] focus:bg-[var(--terra-surface)] focus:border-[#3e6b48] focus:ring-3 focus:ring-[#3e6b48]/15 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -190,14 +186,14 @@ export const LoginScreen: React.FC = () => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-11 py-2.5 bg-[#f5f2eb] border border-[#e4ded3] rounded-xl text-sm placeholder-[#9ba59d] text-[#1c241f] focus:bg-white focus:border-[#3e6b48] focus:ring-3 focus:ring-[#3e6b48]/15 focus:outline-none transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 bg-[var(--terra-soft)] border border-[var(--terra-control-border)] rounded-xl text-sm placeholder-[#9ba59d] text-[var(--terra-ink)] focus:bg-[var(--terra-surface)] focus:border-[#3e6b48] focus:ring-3 focus:ring-[#3e6b48]/15 focus:outline-none transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
                    title={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#78857a] hover:text-[#1c241f] focus:outline-none transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#78857a] hover:text-[var(--terra-ink)] focus:outline-none transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -231,7 +227,7 @@ export const LoginScreen: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 py-3 px-4 bg-[#3e6b48] hover:bg-[#33593c] active:scale-[0.99] text-white font-bold rounded-xl shadow-[0_10px_24px_-6px_rgba(62,107,72,0.38)] transition-all duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-60 cursor-pointer"
+              className="w-full mt-2 py-3 px-4 bg-[#3e6b48] hover:bg-[#33593c] active:scale-[0.99] text-white font-bold rounded-xl  transition-colors duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-60 cursor-pointer"
             >
               <span>{isLoading ? 'Загрузка...' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</span>
               <ArrowRight size={16} />
@@ -243,7 +239,7 @@ export const LoginScreen: React.FC = () => {
             <button
               type="button"
               onClick={enterDemoMode}
-              className="inline-flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-[#4a584d] hover:text-[#3e6b48] transition-colors py-1.5 px-3 rounded-lg hover:bg-[#ece7df]/70 cursor-pointer"
+              className="inline-flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-[#4a584d] hover:text-[#3e6b48] transition-colors py-1.5 px-3 rounded-lg hover:bg-[var(--terra-soft)]/70 cursor-pointer"
             >
               <UserPlus size={14} className="text-[#78857a]" />
               <span>Локальный демо-режим</span>
@@ -267,12 +263,12 @@ export const LoginScreen: React.FC = () => {
                   <div className="w-9 h-9 rounded-xl bg-[#3e6b48]/10 text-[#3e6b48] flex items-center justify-center font-bold">
                     <KeyRound size={18} />
                   </div>
-                  <h3 className="text-lg font-extrabold text-[#1c241f]">Восстановление пароля</h3>
+                  <h3 className="text-lg font-extrabold text-[var(--terra-ink)]">Восстановление пароля</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setIsResetModalOpen(false); setResetSuccess(false); }}
-                  className="p-1.5 rounded-full hover:bg-[#ece7df] text-[#78857a] hover:text-[#1c241f] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-full hover:bg-[var(--terra-soft)] text-[#78857a] hover:text-[var(--terra-ink)] transition-colors cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -296,7 +292,7 @@ export const LoginScreen: React.FC = () => {
                         value={resetInput}
                         onChange={e => setResetInput(e.target.value)}
                         placeholder="например: alexander или user@gmail.com"
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#f5f2eb] border border-[#e4ded3] rounded-xl text-sm placeholder-[#9ba59d] text-[#1c241f] focus:bg-white focus:border-[#3e6b48] focus:ring-2 focus:ring-[#3e6b48]/15 focus:outline-none transition-all"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--terra-soft)] border border-[var(--terra-control-border)] rounded-xl text-sm placeholder-[#9ba59d] text-[var(--terra-ink)] focus:bg-[var(--terra-surface)] focus:border-[#3e6b48] focus:ring-2 focus:ring-[#3e6b48]/15 focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -305,14 +301,14 @@ export const LoginScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsResetModalOpen(false)}
-                      className="flex-1 py-2.5 px-4 bg-[#ece7df] hover:bg-[#e2dcd3] text-[#354037] font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 px-4 bg-[var(--terra-soft)] hover:bg-[#e2dcd3] text-[#354037] font-bold text-xs rounded-xl transition-colors cursor-pointer"
                     >
                       Отмена
                     </button>
                     <button
                       type="submit"
                       disabled={isSendingReset || !resetInput.trim()}
-                      className="flex-1 py-2.5 px-4 bg-[#3e6b48] hover:bg-[#33593c] text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      className="flex-1 py-2.5 px-4 bg-[#3e6b48] hover:bg-[#33593c] text-white font-bold text-xs rounded-xl transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       {isSendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
                       <span>Отправить</span>
@@ -324,7 +320,7 @@ export const LoginScreen: React.FC = () => {
                   <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                     <CheckCircle2 size={24} />
                   </div>
-                  <h4 className="font-bold text-sm text-[#1c241f]">Письмо отправлено!</h4>
+                  <h4 className="font-bold text-sm text-[var(--terra-ink)]">Письмо отправлено!</h4>
                   <p className="text-xs text-[#525e55] leading-relaxed">
                     Инструкции по сбросу пароля отправлены. Проверьте почту (включая папку «Спам»).
                   </p>

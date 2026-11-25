@@ -36,7 +36,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     financialSettings: settings, 
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
-    transactions,financialDataStatus,retryFinancialData
+    transactions,financialDataStatus,retryFinancialData,workspaceStatuses,retryWorkspace
   } = useData();
 
   useEffect(() => {
@@ -84,7 +84,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         </svg>
       ),
       component: (
-        <WalletApp 
+        workspaceStatuses.wallet!=='ready'?<div className="flex flex-col gap-2"><button type="button" className="min-h-[44px] text-left text-[var(--terra-primary-text)]" onClick={()=>setActiveService('menu')}>Все сервисы</button><FinancialDataState status={workspaceStatuses.wallet} section="карты лояльности" onRetry={retryWorkspace}/></div>:<WalletApp 
           cards={loyaltyCards} 
           setCards={setLoyaltyCards} 
           onClose={() => setActiveService('menu')}

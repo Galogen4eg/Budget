@@ -11,7 +11,7 @@ import {
   DEMO_SHOPPING_ITEMS, DEMO_EVENTS, DEMO_GOALS, DEMO_DEBTS, DEMO_LOYALTY_CARDS, DEMO_MANDATORY_EXPENSES
 } from '../constants';
 import { 
-  subscribeToCollection, subscribeToGlobalRules,
+  subscribeToCollection, subscribeToWorkspaceCollection, subscribeToGlobalRules,
   addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, commitDebtEdit, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection, subscribeToPersonalCollection, savePersonalItems, deletePersonalItem
 } from '../utils/db';
 import { useAuth } from './AuthContext';
@@ -22,6 +22,7 @@ import { displayBudgetMode, budgetDisplayPreferenceKey, projectPersonalDisplayFi
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 import { ledgerBalance, sumMoney } from '../utils/budgetFinancialMath';
 import { planDebtExpenseLink } from '../utils/debtEdit';
+import { initialWorkspaceRead, updateWorkspaceRead, workspaceStatus, type WorkspaceCollection, type WorkspaceStatus } from '../utils/workspaceReadState';
 import { initialFinancialRead, updateFinancialRead, financialReadStatus, type FinancialCollection, type FinancialReadStatus } from '../utils/financialReadState';
 
 // Default Settings
@@ -82,6 +83,8 @@ interface DataContextType {
   importSourcesReady: boolean;
   financialDataStatus: FinancialReadStatus;
   retryFinancialData: () => void;
+  workspaceStatuses: {plans:WorkspaceStatus;shopping:WorkspaceStatus;wallet:WorkspaceStatus};
+  retryWorkspace:()=>void;
   settingsReady: boolean;
   familyCalendarReady: boolean;
   shoppingReady: boolean;
@@ -174,6 +177,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [transactionsReady, setTransactionsReady] = useState(false);
   const [financialRead,setFinancialRead]=useState(()=>initialFinancialRead(null));
   const [financialRetry,setFinancialRetry]=useState(0);
+  const [workspaceRead,setWorkspaceRead]=useState(()=>initialWorkspaceRead(null));
+  const [workspaceRetry,setWorkspaceRetry]=useState(0);
+  const retryWorkspace=()=>{
+    if(Date.now()<financialRetryAfter.current){toast.info('Повторная проверка временно недоступна. Попробуйте позже.');return;}
+    financialRetryAfter.current=Date.now()+10000;
+    setWorkspaceRead(initialWorkspaceRead(null));setWorkspaceRetry(n=>n+1);
+  };
   const [policyReadError,setPolicyReadError]=useState(false);
   const [settingsReadError,setSettingsReadError]=useState(false);
   const financialRetryAfter=useRef(0);
@@ -254,8 +264,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const linkedMemberId=(!familyId||loadedMembersScope===memberScope)?members.find(m=>m.userId&&m.userId===user?.uid)?.id:undefined;
   const settingsScope=memberScope&&policyReady?memberScope+':'+(householdPersonal?'personal':'family'):null;
   const settingsReady=!familyId||Boolean(settingsScope&&loadedSettingsScope===settingsScope);
-  const familyCalendarReady=Boolean(memberScope&&loadedEventsScope===memberScope&&loadedMembersScope===memberScope&&settingsReady);
-  const shoppingReady=!familyId||Boolean(memberScope&&loadedShoppingScope===memberScope);
+  const workspaceScope=familyId?JSON.stringify([memberScope,workspaceRetry]):null;
+  const workspaceStatuses={plans:workspaceStatus(workspaceRead,workspaceScope,['events','members']),shopping:workspaceStatus(workspaceRead,workspaceScope,['shopping','pantry','members']),wallet:workspaceStatus(workspaceRead,workspaceScope,['loyalty'])};
+  const shoppingReady=!familyId||Boolean(memberScope&&loadedShoppingScope===memberScope&&workspaceStatuses.shopping==='ready');
+  const familyCalendarReady=Boolean(memberScope&&loadedEventsScope===memberScope&&loadedMembersScope===memberScope&&settingsReady&&workspaceStatuses.plans==='ready');
   const baseSettings=settingsReady?settings:DEFAULT_SETTINGS;
   useEffect(()=>{
     if(!familyId||!user?.uid)return;
@@ -431,7 +443,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- Subscriptions ---
   useEffect(() => {
-    setTransactionsReady(false);
     setCatalogReady(false);
     setLoadedEventsScope(null);setLoadedShoppingScope(null);
     // Always load locally cached rules as baseline to prevent rules disappearance on reload
@@ -522,18 +533,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return unsubGlobal;
     }
 
+    let active=true;
+    const scope=workspaceScope!;
+    setWorkspaceRead(initialWorkspaceRead(scope));
+    const listen=(kind:WorkspaceCollection,apply:(data:any[])=>void)=>subscribeToWorkspaceCollection(familyId,kind,(data,metadata)=>{
+      if(!active)return;
+      setWorkspaceRead(previous=>updateWorkspaceRead(previous,scope,kind,metadata.fromCache?'stale':'ready'));
+      // Unconfirmed cache must not masquerade as a confirmed empty collection.
+      if(!metadata.fromCache)apply(data);
+    },error=>{
+      if(!active)return;
+      rememberReadFailure(error);setWorkspaceRead(previous=>updateWorkspaceRead(previous,scope,kind,'error'));
+      console.error('Workspace subscription failed',kind,error);
+    });
     const unsubs = [
       unsubGlobal,
-      subscribeToCollection(familyId, 'shopping', (data) => {
+      listen('shopping', (data) => {
         const uniqueMap = new Map<string, ShoppingItem>();
         (data as ShoppingItem[]).forEach(item => {
           if (item && item.id) uniqueMap.set(item.id, item);
         });
         setShoppingItems(Array.from(uniqueMap.values()));setLoadedShoppingScope(memberScope);
       }),
-      subscribeToCollection(familyId, 'pantry', (data) => setPantryState(data as PantryItem[])),
-      subscribeToCollection(familyId, 'events', (data) => {setEvents(data as FamilyEvent[]);setLoadedEventsScope(memberScope);}),
-      subscribeToCollection(familyId, 'members', (data) => {
+      listen('pantry', (data) => setPantryState(data as PantryItem[])),
+      listen('events', (data) => {setEvents(data as FamilyEvent[]);setLoadedEventsScope(memberScope);}),
+      listen('members', (data) => {
           setMembers(data as FamilyMember[]);
           setLoadedMembersScope(memberScope);
       }),
@@ -558,7 +582,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   });
           }
       }),
-      subscribeToCollection(familyId, 'loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
+      listen('loyalty', (data) => setLoyaltyCards(data as LoyaltyCard[])),
 
     ];
     
@@ -569,8 +593,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     isInitialLoad.current = false;
-    return () => unsubs.forEach(u => u());
-  }, [familyId, isOfflineMode, user?.uid]);
+    return () => {active=false;unsubs.forEach(u => u());};
+  }, [familyId, isOfflineMode, user?.uid, workspaceScope]);
 
   // --- Local Storage Sync ---
   useEffect(() => {
@@ -740,20 +764,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     householdPersonal, financialSettings, hideSharedBudget, setHideSharedBudget, personalDisplayOnly, personalOpeningKnown, displaySettings, displayTransactions, displayGoals, displayMembers,
     transactions: visibleTransactions, setTransactions,
-    shoppingItems, setShoppingItems,
-    pantry, setPantry: handlePantryUpdate,
-    events, setEvents,
+    shoppingItems:!familyId||workspaceRead.scope===workspaceScope&&loadedShoppingScope===memberScope?shoppingItems:[], setShoppingItems,
+    pantry:!familyId||workspaceRead.scope===workspaceScope&&workspaceRead.states.pantry==='ready'?pantry:[], setPantry: handlePantryUpdate,
+    events:!familyId||workspaceRead.scope===workspaceScope&&loadedEventsScope===memberScope?events:[], setEvents,
     goals: visibleGoals, setGoals,
     members, setMembers,
     categories, setCategories,
     importSourcesReady: transactionsReady && catalogReady && settingsReady && financialDataStatus==='ready',
-    financialDataStatus,retryFinancialData,
+    financialDataStatus,retryFinancialData,workspaceStatuses,retryWorkspace,
     settingsReady, familyCalendarReady, shoppingReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
     settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, saveDebtEdit, // Expose scoped settings
     debts: visibleDebts, setDebts,
-    loyaltyCards, setLoyaltyCards,
+    loyaltyCards:!familyId||workspaceRead.scope===workspaceScope&&workspaceRead.states.loyalty==='ready'?loyaltyCards:[], setLoyaltyCards,
     notifications, setNotifications,
     addReminder,
     dismissedNotificationIds,

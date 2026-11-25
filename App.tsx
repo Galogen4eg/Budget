@@ -52,6 +52,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { AlfaStatementRowsError, type AlfaParseReport } from './utils/alfaRowValidation';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
 import { stopTelegramBotListener } from './utils/telegramBotListener';
@@ -123,7 +124,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady, settingsReady, financialDataStatus,retryFinancialData,
+    importSourcesReady, settingsReady, financialDataStatus,retryFinancialData,workspaceStatuses,retryWorkspace,
     settings, financialSettings, householdPersonal, personalDisplayOnly, displaySettings, displayTransactions, displayMembers, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -202,6 +203,8 @@ export default function App() {
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [importReport,setImportReport]=useState<AlfaParseReport|null>(null);
+  const [importIssue,setImportIssue]=useState<AlfaParseReport|null>(null);
   const importingRef=useRef(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [pinMode, setPinMode] = useState<'unlock' | null>(null);
@@ -211,7 +214,7 @@ export default function App() {
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   useEffect(()=>{
-    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
   },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(()=>typeof window==='undefined'||window.innerWidth>=1024);
   
@@ -479,18 +482,20 @@ export default function App() {
   };
 
   const handleImport = async (file: File) => {
-    if(importingRef.current)return;
+    if(importingRef.current||importPreview)return;
+    setImportReport(null);setImportIssue(null);
     importingRef.current=true;
     setIsImporting(true);
     importFileDigestRef.current = null;
     importFileRef.current = file;
     try {
         const memberId = resolveImportMemberId(members, user?.uid);
-        const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions);
+        const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions,setImportReport);
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
     } catch (err: any) {
+        if(err instanceof AlfaStatementRowsError){setImportIssue(err.report);return;}
         if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
           try {
             const memberId = resolveImportMemberId(members, user?.uid);
@@ -1000,6 +1005,11 @@ export default function App() {
           </div>
         )}
 
+        {importIssue&&<section role="alert" className="shrink-0 max-h-[35dvh] overflow-y-auto px-4 py-3 bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)] text-sm">
+          <div className="flex items-center justify-between gap-3"><strong>Импорт не начат: ошибки в выписке</strong><button type="button" className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-surface)]" onClick={()=>setImportIssue(null)}>Закрыть</button></div>
+          <p>Строк операций: {importIssue.operationRows}. Ошибок: {importIssue.errors.length}. Исправьте файл и загрузите снова. Исходная выписка не подтверждена для удаления.</p>
+          <ul className="mt-2 list-disc pl-5">{importIssue.errors.map((issue,index)=><li key={index}>{issue.sheet}, строка {issue.row}: {issue.reason}</li>)}</ul>
+        </section>}
         {isImporting&&<div role="status" className="shrink-0 px-4 py-2 text-sm bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]">Чтение выписки…</div>}
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
@@ -1084,7 +1094,7 @@ export default function App() {
             </div>
             
             <div key={tabScope+'-plans'} data-tab-panel="plans" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
-              <FamilyPlans 
+              {workspaceStatuses.plans!=='ready'?<FinancialDataState status={workspaceStatuses.plans} section="планы" onRetry={retryWorkspace} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<FamilyPlans 
                 events={events} 
                 setEvents={setEvents} 
                 settings={settings} 
@@ -1094,12 +1104,12 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
                 onOpenBudget={() => setActiveTab('budget')}
-              />
+              />}
             </div>
 
             <div key={tabScope+'-shopping'} data-tab-panel="shopping" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
               {mountTab('shopping') && <Suspense fallback={<TabLoading/>}>
-                  <ShoppingList 
+                  {workspaceStatuses.shopping!=='ready'?<FinancialDataState status={workspaceStatuses.shopping} section="покупки" onRetry={retryWorkspace} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<ShoppingList 
                 items={shoppingItems} 
                 setItems={setShoppingItems} 
                 settings={settings} 
@@ -1107,8 +1117,8 @@ export default function App() {
                 onMoveToPantry={handleMoveToPantry} 
                 onSendToTelegram={handleSendShoppingToTelegram}
                 onOpenSettings={() => setIsSettingsOpen(true)}
-                onOpenNotifications={() => setShowNotifications(true)}
-              />
+                onOpenNotifications={()=>setShowNotifications(true)}
+              />}
                 </Suspense>}
 
             </div>
@@ -1268,7 +1278,7 @@ export default function App() {
             {importPreview && (
               <ImportModal 
                 key="import-modal"
-                preview={importPreview} 
+                preview={importPreview} report={importReport} 
                 onCancel={() => setImportPreview(null)} 
                 onConfirm={async (finalItems) => {
                   try {

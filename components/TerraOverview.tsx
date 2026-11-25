@@ -251,7 +251,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       );
       if (recorded || (personalDisplayOnly&&allTransactions.some(tx=>tx.type==='expense'&&tx.linkedExpenseId===expenseId&&tx.date.slice(0,7)===currentMonthKey))) {
         toast.info('Платёж связан с финансовой операцией. Измените или удалите её, чтобы снять оплату.');
-        return;
+        return false;
       }
     }
     const bill = relevantMandatoryExpenses.find(expense => expense.id === expenseId);
@@ -265,7 +265,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }, debtChanges);
     } catch {
       toast.error('Не удалось сохранить отметку платежа и связанный долг.');
+      return false;
     }
+    return true;
   }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, familyMonthTransactions,
       relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle, personalDisplayOnly, allTransactions]);
 
@@ -284,7 +286,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }, debtChanges);
     } catch {
       toast.error('Не удалось записать оплату обязательств и связанных долгов.');
+      return false;
     }
+    return true;
   }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, relevantMandatoryExpenses,
       isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 
@@ -293,8 +297,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const manualReserved = familyProjection.manualReserve;
   const reservedAmount = familyProjection.reservedAmount;
   const availableBalance = familyProjection.availableBalance;
-  const targetReserveGoal = Math.max(50000, Math.round(unpaidMandatoryTotal + savingsAmount + 25000));
-  const reservePercent = Math.min(100, Math.max(15, Math.round((reservedAmount / (targetReserveGoal || 1)) * 100)));
   const dailyLimit = personalOpeningKnown ? budgetDailyLimit(sharedLedger, reservedAmount, daysRemaining) : 0;
 
   // Today's spending
@@ -1333,26 +1335,16 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <Lock size={14} className="text-warm-amber" />
                 {personalOnly?'Личный резерв':'Семейный резерв'}
               </span>
-              <span className="text-xs bg-[#FAF1E3] dark:bg-[#3D2C1E] text-[#845E20] dark:text-amber-400 font-bold px-2 py-0.5 rounded-md border border-[#EEDFCA] dark:border-transparent">
-                {reservePercent}%
-              </span>
+              <ChevronRight size={18} className="text-[var(--terra-muted)]" aria-hidden="true"/>
             </div>
             <div className="my-3 flex items-baseline">
               <span className="text-2xl lg:text-3xl font-headline font-bold text-graphite dark:text-white tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex items-baseline gap-1">
                 {formatAmount(reservedAmount)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
               </span>
             </div>
-            <div>
-              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span className="min-w-0 break-words">Цель: {formatAmount(targetReserveGoal)} ₽</span>
-                <span className="font-mono text-[#845E20] dark:text-amber-400 font-semibold group-hover:underline">Подробнее →</span>
-              </div>
-              <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-warm-amber h-full rounded-full terra-progress" 
-                  style={{ width: `${reservePercent}%` }}
-                ></div>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
+              <span>Обязательства и накопления</span>
+              <span className="font-semibold text-[var(--terra-primary-text)]">Подробнее</span>
             </div>
           </button>
         </section>

@@ -92,3 +92,12 @@ html.dark {
 .terra-page-header-actions {padding:0 16px 12px;}
 .terra-page-header-actions > button {max-width:100%;}
 .terra-page-header button:focus-visible {outline:2px solid var(--terra-focus);outline-offset:2px;}
+
+/* Wide workspace: one compact row, narrow workspace: labeled actions below title.
+   Keep the keyboard order identical to visual order; the chat's search content remains a separate row. */
+.terra-page-header {container-type:inline-size;}
+@container (min-width:720px) {
+ .terra-page-header-layout {display:flex;align-items:center;min-height:64px;gap:8px;padding-right:16px;}
+ .terra-page-header-main {flex:1 1 0;min-width:0;padding-right:0;}
+ .terra-page-header-actions {padding:0;flex:0 0 auto;justify-content:flex-end;}
+}

@@ -70,7 +70,7 @@ async function verify(title,amount){
 const visible=locator=>locator.filter({visible:true}).first();
 const heading=name=>page.getByRole('heading',{name,exact:true});
 const edit=title=>visible(page.getByRole('button',{name:'Редактировать операцию: '+title,exact:true}));
-const titleField=()=>page.getByText('Название в истории',{exact:true}).locator('..').locator('input[type=text]');
+const titleField=()=>page.locator('label').filter({hasText:/^Название в истории$/}).locator('..').locator('input[type=text]');
 const amountField=()=>page.getByRole('textbox',{name:'Сумма операции'});
 async function budget(){
  await visible(page.locator('nav').getByRole('button',{name:'Бюджет',exact:true})).click({timeout:45000});
@@ -82,7 +82,7 @@ async function save(editing){
  saveError='unknown';
  writeAttempted=true;
  const name=editing?'Редактирование операции':'Новая операция';
- const form=heading(name).locator('../..');
+ const form=heading(name).locator('xpath=../..');
  await form.getByRole('button',{name:editing?'Сохранить изменения':'Добавить операцию',exact:true}).click();
  try{await heading(name).waitFor({state:'hidden',timeout:25000});}
  catch{throw new Error('Editor did not close after save; Firebase error: '+saveError);}
@@ -143,19 +143,37 @@ try{
  // Production readiness signal confirms family/transaction/category/settings data.
  await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:45000});
  console.log('PASS actual production login and budget panel at 1440px');
- stage='create expense';
- await visible(page.getByRole('button',{name:'Добавить операцию',exact:true})).click();
+ stage='create expense: open editor';
+ await visible(page.locator('[data-tab-panel="budget"]').getByRole('button',{name:'Добавить операцию',exact:true})).click();
  await heading('Новая операция').waitFor({state:'visible'});
+ console.log('PASS opened new expense editor');
+ stage='create expense: fill title';
  await titleField().fill(original);
+ stage='create expense: fill note';
  await page.getByPlaceholder('Добавить заметку семьи (чек, комментарий...)').fill(marker);
+ stage='create expense: fill zero amount';
  await amountField().fill('0');
- const form=heading('Новая операция').locator('../..');
+ stage='create expense: submit invalid amount';
+ await guard();
+ writeAttempted=true;
+ const form=heading('Новая операция').locator('xpath=../..');
  await form.getByRole('button',{name:'Добавить операцию',exact:true}).click();
- await page.getByText('Введите положительную сумму с точностью до копейки или корректное выражение.',{exact:true}).waitFor({state:'visible'});
+ stage='create expense: assert validation';
+ const validation=page.getByText('Введите положительную сумму с точностью до копейки или корректное выражение.',{exact:true});
+ try{await validation.waitFor({state:'visible'});}
+ catch{
+  for(const message of ['Выберите участника семьи, для которого сохраняется операция.','Не удалось сохранить транзакцию. Пожалуйста, попробуйте снова.']){
+   if(await page.getByText(message,{exact:true}).isVisible())console.error('Known validation: '+message);
+  }
+  throw new Error('Expected zero amount validation did not appear');
+ }
  check((await queryMarker()).length===0,'Invalid zero amount created a document');
  console.log('PASS invalid zero amount rejected without database write');
+ stage='create expense: fill valid amount';
  await amountField().fill('123.45');
+ stage='create expense: save valid amount';
  await save(false);
+ stage='create expense: server read';
  const created=await verify(original,123.45);
  console.log('PASS create expense via production UI and server reread (12345 kopecks)');
  stage='rename expense';
@@ -200,6 +218,7 @@ try{
  const reason=String(error?.message??'');
  console.error('FAIL stage: '+stage+'; '+(/^(QA |Invalid |Unexpected |Missing |Production auth failed: |Firestore HTTP |Expected exactly |Marked record |Server |Update created |Editor did not |Browser auth |Run marker |Invalid zero |Wrong |Rename changed |Reloaded |Deleted )/.test(reason)?reason.split('\n')[0].slice(0,200):'browser or network action failed'));
  if(saveError!=='unknown')console.error('Firebase error: '+saveError);
+ if(error?.name==='TimeoutError')console.error('Timeout while performing the named stage');
 }finally{
  await browser?.close();
  try{await cleanup();}

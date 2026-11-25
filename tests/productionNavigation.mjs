@@ -63,7 +63,7 @@ async function checkSections(){
  await reload();
  await run('PLN-views-calendar-and-editor',async()=>{
   await nav('plans','Планы');const p=panel('plans');
-  for(const name of ['Месяц','Неделя','День','Список']){
+  for(const name of ['Месяц','Неделя','День','Расписание']){
    const tab=button(p,name);await tab.click();
    if(await tab.getAttribute('aria-pressed')!=='true')throw new Error('Calendar selection missing');
   }

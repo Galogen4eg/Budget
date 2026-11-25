@@ -38,6 +38,13 @@ export const logDebug = async (user: FirebaseUser | null, action: string, detail
     }
 };
 
+/** Opt-in metadata for workspace screens. Existing consumers keep their existing contract. */
+export function subscribeToWorkspaceCollection(familyId:string,collectionName:string,onValue:(data:any[],metadata:{fromCache:boolean;hasPendingWrites:boolean})=>void,onError:(error:Error)=>void){
+ if(!familyId)return ()=>{};
+ return onSnapshot(collection(db,'families',familyId,collectionName),{includeMetadataChanges:true},snapshot=>{
+  onValue(snapshot.docs.map(doc=>({ ...doc.data(),id:doc.id })),snapshot.metadata);
+ },onError);
+}
 export const subscribeToCollection = (familyId: string, collectionName: string, callback: (data: any[]) => void, onError?: (error: Error)=>void) => {
   if (!familyId) return () => {};
   const q = query(collection(db, 'families', familyId, collectionName));

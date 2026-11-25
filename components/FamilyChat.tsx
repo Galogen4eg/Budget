@@ -2,7 +2,7 @@ import { Bell, Settings } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { subscribeToCollection, addItem, setChatHeart } from '../utils/db';
+import { subscribeToWorkspaceCollection, addItem, setChatHeart } from '../utils/db';
 import { triggerHaptic } from '../utils/haptics';
 import { toast } from 'sonner';
 import { isOwnChatMessage, chatMessageTime, shouldFollowChat } from '../utils/familyWorkspace';
@@ -55,6 +55,10 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   const [openedScope,setOpenedScope]=useState<string|null>(null);
   const [loadedScope,setLoadedScope]=useState<string|null>(null);
   const [loadError,setLoadError]=useState(false);
+  const [chatStale,setChatStale]=useState(false);
+  const [chatRetry,setChatRetry]=useState(0);
+  const retryAfter=useRef(0);
+  const retryChat=()=>{if(Date.now()<retryAfter.current){toast.info('Повторная проверка временно недоступна');return;}retryAfter.current=Date.now()+10000;setChatRetry(n=>n+1);};
   const followChat=useRef(true);
   const pendingHearts=useRef(new Set<string>());
   const sendingRef=useRef(false);
@@ -88,11 +92,16 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   }, [active,activeTopicId, currentMessages.length, mobileView]);
 
   // Keep each message in its own topic. Empty snapshots must clear stale messages.
+  useEffect(()=>{setInputText('');setSearchQuery('');setActiveTopicId('general');followChat.current=true;},[scope]);
   useEffect(() => {
-    setMessagesMap({ general: [] });setTopics(INITIAL_TOPICS);setActiveTopicId('general');
-    setLoadedScope(null);setLoadError(false);setInputText('');setSearchQuery('');followChat.current=true;
+    setMessagesMap({ general: [] });setTopics(INITIAL_TOPICS);
+    setLoadedScope(null);setLoadError(false);setChatStale(false);
     if (!familyId||!scope||openedScope!==scope) return;
-    const unsub = subscribeToCollection(familyId, 'chat', (data) => {
+    let activeSubscription=true;
+    const unsub = subscribeToWorkspaceCollection(familyId, 'chat', (data,metadata) => {
+      if(!activeSubscription)return;
+      setChatStale(metadata.fromCache);
+      if(metadata.fromCache)return;
       setLoadedScope(scope);setLoadError(false);
       const grouped: Record<string, ChatMessage[]> = { general: [] };
       if (Array.isArray(data)) {
@@ -117,9 +126,9 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
         }));
         return discovered.length ? [...prev, ...discovered] : prev;
       });
-    },()=>setLoadError(true));
-    return () => unsub();
-  }, [familyId,scope,openedScope]);
+    },error=>{if(activeSubscription){setLoadError(true);if(/quota|resource.exhausted|429/i.test(error.message))retryAfter.current=Date.now()+300000;}});
+    return () => {activeSubscription=false;unsub();};
+  }, [familyId,scope,openedScope,chatRetry]);
 
   // Topic Switcher
   const handleSelectTopic = (topicId: string) => {
@@ -135,7 +144,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text || sendingRef.current) return;
+    if (!text || sendingRef.current || loadError || chatStale || (scope&&loadedScope!==scope)) return;
     if (!familyId || !user) {
       toast.error('Для отправки сообщений войдите в семейное пространство');
       return;
@@ -258,7 +267,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                     <span className="text-[10.5px] font-body text-on-surface-variant dark:text-stone-400 shrink-0 ml-1">{t.time}</span>
                   </div>
                   <p className="text-xs font-body text-on-surface-variant dark:text-stone-400 truncate mt-0.5">
-                    {messagesMap[t.id]?.length ? messagesMap[t.id][messagesMap[t.id].length - 1].text : t.lastMessage}
+                    {scope&&loadedScope!==scope?(loadError?'Недоступно':'Загрузка…'):messagesMap[t.id]?.length ? messagesMap[t.id][messagesMap[t.id].length - 1].text : t.lastMessage}
                   </p>
                 </div>
               </button>
@@ -357,6 +366,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             data-testid="chat-messages-scroll-container"
             className="px-4 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-4 min-h-0 custom-scrollbar"
           >
+            {(loadError||chatStale)&&<div role="status" className="rounded-xl p-3 bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)]">{loadError?'Не удалось обновить сообщения':'Сообщения не подтверждены сервером'}. <button type="button" onClick={retryChat} className="min-h-[44px] px-3 text-[var(--terra-primary-text)] font-semibold">Повторить загрузку</button></div>}
             {/* Date Separator */}
             <div className="flex items-center justify-center my-1">
               <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
@@ -541,7 +551,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             <button 
               type="submit"
               aria-label="Отправить сообщение"
-              disabled={isSendingMessage || !inputText.trim() || !familyId || !user}
+              disabled={isSendingMessage || !inputText.trim() || !familyId || !user || loadError || chatStale || loadedScope!==scope}
               className="h-11 px-3 sm:px-4 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] font-body font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors terra-press shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
             >
               <span className="hidden sm:inline text-white">Отправить</span>

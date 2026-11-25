@@ -124,7 +124,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady, settingsReady, financialDataStatus,retryFinancialData,
+    importSourcesReady, settingsReady, financialDataStatus,retryFinancialData,workspaceStatuses,retryWorkspace,
     settings, financialSettings, householdPersonal, personalDisplayOnly, displaySettings, displayTransactions, displayMembers, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -1094,7 +1094,7 @@ export default function App() {
             </div>
             
             <div key={tabScope+'-plans'} data-tab-panel="plans" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'plans' ? 'flex' : 'hidden'}`}>
-              <FamilyPlans 
+              {workspaceStatuses.plans!=='ready'?<FinancialDataState status={workspaceStatuses.plans} section="планы" onRetry={retryWorkspace} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<FamilyPlans 
                 events={events} 
                 setEvents={setEvents} 
                 settings={settings} 
@@ -1104,12 +1104,12 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenNotifications={() => setShowNotifications(true)}
                 onOpenBudget={() => setActiveTab('budget')}
-              />
+              />}
             </div>
 
             <div key={tabScope+'-shopping'} data-tab-panel="shopping" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'shopping' ? 'flex' : 'hidden'}`}>
               {mountTab('shopping') && <Suspense fallback={<TabLoading/>}>
-                  <ShoppingList 
+                  {workspaceStatuses.shopping!=='ready'?<FinancialDataState status={workspaceStatuses.shopping} section="покупки" onRetry={retryWorkspace} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<ShoppingList 
                 items={shoppingItems} 
                 setItems={setShoppingItems} 
                 settings={settings} 
@@ -1117,8 +1117,8 @@ export default function App() {
                 onMoveToPantry={handleMoveToPantry} 
                 onSendToTelegram={handleSendShoppingToTelegram}
                 onOpenSettings={() => setIsSettingsOpen(true)}
-                onOpenNotifications={() => setShowNotifications(true)}
-              />
+                onOpenNotifications={()=>setShowNotifications(true)}
+              />}
                 </Suspense>}
 
             </div>

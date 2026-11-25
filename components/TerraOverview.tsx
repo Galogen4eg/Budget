@@ -1378,7 +1378,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {/* Controls: AVG / MAX & Day-Week-Month Filter */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 text-xs font-semibold text-graphite dark:text-gray-200">
-                    <span className="text-[10px] text-graphite-muted dark:text-gray-400 uppercase font-mono">Средний</span>
+                    <span className="text-xs text-[var(--terra-muted)]">Средний</span>
                     <span className="font-mono">{formatAmount(dynamicsData.avg)} ₽</span>
                   </span>
 
@@ -1387,7 +1387,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       ? 'bg-[#FFF7ED] dark:bg-[#3D251A] border-[#FDBA74] text-[#9A3412] dark:text-orange-400' 
                       : 'bg-[#FCF6EE] dark:bg-[#36271A] border-[#ECDCC4] dark:border-transparent text-[#8C5D23] dark:text-amber-400'
                   }`}>
-                    <span className="text-[10px] uppercase font-mono font-bold">
+                    <span className="text-xs font-semibold tabular-nums">
                       {chartScale === 'day' && isOverDailyLimit ? 'Максимум сегодня' : 'Максимум'}
                     </span>
                     <span className="font-mono font-bold">

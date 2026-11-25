@@ -60,7 +60,8 @@ test('quota guard: smoke test blocks external APIs and service workers',()=>{
 test('quota guard: shared financial listeners do not restart on profile discovery',()=>{
  const data=read('contexts/DataContext.tsx');
  assert.match(data,/const financialQueryMemberId=householdPersonal\?linkedMemberId:undefined/);
- assert.match(data,/\[familyId,user\?\.uid,policyReady,householdPersonal,financialQueryMemberId\]/);
+ assert.match(data,/const financialScope=familyId\?JSON\.stringify\(\[familyId,user\?\.uid\?\?null,policyReady,householdPersonal,financialQueryMemberId\?\?null,financialRetry\]\)/);
+ assert.match(data,/\[familyId,financialScope,policyReady,householdPersonal,financialQueryMemberId\]/);
  assert.match(data,/familyId && user\?\.uid \? subscribeToGlobalRules/);
 });
 test('quota guard: correcting one savings row does not rescan the ledger',()=>{

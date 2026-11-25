@@ -334,14 +334,14 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск по сообщениям..."
+                placeholder="Поиск по сообщениям..." aria-label="Поиск по сообщениям"
                 className="w-full bg-transparent text-xs text-on-surface dark:text-white placeholder:text-on-surface-variant/60 outline-none"
                 autoFocus
               />
               <button 
                 type="button"
                 onClick={() => { setIsSearching(false); setSearchQuery(''); }}
-                className="text-xs font-bold text-on-surface-variant dark:text-stone-400 hover:text-on-surface px-2 py-0.5 cursor-pointer"
+                className="min-h-[44px] min-w-[44px] text-sm font-semibold text-[var(--terra-muted)] hover:text-[var(--terra-ink)] px-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >
                 Закрыть
               </button>
@@ -362,7 +362,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
                 <span>{searchQuery.trim()?'Результаты поиска':'История сообщений'}</span>
                 {isVirtual && (
-                  <span className="text-[10.5px] bg-[#4A7C59]/15 text-[var(--terra-primary)] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" title="Виртуализация активна: рендерятся только видимые сообщения">
+                  <span className="text-[10.5px] bg-[#4A7C59]/15 text-[var(--terra-primary)] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" aria-label="Количество найденных сообщений">
                     {filteredMessages.length} сообщ.
                   </span>
                 )}

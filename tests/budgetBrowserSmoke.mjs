@@ -471,9 +471,25 @@ try{
       await verifyMobileScroll(page,'services-scroll-container',label,{requireOverflow:true});
       await nav.getByRole('button',{name:'Планы',exact:true}).click();
     }
+    // Geometry, not a fixed pixel spacer, is the contract.
+    if(width<768){
+      for(const [id,name] of [['overview','Обзор'],['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']]){
+        await page.getByRole('navigation',{name:'Основная навигация'}).getByRole('button',{name,exact:true}).click();
+        const panel=page.locator('[data-tab-panel="'+id+'"]');
+        await panel.waitFor({state:'visible'});
+        await panel.locator('[data-terra-mobile-header]').filter({visible:true}).first().waitFor({state:'visible'});
+        const layout=await panel.evaluate(el=>{
+          const shell=document.querySelector('[data-terra-shell]'),tabbar=document.querySelector('[data-terra-tabbar]');
+          const shown=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
+          return {headerCount:[...el.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,overlap:el.getBoundingClientRect().bottom>tabbar.getBoundingClientRect().top+2,overflow:shell.scrollWidth>shell.clientWidth+1};
+        });
+        assert.deepEqual(layout,{headerCount:1,overlap:false,overflow:false},label+': shell geometry '+id);
+      }
+      await page.getByRole('navigation',{name:'Основная навигация'}).getByRole('button',{name:'Планы',exact:true}).click();
+    }
     // Exercise the actual settings dialog at every viewport. Changes are local demo only.
     const nav=page.getByRole('navigation',{name:width<768?'Основная навигация':'Основное меню'});
-    const openSettings=page.getByRole('button',{name:'Настройки',exact:true}).filter({visible:true}).first();
+    const openSettings=page.getByRole('button',{name:/^(Настройки|Настройки и профиль)$/}).filter({visible:true}).first();
     await openSettings.click();
     const settingsDialog=page.getByRole('dialog',{name:'Настройки',exact:true});
     await settingsDialog.waitFor({state:'visible'});

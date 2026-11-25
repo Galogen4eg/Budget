@@ -895,8 +895,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {displayTopCategories.map((cat, idx) => (
                 <div 
                   key={cat.id || idx} 
+                  role={cat.id!=='uncategorized'&&onSelectCategory?'button':undefined}
+                  tabIndex={cat.id!=='uncategorized'&&onSelectCategory?0:undefined}
+                  aria-label={cat.id!=='uncategorized'&&onSelectCategory?`Аналитика категории: ${cat.label || (cat as any).name || 'Категория'}`:undefined}
+                  onKeyDown={e=>{if(cat.id!=='uncategorized'&&onSelectCategory&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onSelectCategory(cat.id);}}}
                   onClick={cat.id === 'uncategorized' ? undefined : () => onSelectCategory?.(cat.id)}
-                  className={`flex flex-col gap-1 min-h-[44px] px-1 py-2 rounded-lg ${cat.id === 'uncategorized' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'}`}
+                  className={`flex flex-col gap-1 min-h-[44px] px-1 py-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${cat.id === 'uncategorized' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'}`}
                   title={cat.id === 'uncategorized' ? 'Расходы без назначенной категории' : `Аналитика категории «${cat.label || (cat as any).name || ''}»`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

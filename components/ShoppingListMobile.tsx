@@ -1026,17 +1026,17 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item className="relative z-10 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
           <button 
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(item);
             }}
-            aria-label="Отметить как купленное"
+            aria-label={`Отметить как купленное: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[var(--terra-primary)]  flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Check size={14} className="text-transparent" />
@@ -1077,7 +1077,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, -1);
             }}
-            aria-label="Уменьшить количество"
+            aria-label="Уменьшить количество" title={`Уменьшить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             -
@@ -1091,7 +1091,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, 1);
             }}
-            aria-label="Увеличить количество"
+            aria-label="Увеличить количество" title={`Увеличить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             +

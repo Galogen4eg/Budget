@@ -40,6 +40,9 @@ test('calendar-only agenda still excludes budget payments', () => {
   assert.doesNotMatch(agenda, /linkedExpenseId/);
 });
 
-test('fixed mobile Plans header reserves layout space so agenda is clickable', () => {
-  assert.match(plans, /pt-\[calc\(64px\+env\(safe-area-inset-top\)\)\] md:pt-0/);
+test('in-flow mobile Plans header precedes the agenda without a duplicate fixed reserve', () => {
+  const mobile = readFileSync(new URL('../components/FamilyPlansMobile.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(plans, /pt-\[calc\(64px\+/);
+  assert.match(plans, /beforeContent=\{<FamilyAgendaPanel/);
+  assert.ok(mobile.indexOf('<TerraMobileHeader')>=0&&mobile.indexOf('{beforeContent}')>mobile.indexOf('<TerraMobileHeader'));
 });

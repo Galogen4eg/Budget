@@ -15,7 +15,7 @@ concurrency:
 jobs:
   crud-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -38,3 +38,6 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify browser CRUD through actual Firestore rules and two authenticated users
         run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/transactionCrudBrowser.mjs"
+      - name: Verify all additional authenticated module scenarios independently
+        if: always() && !cancelled()
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs"

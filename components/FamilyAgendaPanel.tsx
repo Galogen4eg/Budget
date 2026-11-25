@@ -83,7 +83,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
     <ChevronDown size={16} aria-hidden="true" className={`text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
    </button>
    <div className="hidden md:flex gap-1.5 flex-wrap">
-    <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
+    <button type="button" aria-label="Создать задачу" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="min-h-[44px] rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
       <Plus size={14}/>Задача
     </button>
@@ -113,7 +113,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
         aria-hidden={!panelOpen}
         className="overflow-hidden space-y-2">
   <div className="md:hidden flex flex-wrap gap-2">
-    <button type="button" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
+    <button type="button" aria-label="Создать задачу" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
       className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
     <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>{remindersEnabled?(pushEnabled?'Push: вкл.':'Напоминания: вкл.'):'Напоминания: выкл.'}</button>
     <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}</button>

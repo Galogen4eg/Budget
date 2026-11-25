@@ -20,7 +20,7 @@ const nav=async(id,name)=>{
 const run=async(id,fn)=>{
  action='enter scenario';
  try{await fn();console.log('PASS '+label+' '+id);}
- catch(error){failures.push(label+' '+id);console.error('FAIL '+label+' '+id+' at '+action+' ('+(error?.name==='TimeoutError'?'timeout':'assertion/action')+')');}
+ catch(error){failures.push(label+' '+id);console.error('FAIL '+label+' '+id+' at '+action+' ('+(error?.name==='TimeoutError'?'timeout':'assertion/action')+')');if(includeInventoryDetails)console.error('EMULATOR UI DETAILS '+String(error?.message??error).slice(0,1200));}
 };
 async function ready(){
  await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:45000});
@@ -173,11 +173,11 @@ async function checkSections(){
   action='close settings';await button(dialog,'Закрыть настройки').click();
   await dialog.waitFor({state:'hidden'});
  });
- if(!label.startsWith('mobile')){
+ {
   await run('GLOBAL-notifications',async()=>{
    await nav('overview','Обзор');await button(page,'Уведомления').click();
    const h=page.getByRole('heading',{name:'Уведомления',exact:true});await expectVisible(h);
-   await button(h.locator('xpath=../..'),'Закрыть').click();await h.waitFor({state:'hidden'});
+   await button(page.getByRole('dialog',{name:'Уведомления'}),'Закрыть').click();await h.waitFor({state:'hidden'});
   });
  }
  await run('GLOBAL-AI-open-close',async()=>{
@@ -213,7 +213,7 @@ async function checkButtons(){
  });
  await buttonScenario('OVR-06-category-analytics',async()=>{
   await nav('overview','Обзор');action='open category analytics';
-  await first(panel('overview').getByTitle('Открыть аналитику всех категорий',{exact:true})).click();
+  await button(panel('overview'),'Аналитика всех категорий').click();
   const inspector=first(page.getByTitle('Реестр операций',{exact:true}));
   const analytics=first(page.getByTitle('Аналитика и графики трат',{exact:true}));
   await expectVisible(inspector);await expectVisible(analytics);
@@ -229,14 +229,14 @@ async function checkButtons(){
  if(!mobile())await buttonScenario('OVR-05-reserve-details',async()=>{
   await nav('overview','Обзор');action='open reserve';await button(panel('overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
   const h=page.getByRole('heading',{name:'Структура резерва',exact:true});await expectVisible(h);
-  action='close reserve';await button(h.locator('xpath=../../..'),'Закрыть').click();await h.waitFor({state:'hidden'});
+  action='close reserve';await button(page.getByRole('dialog',{name:'Структура резерва'}),'Закрыть').click();await h.waitFor({state:'hidden'});
  });
  await buttonScenario('OVR-11-shopping-shortcut',async()=>{
   await nav('overview','Обзор');const p=panel('overview');
   action='locate shopping widget';const h=first(p.getByRole('heading',{name:'Список покупок',exact:true}));
   // The mobile widget can be conditionally absent. Never invent its presence.
   if(!await h.count()){unavailable.push({viewport:label,id:'OVR-11-shopping-shortcut',reason:'widget not present'});throw new Error('Shopping widget fixture absent');}
-  action='open shopping via widget';await button(h.locator('xpath=../../..'),'Все').click();await expectVisible(panel('shopping'));
+  action='open shopping via widget';await button(p,'Открыть все покупки').click();await expectVisible(panel('shopping'));check(await button(page.locator('nav'),'Покупки').getAttribute('aria-current')==='page','Shopping nav not selected');
  });
  await buttonScenario('BUD-02-member-filter',async()=>{
   await nav('budget','Бюджет');const group=first(panel('budget').getByRole('group',{name:'Участник бюджета'}));await expectVisible(group);
@@ -247,7 +247,8 @@ async function checkButtons(){
  await buttonScenario('BUD-04-select-calendar-day',async()=>{
   await nav('budget','Бюджет');const p=panel('budget');const calendar=first(p.getByTestId(mobile()?'budget-calendar-mobile':'budget-calendar-desktop'));
   await expectVisible(calendar);action='choose a different date';const choice=first(calendar.locator('[role="button"][aria-pressed="false"][aria-label^="Выбрать"]'));
-  const selected=await choice.getAttribute('aria-label');await clickPressed(choice);
+  const selected=await choice.getAttribute('aria-label');check(Boolean(selected),'No alternate calendar date');
+  await clickPressed(button(calendar,selected));
   check(await button(calendar,selected).getAttribute('aria-pressed')==='true','Selected date lost');
  });
  await buttonScenario('BUD-05-day-details',async()=>{
@@ -276,14 +277,14 @@ async function checkButtons(){
   const initial=await choices.evaluateAll(nodes=>nodes.findIndex(n=>n.getAttribute('aria-pressed')==='true'));
   check(initial>=0,'Missing active filter');await clickPressed(choices.nth(initial===0?1:0));await clickPressed(choices.nth(initial));
   action='month view';await clickPressed(button(p,'Месяц'));
-  action='choose another date';const cell=first(p.locator('[aria-label^="Выбрать"][aria-pressed="false"]'));await clickPressed(cell);
+  action='choose another date';const cell=first(p.locator('[aria-label^="Выбрать"][aria-pressed="false"]'));const dateLabel=await cell.getAttribute('aria-label');check(Boolean(dateLabel),'Missing date label');const stable=button(p,dateLabel);await stable.locator('span').first().click();check(await stable.getAttribute('aria-pressed')==='true','Calendar selection did not change');
  });
  await buttonScenario('PLN-03-task-editor-cancel',async()=>{
   await nav('plans','Планы');const p=panel('plans');
   if(mobile()){const toggle=first(p.locator('button[aria-controls="family-agenda-content"]'));if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();}
-  action='open task editor';await button(p,'Задача').click();
+  action='open task editor';await button(p,'Создать задачу').click();
   const d=page.getByRole('dialog').filter({has:page.locator('#event-title-input')});await expectVisible(d);
-  const kind=d.locator('select').filter({has:d.locator('option[value="task"]')});
+  action='verify task editor kind';const kind=d.locator('select').filter({has:page.locator('option[value="task"]')});
   check(await kind.inputValue()==='task','Task editor opened as event');
   action='cancel unsaved task';await closeEvent();
  });

@@ -443,10 +443,7 @@ const DebtSnowball: React.FC<Props> = ({
     return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }, [nextUpcomingDebt]);
 
-  const currentTimeSync = useMemo(() => {
-    const d = new Date();
-    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  }, []);
+
 
   // Иконка для каждого типа обязательства
   const getDebtIcon = (name: string) => {
@@ -529,10 +526,10 @@ const DebtSnowball: React.FC<Props> = ({
             <button 
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[var(--terra-surface)] rounded-full border border-stone-200/90 dark:border-white/10 text-stone-600 dark:text-stone-300 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:border-[#4a7c59]/40 font-medium transition shadow-xs cursor-pointer"
+              className="inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[var(--terra-surface)] rounded-full border border-stone-200/90 dark:border-white/10 text-stone-600 dark:text-stone-300 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:border-[#4a7c59]/40 font-medium transition shadow-xs cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
-              <span>Ко всем сервисам</span>
+              <span>Все сервисы</span>
             </button>
           ) : (
             <span className="text-stone-500">Сервисы</span>
@@ -541,9 +538,7 @@ const DebtSnowball: React.FC<Props> = ({
           <span className="font-bold text-stone-900 dark:text-white">Долги</span>
         </div>
 
-        <div className="flex items-center px-3 py-1 rounded-full bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-500 dark:text-stone-400 shadow-2xs">
-          <span>Обновлено в {currentTimeSync}</span>
-        </div>
+
       </div>
 
       {/* 2. Header Banner: Мобильная и десктопная шапка */}

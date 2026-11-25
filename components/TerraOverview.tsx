@@ -931,7 +931,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   type="button"
                   onClick={() => onDrillDown('all')}
                   className="min-h-[44px] flex items-center gap-0.5 text-xs font-semibold text-primary dark:text-green-400 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-white/5"
-                  title="Открыть аналитику всех категорий"
+                  title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                 >
                   <span>Все категории</span>
                   <ChevronRight size={14} />
@@ -1568,7 +1568,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     type="button"
                     onClick={() => onDrillDown('all')}
                     className="min-h-[44px] px-2 text-sm text-primary dark:text-green-400 font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
-                    title="Открыть аналитику всех категорий"
+                    title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                   >
                     <span>Аналитика</span>
                     <ChevronRight size={13} />
@@ -1629,6 +1629,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <button 
                   type="button"
                   onClick={() => onNavigateTab('shopping')}
+                  aria-label="Открыть все покупки" data-testid="overview-shopping-link"
                   className="min-h-[44px] px-2 rounded-lg focus-visible:ring-2 focus-visible:ring-primary text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold"
                 >
                   Все

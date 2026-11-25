@@ -817,8 +817,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               return (
                 <div 
                   key={item.tempId}
-                  onClick={() => handleOpenEditModal(item)}
-                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-colors duration-150 cursor-pointer ${
+                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-colors duration-150 ${
                     isHighlighted
                       ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-solid)]'
                       : isUnrecognized 
@@ -912,14 +911,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                           setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId);
                           setCategoryDropdownSearch('');
                         }}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer ${
+                        className={`inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                           isUnrecognized 
-                            ? 'bg-[#E09F3E] text-white hover:bg-[#C98A2F]' 
+                            ? 'bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)]' 
                             : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300 hover:bg-[#d8f0de]'
                         }`}
                       >
                         <Tag size={14} />
-                        <span className="uppercase tracking-wider">{isUnrecognized ? 'ВЫБРАТЬ КАТЕГОРИЮ' : category!.label}</span>
+                        <span>{isUnrecognized ? 'Выбрать категорию' : category!.label}</span>
                         <ChevronDown size={14} strokeWidth={2.5} />
                       </button>
 

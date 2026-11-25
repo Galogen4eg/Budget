@@ -149,7 +149,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                       <h2 className="text-sm sm:text-base font-semibold text-[var(--terra-ink)] dark:text-white leading-snug break-words">
                         {app.label}
                       </h2>
-                      <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed line-clamp-2">
+                      <p className="text-sm text-[var(--terra-muted)] mt-1 leading-relaxed break-words">
                         {app.desc}
                       </p>
                     </div>

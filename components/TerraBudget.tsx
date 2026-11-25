@@ -401,12 +401,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           importTitle="Импорт выписки"
           onOpenSettings={onOpenSettings}
           onOpenNotifications={onOpenNotifications}
-          rightExtra={
-            <div className="relative">
+        />
+        <div className="px-4 pt-3 space-y-2" data-testid="budget-month-selector">
               <button 
                 type="button"
                 onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-                aria-expanded={isMonthPickerOpen}
+                aria-expanded={isMonthPickerOpen} aria-controls="budget-month-controls"
                 aria-label={`Выбрать месяц: ${mobileMonthName}`}
                 className="min-h-[44px] px-3 py-2 rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-xs font-bold text-[var(--terra-ink)] dark:text-white hover:text-primary transition-colors flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
               >
@@ -416,12 +416,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
               {isMonthPickerOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setIsMonthPickerOpen(false)} 
-                  />
-                  <div className="absolute top-full mt-2 right-0 bg-white dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[200px] space-y-1">
-                    <div className="text-[10px] uppercase font-bold text-[var(--terra-muted)] dark:text-gray-400 px-2 py-1">Выбор месяца</div>
+                  
+                  <div id="budget-month-controls" className="w-full max-w-sm bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl p-2 space-y-1">
+                    <div className="text-xs font-medium text-[var(--terra-muted)] px-2 py-1">Выбор месяца</div>
                     <div className="flex items-center justify-between px-2 pb-1 border-b border-[#EAE6DE]/60 dark:border-white/5">
                       <button
                         type="button"
@@ -455,8 +452,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </>
               )}
             </div>
-          }
-        />
 
         {/* Mobile Page Content */}
         <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 space-y-4 max-w-md mx-auto">

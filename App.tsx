@@ -355,7 +355,7 @@ export default function App() {
         throw new Error('В личном режиме доступны только собственные операции');
     }
     const transaction: Transaction = editing
-      ? { ...txData, id: editing.id }
+      ? { ...txData, id: editing.id, userId: editing.userId }
       : { ...txData, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
 
     // The transaction form does not expose goal metadata. Preserve a reviewed external transfer on edit.
@@ -377,7 +377,7 @@ export default function App() {
     }
 
     // Never report a saved operation without an acknowledged family write.
-    if (!familyId) throw new Error('Family is not ready: transaction was not saved');
+    if (!familyId) throw new Error('Семейное пространство не загружено. Операция не сохранена.');
     await saveTransactionWithGoal(
       familyId, transaction, Boolean(editing), affectedGoal
     );

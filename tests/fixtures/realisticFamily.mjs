@@ -32,6 +32,8 @@ export function makeFamilyFixtures({now=new Date(),members}){
  }
  // A confirmed external transfer must not change the internal savings goal.
  tx(start,0,'external','savings','Перевод на накопительный счет',170025,'expense',{externalSavingsConfirmed:true});
+ // Legacy valid record: member ownership is known, optional bank metadata is absent.
+ transactions.push({id:key('tx-'+day(today)+'-legacy'),date:stamp(today,11),amount:83.19,type:'expense',category:'transport',note:'Старая банковская операция (QA)',memberId:member(0).id});
  const goalBalance=transactions.filter(r=>r.linkedGoalId===goalId).reduce((sum,r)=>sum+(r.type==='expense'?1:-1)*Math.round(r.amount*100),0)/100;
  const goals=[{id:goalId,title:'Отпуск',targetAmount:150000,currentAmount:goalBalance,memberId:member(0).id,color:'#4A7C59',icon:'PiggyBank'},{id:key('goal-repair'),title:'Ремонт',targetAmount:80000,currentAmount:0,memberId:member(1).id,color:'#A2845E',icon:'Home'}];
  const events=Array.from({length:24},(_,i)=>{

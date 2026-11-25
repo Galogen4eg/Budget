@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
 import {initializeApp,deleteApp} from 'firebase-admin/app';
@@ -29,8 +29,7 @@ for(const [i,u] of users.entries()){
 await family.collection('config').doc('settings').set({currency:'₽',familyName:'CRUD QA',initialBalance:5000});
 await family.collection('categories').doc('food').set({id:'food',label:'Продукты',color:'#4A7C59',icon:'tag',transactionType:'expense'});
 await rows.doc(original.id).set(original);
-const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--config','tests/fixtures/viteCrud.config.ts'],{stdio:'inherit'});
-let browser;
+let server,browser;
 const visible=(locator)=>locator.filter({visible:true}).first();
 const heading=(page,name)=>page.getByRole('heading',{name,exact:true});
 const edit=(page,title)=>visible(page.getByRole('button',{name:'Редактировать операцию: '+title,exact:true}));
@@ -56,14 +55,21 @@ async function openUser(user,viewport){
  });
  await page.route('**/*',route=>{
   const req=route.request(),url=new URL(req.url());
-  const allowed=[origin,'http://127.0.0.1:8080','http://127.0.0.1:9099'].includes(url.origin)||
+  // API routes require real integrations, not the isolated client test.
+  const allowed=(url.origin===origin&&!url.pathname.startsWith('/api/'))||['http://127.0.0.1:8080','http://127.0.0.1:9099'].includes(url.origin)||
    (req.method()==='GET'&&['https://cdn.tailwindcss.com','https://fonts.googleapis.com','https://fonts.gstatic.com'].includes(url.origin));
   return allowed?route.continue():route.abort();
  });
  await page.goto(origin,{waitUntil:'domcontentloaded'});
  await page.getByPlaceholder('например: alexander или family1').fill(user.email);
  await page.locator('input[type=password]').fill(password);
+ const signed=page.waitForResponse(r=>r.url().startsWith('http://127.0.0.1:9099/')&&r.url().includes('accounts:signInWithPassword')&&r.request().method()==='POST',{timeout:30000});
  await page.getByRole('button',{name:'Войти',exact:true}).click();
+ const result=await signed;
+ const identity=await result.json();
+ assert.equal(result.ok(),true,'Emulator sign-in failed');
+ assert.equal(identity.localId,user.uid,'Browser did not authenticate the expected disposable user');
+ console.log('PASS isolated emulator sign-in at '+viewport.width+'px');
  // The bank-import readiness flag depends on unrelated category restoration.
  // Gate this CRUD scenario on the actual authenticated UI and stored record.
  await visible(page.getByRole('button',{name:'Бюджет',exact:true})).waitFor({state:'visible',timeout:60000});
@@ -84,6 +90,11 @@ async function save(page,editing){
  }
 }
 try{
+ // Build once and serve immutable assets: the previous Vite dev server logged
+ // optimized dependency changes and reloaded during the second user's sign-in.
+ const build=spawnSync(process.execPath,['node_modules/vite/bin/vite.js','build','--config','tests/fixtures/viteCrud.config.ts','--outDir','dist-crud-test'],{stdio:'inherit',timeout:240000});
+ if(build.error||build.status!==0)throw new Error('Isolated CRUD production bundle build failed');
+ server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--config','tests/fixtures/viteCrud.config.ts','--outDir','dist-crud-test','--host','127.0.0.1','--port','4174','--strictPort'],{stdio:'inherit'});
  await waitServer();
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const a=await openUser(users[0],{width:390,height:844});
@@ -139,6 +150,6 @@ try{
  throw error;
 }finally{
  await browser?.close();
- server.kill();
+ server?.kill();
  await deleteApp(admin);
 }

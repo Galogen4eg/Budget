@@ -76,7 +76,7 @@ try{
  await save(b,true);
  let stored=(await rows.doc(original.id).get()).data();
  assert.equal(stored.note,'QA переименовано');
- for(const key of ['amount','type','category','memberId','date','rawNote'])assert.equal(stored[key],original[key],key);
+ for(const key of ['amount','type','category','memberId','userId','date','rawNote'])assert.equal(stored[key],original[key],key);
  await edit(a,'QA переименовано').waitFor({state:'visible',timeout:20000});
  await edit(a,'QA переименовано').click();
  assert.equal(await nameField(a).inputValue(),'QA переименовано');
@@ -97,6 +97,7 @@ try{
  await b.getByRole('textbox',{name:'Сумма операции'}).fill('56.78');
  await save(b,true);
  assert.equal((await createdRef.get()).data().amount,56.78);
+ await a.waitForFunction(()=>Array.from(document.querySelectorAll('button[aria-label="Редактировать операцию: QA новая операция"]')).some(el=>el.getClientRects().length&&/56[,.]78/.test(el.textContent)),null,{timeout:20000});
  await edit(a,'QA новая операция').click();
  assert.equal(await a.getByRole('textbox',{name:'Сумма операции'}).inputValue(),'56.78');
  // D + R: delete with explicit confirmation and confirm both subscriptions.

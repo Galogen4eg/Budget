@@ -44,6 +44,16 @@ async function waitServer(){
 }
 async function openUser(user,viewport){
  const page=await browser.newPage({viewport,serviceWorkers:'block',hasTouch:viewport.width<768});
+ // These are disposable emulator users only; report errors, never tokens or request bodies.
+ page.on('pageerror',error=>console.error('CRUD page error:',error.message));
+ page.on('console',message=>{
+  if(message.type()==='error'||message.type()==='warning')console.error('CRUD browser:',message.text().slice(0,1000));
+ });
+ page.on('response',response=>{
+  const url=new URL(response.url());
+  if(['127.0.0.1','localhost'].includes(url.hostname)&&response.status()>=400)
+   console.error('CRUD HTTP:',url.origin,url.pathname,response.status());
+ });
  await page.route('**/*',route=>{
   const req=route.request(),url=new URL(req.url());
   const allowed=[origin,'http://127.0.0.1:8080','http://127.0.0.1:9099'].includes(url.origin)||
@@ -54,15 +64,24 @@ async function openUser(user,viewport){
  await page.getByPlaceholder('например: alexander или family1').fill(user.email);
  await page.locator('input[type=password]').fill(password);
  await page.getByRole('button',{name:'Войти',exact:true}).click();
- await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:60000});
+ // The bank-import readiness flag depends on unrelated category restoration.
+ // Gate this CRUD scenario on the actual authenticated UI and stored record.
+ await visible(page.getByRole('button',{name:'Бюджет',exact:true})).waitFor({state:'visible',timeout:60000});
  await visible(page.getByRole('button',{name:'Бюджет',exact:true})).click();
+ await edit(page,original.note).waitFor({state:'visible',timeout:20000});
  return page;
 }
 async function save(page,editing){
  const button=page.getByRole('button',{name:editing?'Сохранить изменения':'Добавить операцию',exact:true}).filter({visible:true}).last();
  await button.click();
  // An actual failure must fail CI; never close the form on behalf of the app.
- await heading(page,editing?'Редактирование операции':'Новая операция').waitFor({state:'hidden',timeout:20000});
+ try{
+  await heading(page,editing?'Редактирование операции':'Новая операция').waitFor({state:'hidden',timeout:20000});
+ }catch(error){
+  const alerts=await page.getByRole('alert').allTextContents();
+  console.error('CRUD save failed:',alerts.join(' | '));
+  throw error;
+ }
 }
 try{
  await waitServer();
@@ -108,11 +127,16 @@ try{
  await edit(b,'QA новая операция').waitFor({state:'hidden'});
  // Persistence across reload is mandatory, not just optimistic React state.
  await b.reload({waitUntil:'domcontentloaded'});
- await b.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:60000});
+ await visible(b.getByRole('button',{name:'Бюджет',exact:true})).waitFor({state:'visible',timeout:60000});
  await visible(b.getByRole('button',{name:'Бюджет',exact:true})).click();
  await edit(b,'QA переименовано').waitFor({state:'visible'});
  assert.equal((await rows.get()).size,1);
  console.log('PASS authenticated transaction CRUD, imported rename, real rules, two independent sessions, server reread and reload');
+}catch(error){
+ for(const context of browser?.contexts()??[])for(const page of context.pages()){
+  console.error('CRUD failure visible UI:',(await page.locator('body').innerText().catch(()=>'' )).slice(0,2500));
+ }
+ throw error;
 }finally{
  await browser?.close();
  server.kill();

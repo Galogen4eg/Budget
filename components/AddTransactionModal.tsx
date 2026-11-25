@@ -17,7 +17,7 @@ import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { isCategoryForType } from '../utils/categoryCatalog';
-import { transactionSaveError } from '../utils/transactionSaveError';
+import { transactionSaveError, type TransactionSavePhase } from '../utils/transactionSaveError';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -135,6 +135,7 @@ export default function AddTransactionModal({
   const [notifyTelegram, setNotifyTelegram] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaveConfirmed, setIsSaveConfirmed] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
@@ -189,7 +190,7 @@ export default function AddTransactionModal({
   };
 
   const handleSave = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isSaveConfirmed) return;
     setIsSubmitting(true);
     setValidationError(null);
     if (!members.some(m => m.id === memberId)) {
@@ -212,6 +213,7 @@ export default function AddTransactionModal({
     }
     finalAmount=Math.round(finalAmount*100)/100;
 
+    let savePhase: TransactionSavePhase = 'prepare';
     try {
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
 
@@ -280,7 +282,9 @@ export default function AddTransactionModal({
         pattern: cleanKeyword.trim().toUpperCase()
       } : null;
 
+      savePhase = 'submit';
       await onSubmit(txData);
+      savePhase = 'after-submit';
       // A failed transaction must not create a learned merchant rule.
       if (learnedRule) onLearnRule(learnedRule);
 
@@ -306,13 +310,14 @@ export default function AddTransactionModal({
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);
-      setValidationError(transactionSaveError(err));
+      if (savePhase === 'after-submit') setIsSaveConfirmed(true);
+      setValidationError(transactionSaveError(err, savePhase));
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteAction = async () => {
-    if (!initialTransaction || !onDelete) return;
+    if (!initialTransaction || !onDelete || isSaveConfirmed) return;
     if (!isConfirmingDelete) {
       setIsConfirmingDelete(true);
       return;
@@ -802,7 +807,7 @@ export default function AddTransactionModal({
               <div className="px-3 sm:px-6 py-3 border-t border-surface-border/70 dark:border-white/10 bg-[var(--terra-surface)] flex flex-wrap items-center justify-between gap-2 shrink-0">
                 {/* Left Side: Compact Destructive Action */}
                 <div>
-                  {initialTransaction && onDelete && (
+                  {initialTransaction && onDelete && !isSaveConfirmed && (
                     !isConfirmingDelete ? (
                       <button 
                         type="button"
@@ -847,7 +852,7 @@ export default function AddTransactionModal({
                   <button 
                     type="button"
                     onClick={handleSave}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSaveConfirmed}
                     className="min-h-[44px] px-4 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6649] active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {isSubmitting ? (
@@ -858,7 +863,7 @@ export default function AddTransactionModal({
                     ) : (
                       <>
                         <Check size={14} strokeWidth={2.5} />
-                        <span>{initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}</span>
+                        <span>{isSaveConfirmed ? 'Сохранено' : initialTransaction ? 'Сохранить изменения' : 'Добавить операцию'}</span>
                       </>
                     )}
                   </button>

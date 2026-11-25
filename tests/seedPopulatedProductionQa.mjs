@@ -27,6 +27,9 @@ function encode(v){
 }
 function encodeFields(o){return Object.fromEntries(Object.entries(o).map(([k,v])=>[k,encode(v)]));}
 function canonical(v){
+ // Firestore may omit the empty values/fields member in its REST response.
+ if(v&&typeof v==='object'&&v.arrayValue)return {arrayValue:{values:(v.arrayValue.values??[]).map(canonical)}};
+ if(v&&typeof v==='object'&&v.mapValue)return {mapValue:{fields:canonical(v.mapValue.fields??{})}};
  if(Array.isArray(v))return v.map(canonical);
  if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])]));
  return v;

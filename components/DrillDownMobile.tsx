@@ -96,24 +96,10 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 }) => {
   const [showFilterOptions, setShowFilterOptions] = useState(false);
 
-  // Peak day and stats calculation
-  const peakInfo = useMemo(() => {
-    if (!chartData || chartData.length === 0) return { label: 'Нет данных', count: 0, maxVal: 0 };
-    let maxVal = 0;
-    let peak = chartData[0];
-    chartData.forEach(item => {
-      const vol = item.expense + item.income;
-      if (vol > maxVal) {
-        maxVal = vol;
-        peak = item;
-      }
-    });
-    return {
-      label: peak?.label || '17 сен',
-      count: peak?.expense ? Math.max(1, Math.round(peak.expense / (avgDaily || 1))) : 2,
-      maxVal
-    };
-  }, [chartData, avgDaily]);
+  const peakInfo = useMemo(() => chartData.reduce<{label:string;maxVal:number}|null>((peak,item)=>{
+    const volume=item.expense+item.income;
+    return volume>0&&(!peak||volume>peak.maxVal)?{label:item.label,maxVal:volume}:peak;
+  },null),[chartData]);
 
   // Chart max value for scaling
   const chartMax = useMemo(() => {
@@ -147,26 +133,26 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   const memberInitial = (currentMember?.name || 'П').charAt(0).toUpperCase();
 
   return (
-    <motion.div 
+    <motion.div role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="fixed inset-0 z-[2000] bg-[#FAF6F0] dark:bg-[#121214] text-[#2E3230] dark:text-gray-100 flex flex-col font-body select-none overflow-hidden"
+      className="fixed inset-0 z-[2000] bg-[var(--terra-canvas)] text-[var(--terra-ink)] flex flex-col font-body overflow-hidden"
     >
       
       {/* ========================================================================= */}
       {/* 1. HEADER (Fixed top with blur and safe area)                            */}
       {/* ========================================================================= */}
-      <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top,0px)] bg-[#FAF6F0]/85 dark:bg-[#121214]/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(46,50,48,0.04)] border-b border-[#E4E0D8]/60 dark:border-white/10">
-        <div className="h-14 px-4 flex items-center justify-between gap-2">
+      <header className="shrink-0 z-50 pt-[env(safe-area-inset-top,0px)] bg-[var(--terra-canvas)] border-b border-[var(--terra-border)]">
+        <div className="min-h-14 px-3 py-1 flex flex-wrap items-center justify-between gap-2">
           {viewMode === 'inspector' ? (
             <>
               <button 
                 type="button"
                 onClick={onClose}
                 aria-label="Закрыть или вернуться назад"
-                className="w-10 h-10 flex items-center justify-center rounded-full text-[#4A4E4A] dark:text-stone-300 hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-[#4A4E4A] dark:text-stone-300 hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <ArrowLeft size={22} />
               </button>
@@ -186,7 +172,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   type="button"
                   onClick={() => setViewMode('inspector')}
                   aria-label="Назад к операциям"
-                  className="w-10 h-10 flex items-center justify-center rounded-full text-[#2E3230] dark:text-white hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-[#2E3230] dark:text-white hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <ArrowLeft size={22} />
                 </button>
@@ -212,7 +198,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
       {/* ========================================================================= */}
       {/* 2. MAIN SCROLLABLE CONTAINER                                              */}
       {/* ========================================================================= */}
-      <main className="flex-1 overflow-y-auto pt-[calc(3.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] px-4 no-scrollbar">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] px-4">
         
         {viewMode === 'inspector' ? (
           /* ===================================================================== */
@@ -515,7 +501,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
             {/* Footer Actions & Sync Info */}
             <div className="pt-3 pb-2 flex flex-col items-center space-y-3">
               <div className="text-[11px] text-[#4A4E4A] dark:text-stone-400 text-center">
-                <span>Показано {filteredTransactionsCount} из {familyTransactionsCount} операций · Синхронизировано минуту назад</span>
+                <span>Показано {filteredTransactionsCount} из {familyTransactionsCount} операций</span>
               </div>
 
               <button 
@@ -616,7 +602,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   <div className="text-lg font-headline font-bold text-[#2E3230] dark:text-white">
                     {avgDaily.toLocaleString('ru-RU')} <span className="text-xs font-normal text-[#4A4E4A]">₽</span>
                   </div>
-                  <p className="text-[11px] text-[#4A7C59] dark:text-green-400 mt-0.5 font-medium">В норме графика</p>
+
                 </div>
               </div>
 
@@ -723,18 +709,17 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 </div>
               </div>
 
-              {/* Mini Note */}
-              <div className="bg-[#EAE6DE] dark:bg-white/5 rounded-xl p-2.5 flex items-center justify-between text-xs">
+              {peakInfo&&<div className="bg-[#EAE6DE] dark:bg-white/5 rounded-xl p-2.5 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Calendar size={16} className="text-[#4A7C59] dark:text-green-400" />
                   <span className="text-[#2E3230] dark:text-white">
-                    Самый активный день: <strong>{peakInfo.label}</strong>
+                    Пиковый {chartGranularity==='daily'?'день':'период'}: <strong>{peakInfo.label}</strong>
                   </span>
                 </div>
                 <span className="text-[#4A4E4A] dark:text-stone-400 text-[11px]">
-                  {peakInfo.count} операций
+                  {peakInfo.maxVal.toLocaleString('ru-RU')} ₽
                 </span>
-              </div>
+              </div>}
             </div>
 
             {/* Family Breakdown */}
@@ -795,48 +780,6 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 </div>
               </div>
             )}
-
-            {/* Key Takeaways (Главные выводы) */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5 px-0.5">
-                <Lightbulb size={18} className="text-[#705C30] dark:text-amber-400" />
-                <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
-                  Главные выводы
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2.5">
-                {/* Takeaway 1 */}
-                <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-3.5 flex items-start gap-3 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10">
-                  <div className="w-9 h-9 rounded-xl bg-[#F8E0A8] dark:bg-amber-950/40 text-[#554020] dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <Repeat size={19} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-[#2E3230] dark:text-white">
-                      Пиковые дни: Пятница и суббота
-                    </h4>
-                    <p className="text-xs text-[#4A4E4A] dark:text-stone-400 leading-relaxed">
-                      На выходные приходится до <strong>67%</strong> всех семейных трат этой категории. В будни средний чек заметно умереннее.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Takeaway 2 */}
-                <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-3.5 flex items-start gap-3 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10">
-                  <div className="w-9 h-9 rounded-xl bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#002110] dark:text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <PiggyBank size={19} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-[#2E3230] dark:text-white">
-                      Экономия бюджета: статус в норме
-                    </h4>
-                    <p className="text-xs text-[#4A4E4A] dark:text-stone-400 leading-relaxed">
-                      Фактические расходы {categoryLimit ? `ниже запланированного лимита на ${(categoryLimit - totalExpense).toLocaleString('ru-RU')} ₽` : 'находятся в пределах планового темпа'}. Отличный резерв на следующий месяц!
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Primary Bottom Action */}
             <div className="pt-2 pb-2">

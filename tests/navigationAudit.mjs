@@ -214,12 +214,18 @@ async function checkButtons(){
  await buttonScenario('OVR-06-category-analytics',async()=>{
   await nav('overview','Обзор');action='open category analytics';
   await button(panel('overview'),'Аналитика всех категорий').click();
-  const inspector=first(page.getByTitle('Реестр операций',{exact:true}));
-  const analytics=first(page.getByTitle('Аналитика и графики трат',{exact:true}));
-  await expectVisible(inspector);await expectVisible(analytics);
-  action='switch to analytics';await analytics.click();await expectVisible(first(page.getByText('Аналитика трат',{exact:true})));
-  action='switch back to registry';await inspector.click();await expectVisible(first(page.getByText('Реестр операций',{exact:true})));
-  action='close drilldown';await first(page.getByTitle('Закрыть',{exact:true})).click();await analytics.waitFor({state:'hidden'});
+  const dialog=page.getByTestId('transaction-drilldown');
+  await expectVisible(dialog);
+  await expectVisible(page.locator('[data-testid="transaction-drilldown"][data-view="inspector"]'));
+  action='switch to analytics';
+  await button(dialog,mobile()?'Аналитика и график трат':'Аналитика и графики трат').click();
+  await expectVisible(page.locator('[data-testid="transaction-drilldown"][data-view="analytics"]'));
+  action='switch back to registry';
+  await button(dialog,mobile()?'Назад к операциям':'Реестр операций').click();
+  await expectVisible(page.locator('[data-testid="transaction-drilldown"][data-view="inspector"]'));
+  action='close drilldown';
+  await button(dialog,mobile()?'Закрыть или вернуться назад':'Закрыть').click();
+  await dialog.waitFor({state:'hidden'});
  });
  await buttonScenario('OVR-report-to-budget',async()=>{
   await nav('overview','Обзор');action='open report via overview';

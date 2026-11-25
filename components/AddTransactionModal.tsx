@@ -16,6 +16,7 @@ import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { isCategoryForType } from '../utils/categoryCatalog';
+import { transactionSaveError } from '../utils/transactionSaveError';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -303,7 +304,7 @@ export default function AddTransactionModal({
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);
-      setValidationError("Не удалось сохранить транзакцию. Пожалуйста, попробуйте снова.");
+      setValidationError(transactionSaveError(err));
       setIsSubmitting(false);
     }
   };
@@ -380,7 +381,7 @@ export default function AddTransactionModal({
 
               {/* Validation Alert */}
               {validationError && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-xs font-semibold px-6 py-2 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
+                <div role="alert" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-xs font-semibold px-6 py-2 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
                   <span>{validationError}</span>
                   <button onClick={() => setValidationError(null)} className="text-xs font-bold hover:underline">Закрыть</button>
                 </div>
@@ -544,6 +545,7 @@ export default function AddTransactionModal({
                         </label>
                         <input 
                           type="text"
+                          aria-label="Название в истории"
                           value={renamedTitle}
                           onChange={(e) => setRenamedTitle(e.target.value)}
                           placeholder={selectedCategory.label || 'Магнит, Такси...'}

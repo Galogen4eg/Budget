@@ -56,3 +56,12 @@ html.dark {
  .terra-shell[data-keyboard-open="true"] [data-terra-tabbar] {display:none;}
  :is(.terra-shell,[role="dialog"]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),textarea,select){font-size:16px;}
 }
+
+/* Overview density follows available working area, including the desktop sidebar. */
+.terra-overview-layout {container-type:inline-size;}
+.terra-overview-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}
+.terra-overview-columns {grid-template-columns:minmax(0,1fr);}
+.terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
+@container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
+@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:repeat(4,minmax(0,1fr));}}
+@container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}

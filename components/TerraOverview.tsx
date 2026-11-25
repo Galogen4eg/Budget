@@ -707,7 +707,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         >
                           <span className="capitalize">{item.label}</span>
                           {isCurrent && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary font-bold'}`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary font-bold'}`}>
                               тек.
                             </span>
                           )}
@@ -768,15 +768,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {/* Mobile Dashboard Cards Stream */}
         <div className="px-4 space-y-4 pb-2">
           {/* 1. Hero Balance Card */}
-          <section className={`${SURFACE_CARD} space-y-4`}>
+          <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EAE6DD]/70 dark:bg-white/5 text-xs text-graphite-muted dark:text-gray-400 font-medium">
+              <span className="text-sm font-semibold text-[var(--terra-muted)]">
                 {personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}
               </span>
             </div>
 
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold font-headline text-graphite dark:text-white tracking-tight break-words tabular-nums">
+              <div className="text-3xl font-bold font-headline text-[var(--terra-ink)] tracking-tight break-words tabular-nums [overflow-wrap:anywhere]">
                 {settings.privacyMode ? '••••••' : `${formatAmount(sharedLedger)} ₽`}
               </div>
               <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
@@ -857,17 +857,17 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
                   <defs>
                     <linearGradient id="mobileWaveGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.20} />
+                      <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.10} />
                       <stop offset="95%" stopColor="#4A7C59" stopOpacity={0.01} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150, 150, 150, 0.15)" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--terra-border)" />
                   <XAxis 
                     dataKey="label" 
                     axisLine={false} 
                     tickLine={false} 
                     minTickGap={16}
-                    tick={{ fontSize: 10, fill: '#8E8E93' }} 
+                    tick={{ fontSize: 11, fill: 'var(--terra-muted)' }} 
                   />
                   {dynamicsData.limit > 0 && <ReferenceLine y={dynamicsData.limit} stroke="#C48C3B" strokeDasharray="4 4" />}
                   <Tooltip 
@@ -893,7 +893,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     type="monotone" 
                     dataKey="amount" 
                     isAnimationActive={false}
-                    stroke="#4A7C59" 
+                    stroke="var(--terra-primary-text)" 
                     strokeWidth={2.6} 
                     fill="url(#mobileWaveGradient)" 
                     dot={false}
@@ -1161,7 +1161,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* ========================================================= */}
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+        <div className="terra-overview-layout p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full">
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
@@ -1185,7 +1185,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {isOverDailyLimit && (
           <section 
             aria-label="Предупреждение о бюджете"
-            className="relative overflow-hidden rounded-2xl bg-[#FFF7ED] dark:bg-[#2A1E17] border border-[#FDBA74]/60 dark:border-[#EA580C]/40 p-4 sm:p-5 shadow-xs transition-all"
+            className="rounded-2xl bg-[var(--terra-offline-soft)] border border-[var(--terra-border)] p-4"
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
@@ -1202,7 +1202,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>. Резерв {personalOnly?'личного':'семейного'} бюджета скорректирован. Рекомендуем пересмотреть траты на завтра.
+                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>.
                   </p>
                 </div>
               </div>
@@ -1227,7 +1227,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section data-testid="overview-metrics-desktop" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-5">
+        <section data-testid="overview-metrics-desktop" className="terra-overview-metrics grid gap-4">
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1236,8 +1236,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
             </div>
             <div className="my-3 flex items-baseline">
-              <span className="text-3xl lg:text-4xl font-headline font-bold text-graphite dark:text-white tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
-                {formatAmount(sharedLedger)} <span className="text-2xl font-light text-primary">₽</span>
+              <span className="terra-overview-balance font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
+                {formatAmount(sharedLedger)} <span className="text-xl font-medium text-[var(--terra-muted)]">₽</span>
               </span>
             </div>
             <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-graphite-muted dark:text-gray-400">
@@ -1358,17 +1358,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5">
+        <div className="terra-overview-columns grid gap-4 lg:gap-5">
           {/* LEFT COLUMN: 8 columns */}
-          <div className="xl:col-span-8 min-w-0 flex flex-col gap-4 lg:gap-5">
+          <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Блок «Динамика расходов» */}
             <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD}>
               {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#F0ECE4] dark:border-white/5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--terra-border)]">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl ${isOverDailyLimit && chartScale === 'day' ? 'bg-[#FFF7ED] dark:bg-[#3D251A] text-[#C2410C]' : 'bg-primary-light dark:bg-primary/20 text-primary'}`}>
-                    <TrendingUp size={20} />
-                  </div>
+
                   <div>
                     <h3 className={SECTION_HEADING}>Динамика расходов</h3>
                     <span className="text-xs text-graphite-muted dark:text-gray-400">{dynamicsData.subtitle}</span>
@@ -1377,15 +1375,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
                 {/* Controls: AVG / MAX & Day-Week-Month Filter */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 text-xs font-semibold text-graphite dark:text-gray-200">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--terra-ink)] tabular-nums">
                     <span className="text-xs text-[var(--terra-muted)]">Средний</span>
                     <span className="font-mono">{formatAmount(dynamicsData.avg)} ₽</span>
                   </span>
 
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold tabular-nums ${
                     chartScale === 'day' && isOverDailyLimit 
-                      ? 'bg-[#FFF7ED] dark:bg-[#3D251A] border-[#FDBA74] text-[#9A3412] dark:text-orange-400' 
-                      : 'bg-[#FCF6EE] dark:bg-[#36271A] border-[#ECDCC4] dark:border-transparent text-[#8C5D23] dark:text-amber-400'
+                      ? 'text-[var(--terra-danger-text)]' 
+                      : 'text-[var(--terra-ink)]'
                   }`}>
                     <span className="text-xs font-semibold tabular-nums">
                       {chartScale === 'day' && isOverDailyLimit ? 'Максимум сегодня' : 'Максимум'}
@@ -1436,22 +1434,22 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     >
                       <defs>
                         <linearGradient id="terraGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stopOpacity={0.20} />
+                          <stop offset="0%" stopColor={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stopOpacity={0.10} />
                           <stop offset="100%" stopColor="#4A7C59" stopOpacity={0.01} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150, 150, 150, 0.15)" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--terra-border)" />
                       <XAxis 
                         dataKey="label" 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fontSize: 11, fill: '#8C948E' }} 
+                        tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} 
                         dy={6}
                       />
                       <YAxis 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fontSize: 11, fill: '#8C948E' }}
+                        tick={{ fontSize: 12, fill: 'var(--terra-muted)' }}
                         tickFormatter={(val) => settings.privacyMode ? '•••' : `${val >= 1000 ? `${(val/1000).toFixed(0)}к` : val} ₽`}
                       />
                       {dynamicsData.limit > 0 && (
@@ -1462,9 +1460,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           label={{ 
                             value: settings.privacyMode ? 'Лимит скрыт' : dynamicsData.limitLabel, 
                             position: 'insideTopRight', 
-                            fill: isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#C48C3B',
-                            fontSize: 10,
-                            fontWeight: 'bold'
+                            fill: 'var(--terra-offline-text)',
+                            fontSize: 11,
+                            fontWeight: '600'
                           }} 
                         />
                       )}
@@ -1505,7 +1503,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         type="monotone" 
                         dataKey="amount" 
                     isAnimationActive={false}
-                        stroke={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} 
+                        stroke={isOverDailyLimit && chartScale === 'day' ? 'var(--terra-danger-text)' : 'var(--terra-primary-text)'} 
                         strokeWidth={2.8} 
                         fill="url(#terraGradient)" 
                         dot={false}
@@ -1527,12 +1525,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               {/* Footer summary */}
-              <div className="pt-4 border-t border-[#F0ECE4] dark:border-white/5 flex items-center justify-between text-xs text-graphite-muted dark:text-gray-400">
+              <div className="pt-3 border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
                 <span>{dynamicsData.complianceText}</span>
                 <button 
                   type="button"
                   onClick={() => onNavigateTab('budget')}
-                  className="text-primary hover:text-primary-dark dark:hover:text-green-400 font-semibold transition flex items-center gap-1 cursor-pointer"
+                  className="min-h-[44px] text-[var(--terra-primary-text)] font-semibold transition-colors flex items-center gap-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg"
                 >
                   Подробный отчет →
                 </button>
@@ -1591,7 +1589,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   >
                     <div className="flex items-center justify-between text-xs gap-2">
                       <span className="font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">{cat.name}</span>
-                      <span className="text-xs font-mono font-bold flex-shrink-0" style={{ color: cat.style.color }}>
+                      <span className="text-xs font-semibold tabular-nums text-[var(--terra-ink)] flex-shrink-0">
                         {cat.percent}%
                       </span>
                     </div>
@@ -1611,7 +1609,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN: 4 columns */}
-          <div className="xl:col-span-4 min-w-0 flex flex-col gap-4 lg:gap-5">
+          <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Виджет «Список покупок» */}
             {showShopping && <div className={DASHBOARD_CARD}>
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F0ECE4] dark:border-white/5">
@@ -1691,7 +1689,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {liveParsedShopping && (
                   <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#4a7c59] dark:text-green-400 font-semibold px-1 animate-in fade-in">
                     <span>{liveParsedShopping.title}</span>
-                    <span className="font-mono bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded text-[10px] text-stone-700 dark:text-stone-300">
+                    <span className="font-mono bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded text-xs text-stone-700 dark:text-stone-300">
                       {liveParsedShopping.amount} {liveParsedShopping.unit}
                     </span>
                   </div>

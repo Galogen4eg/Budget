@@ -40,6 +40,18 @@ async function inventory(id){
  counts.push({viewport:label,section:id,...result});
  const geometry=await page.evaluate(section=>{const shell=document.querySelector('[data-terra-shell]'),tab=document.querySelector('[data-terra-tabbar]'),p=document.querySelector('[data-tab-panel="'+section+'"]');if(!shell||!p)return null;const shown=el=>!!el?.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';return {overflow:shell.scrollWidth>shell.clientWidth+1,headerCount:[...p.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,mobile:innerWidth<768,overlap:shown(tab)&&p.getBoundingClientRect().bottom>tab.getBoundingClientRect().top+2};},id);
  if(geometry){if(geometry.overflow)throw new Error('Shell horizontal overflow');if(geometry.overlap)throw new Error('Tabbar overlaps content');if(geometry.mobile&&geometry.headerCount!==1)throw new Error('Expected one mobile section header, got '+geometry.headerCount);}
+ if(id==='overview'&&includeInventoryDetails){
+  const result=await panel(id).evaluate(el=>{
+   const mobile=innerWidth<768;
+   const chart=el.querySelector('[data-testid="overview-chart-'+(mobile?'mobile':'desktop')+'"]');
+   const metrics=el.querySelector('[data-testid="overview-metrics-desktop"]');
+   const balance=mobile?el.querySelector('[data-testid="overview-balance-mobile"]'):metrics?.firstElementChild;
+   if(!chart||!balance)return null;
+   const style=e=>{const s=getComputedStyle(e);return [s.backgroundColor,s.borderRadius,s.borderTopColor];};
+   return {sameSurface:JSON.stringify(style(chart))===JSON.stringify(style(balance)),chartFits:chart.scrollWidth<=chart.clientWidth+1,chartWidth:chart.clientWidth,metricsFit:mobile||Array.from(metrics.children).every(e=>e.scrollWidth<=e.clientWidth+1)};
+  });
+  if(!result||!result.sameSurface||!result.chartFits||result.chartWidth<220||!result.metricsFit)throw new Error('Overview visual contract: '+JSON.stringify(result));
+ }
  if(includeInventoryDetails){
   const controls=await panel(id).evaluate(el=>[...el.querySelectorAll('button,a[href],input,select,textarea,[role=button],[role=switch],[role=tab],[role=checkbox]')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').map(e=>({tag:e.tagName.toLowerCase(),role:e.getAttribute('role'),name:(e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.textContent?.trim()||'').replace(/\s+/g,' ').slice(0,120),disabled:!!(e.disabled||e.getAttribute('aria-disabled')==='true'),pressed:e.getAttribute('aria-pressed'),expanded:e.getAttribute('aria-expanded')})));
   console.log('CONTROL INVENTORY '+label+' '+id+' '+JSON.stringify(controls));

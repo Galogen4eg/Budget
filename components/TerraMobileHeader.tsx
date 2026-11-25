@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Settings, Upload, Bell } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
-import { PAGE_HEADING, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
+import { PAGE_HEADING, ICON_ACTION, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 
 interface TerraMobileHeaderProps {
   title: string;
@@ -43,7 +43,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onImport}
             aria-label={importTitle}
             title={importTitle}
-            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
+            className={`${ICON_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer terra-press`}
           >
             <Upload size={18} strokeWidth={2.2} />
           </button>
@@ -55,20 +55,20 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
             onClick={onAdd}
             aria-label={addTitle}
             title={addTitle}
-            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_PRIMARY} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
+            className={`${ICON_ACTION} ${TOOLBAR_ACTION_PRIMARY} cursor-pointer terra-press`}
           >
             <Plus size={20} strokeWidth={2.5} />
           </button>
         )}
 
-        {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className={`relative w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]`}><Bell size={18} aria-hidden="true"/>{unread>0&&<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--terra-danger-text)]" aria-hidden="true"/>}</button>}
+        {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className={`relative ${ICON_ACTION} ${TOOLBAR_ACTION_IDLE} terra-press`}><Bell size={18} aria-hidden="true"/>{unread>0&&<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--terra-danger-text)]" aria-hidden="true"/>}</button>}
         {onOpenSettings && (
           <button
             type="button"
             onClick={onOpenSettings}
             aria-label="Настройки и профиль"
             title="Настройки и профиль"
-            className={`w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center transition-colors cursor-pointer terra-press focus-visible:ring-2 focus-visible:ring-primary`}
+            className={`${ICON_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer terra-press`}
           >
             <Settings size={18} strokeWidth={2.2} />
           </button>

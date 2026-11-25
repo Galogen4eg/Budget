@@ -231,7 +231,7 @@ export async function commitDebtEdit(familyId:string,uid:string,personalMemberId
     // Only change the link list; never overwrite concurrently updated payment history.
     if(updated.some((e,i)=>e!==expenses[i]))tx.set(configRef,cleanForFirestore({[field]:updated}),{merge:true});
     if(creating)tx.set(debtRef,cleanForFirestore(debt));
-    else tx.update(debtRef,cleanForFirestore(debt));
+    else tx.update(debtRef,{...cleanForFirestore(debt)});
   });
 }
 

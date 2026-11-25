@@ -24,8 +24,8 @@ export function makeFamilyFixtures({now=new Date(),members}){
   if(idx%4===0)tx(d,idx+1,'extra','food','Покупки к ужину',34945+(idx%9)*123);
   if(d.getUTCDate()===5)tx(d,0,'salary-a','salary','Зарплата',9500000,'income');
   if(d.getUTCDate()===20)tx(d,1,'salary-b','salary','Зарплата',7800000,'income');
-  if(d.getUTCDate()===10)tx(d,0,'rent','housing','Аренда квартиры',3200000);
-  if(d.getUTCDate()===15)tx(d,1,'utilities','utilities','Коммунальные услуги',685000);
+  if(d.getUTCDate()===10)tx(d,0,'rent','housing','Аренда квартиры',3200000,'expense',{linkedExpenseId:key('bill-rent')});
+  if(d.getUTCDate()===15)tx(d,1,'utilities','utilities','Коммунальные услуги',685000,'expense',{linkedExpenseId:key('bill-utilities')});
   if(d.getUTCDate()===22)tx(d,1,'cashback','income_cashback','Кэшбэк',74512,'income');
   if(d.getUTCDate()===23)tx(d,0,'goal','savings','Перевод на накопительный счет',500000,'expense',{linkedGoalId:goalId});
   if(d.getUTCDate()===24)tx(d,0,'goal-return','savings','Возврат с накопительного счета',50000,'income',{linkedGoalId:goalId});
@@ -50,3 +50,37 @@ export function makeFamilyFixtures({now=new Date(),members}){
  const chat=['На выходных съездим за город?','Да, возьмём термос.','Добавил продукты в список.','Посмотрим планы на вечер.'].map((text,i)=>({id:key('chat-'+i),topicId:'general',text,userId:member(i).userId,userName:'Участник '+(i%members.length+1),timestamp:at(-4+i).getTime()+36000000,type:'text',heartUsers:[]}));
  return {transactions,goals,events,shopping,pantry,debts,subscriptions,loyalty,meterReadings,projects,wishlist,chat};
 }
+
+export function fixtureSettings(members){
+ return {
+  targetMonthlyBudget:110000,
+  categoryBudgets:{food:20000,transport:5000,fuel:8000,restaurants:6000},
+  enableSmartReserve:true,
+  mandatoryExpenses:[
+   {id:'qa-fixture-v1-bill-rent',name:'Аренда квартиры',amount:32000,day:10,remind:false,memberId:members[0].id,expenseType:'regular'},
+   {id:'qa-fixture-v1-bill-utilities',name:'Коммунальные услуги',amount:6850,day:15,remind:false,memberId:members.at(-1).id,expenseType:'regular'},
+   {id:'qa-fixture-v1-bill-internet',name:'Домашний интернет',amount:750,day:28,remind:false,expenseType:'regular'}
+  ]
+ };
+}
+// Existing canonical IDs, not custom fixture IDs. Never overwrite them in production.
+export const fixtureCategories=[
+ ['income','Доходы','Landmark','#2F855A',null,'income'],
+ ['salary','Зарплата','Briefcase','#2F855A','income','income'],
+ ['income_cashback','Кэшбэк','CreditCard','#2F855A','income','income'],
+ ['food','Продукты','ShoppingBasket','#4A7C59'],
+ ['grocery_pyaterochka','Пятерочка','ShoppingBasket','#4A7C59','food'],
+ ['transport','Транспорт','Bus','#457B9D'],
+ ['fuel','Бензин','Fuel','#E76F51'],
+ ['coffee','Кофе','Coffee','#A2845E'],
+ ['pharmacy','Аптека','Pill','#4A7C59'],
+ ['kids','Дети','Baby','#F4A261'],
+ ['restaurants','Кафе и Рестораны','Utensils','#E07A5F'],
+ ['clothes','Одежда','Shirt','#D4A373'],
+ ['other','Прочее','MoreHorizontal','#8D99AE'],
+ ['shopping','Шоппинг','ShoppingBag','#D4A373'],
+ ['housing','Аренда/Ипотека','Home','#2A9D8F'],
+ ['utilities','ЖКХ','Home','#2A9D8F'],
+ ['savings','Накопительный счет','PiggyBank','#7C3AED'],
+ ['subscriptions','Подписки','Zap','#457B9D']
+].map(([id,label,icon,color,parentId,transactionType])=>({id,label,icon,color,...(parentId?{parentId}:{}),...(transactionType?{transactionType}:{})}));

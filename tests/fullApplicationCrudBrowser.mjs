@@ -219,6 +219,34 @@ await scenario('SET-02 personal theme persistence and isolation',async()=>{
  await btn(theme,'Светлая').click();await currentDoc(ref,x=>x.exists&&x.data().theme==='light','personal light theme');
  await btn(d,'Закрыть настройки').click();
 });
+await scenario('OVR-drilldown privacy on desktop and mobile',async()=>{
+ const refs=users.map(u=>family.collection('members').doc(u.uid).collection('config').doc('settings'));
+ const record=rows.doc('qa-privacy-amount');
+ await record.set({...original,id:'qa-privacy-amount',amount:987654.32,date:new Date().toISOString(),note:'QA приватная сумма',payee:'QA приватная сумма'});
+ try{
+  await Promise.all(refs.map(ref=>ref.set({privacyMode:true},{merge:true})));
+  for(const page of [a,b]){
+   phase='privacy overview '+page.viewportSize().width;
+   await reset(page);await nav(page,'overview','Обзор');
+   await btn(panel(page,'overview'),'Аналитика всех категорий').click();
+   const dialog=page.getByTestId('transaction-drilldown');
+   await dialog.getByText('QA приватная сумма',{exact:true}).first().waitFor({state:'visible'});
+   const inspect=async()=>{
+    const text=(await dialog.innerText()).replace(/[\s\u00a0\u202f]/g,'');
+    assert.doesNotMatch(text,/987654(?:[,.]32)?/,'Raw amount leaked from private drilldown');
+    assert.match(text,/•••/,'Expected masked financial amounts');
+   };
+   await inspect();
+   phase='privacy analytics '+page.viewportSize().width;
+   await btn(dialog,page.viewportSize().width<768?'Аналитика и график трат':'Аналитика и графики трат').click();
+   await dialog.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'visible'});
+   await inspect();
+   await btn(dialog,page.viewportSize().width<768?'Назад к операциям':'Реестр операций').click();
+   await btn(dialog,page.viewportSize().width<768?'Закрыть или вернуться назад':'Закрыть').click();
+   await dialog.waitFor({state:'hidden'});
+  }
+ }finally{await Promise.all(refs.map(ref=>ref.set({privacyMode:false},{merge:true})));await record.delete();}
+});
 await scenario('SVC-wallet create, rename, second-user read, delete',async()=>{
  await nav(b,'services','Сервисы');
  await btn(panel(b,'services'),/^Карты лояльности/,false).click();
@@ -341,7 +369,7 @@ await scenario('SVC-debt linked obligation create, edit, unlink and conflict rej
  await b.getByRole('heading',{name:'Удалить долг?'}).waitFor({state:'visible'});
  await btn(b,'Удалить').click();await currentDoc(saved.ref,x=>!x.exists,'linked debt delete after unlink');
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:9,passed:9-failures.length}));
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:10,passed:10-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

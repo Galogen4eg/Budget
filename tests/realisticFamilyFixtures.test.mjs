@@ -13,11 +13,13 @@ test('realistic family has six past months and current month, expenses and incom
  for(const row of rows){
   assert.ok(row.date<=now.toISOString()); 
   assert.ok(Number.isSafeInteger(Math.round(row.amount*100))&&row.amount>0&&Math.abs(row.amount*100-Math.round(row.amount*100))<1e-6);
-  assert.equal(row.userId,members.find(m=>m.id===row.memberId).userId);
+  const m=members.find(m=>m.id===row.memberId);
+  assert.ok(m);
+  if(row.userId!==undefined)assert.equal(row.userId,m.userId);
  }
  for(const m of members)for(const type of ['income','expense'])assert.ok(rows.some(r=>r.memberId===m.id&&r.type===type));
  assert.ok(rows.some(r=>r.rawNote!==r.note&&r.payee));
- assert.ok(rows.some(r=>r.userId===undefined)===false);
+ assert.ok(rows.some(r=>r.id.endsWith('-legacy')&&r.userId===undefined&&r.rawNote===undefined));
 });
 test('plans span past, present and future without financial links; related goal totals reconcile in kopecks',()=>{
  const f=fixture();

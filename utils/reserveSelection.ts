@@ -1,4 +1,4 @@
-import {sumMoney} from './budgetFinancialMath';
+import {sumMoney} from './budgetFinancialMath.ts';
 export type ReserveItem={expense:{id:string;amount:number};amountNeeded:number;isPaid:boolean};
 export function reserveSelection(items:readonly ReserveItem[],selected:ReadonlySet<string>){
  const payable=items.filter(item=>!item.isPaid&&selected.has(item.expense.id));

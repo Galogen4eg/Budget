@@ -1,0 +1,4 @@
+/* Compile only Tailwind utilities and preflight. Terra's current custom CSS remains in public/terra-ui.css. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

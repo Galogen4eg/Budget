@@ -11,7 +11,6 @@ const baseURL = process.env.BUDGET_SMOKE_URL || 'http://127.0.0.1:4173';
 const previewOrigin=new URL(baseURL).origin;
 if(!['127.0.0.1','localhost','[::1]'].includes(new URL(baseURL).hostname))throw new Error('Browser smoke requires a loopback preview');
 const staticTypes=new Map([
- ['https://cdn.tailwindcss.com','script'],
  ['https://fonts.googleapis.com','stylesheet'],
  ['https://fonts.gstatic.com','font']
 ]);
@@ -156,6 +155,19 @@ try{
         await page.screenshot({path:'artifacts/budget-browser/phone-390-reload.png',animations:'disabled'});
       }finally{releaseReload();}
       await page.getByRole('button',{name:/Войти/i}).waitFor({state:'visible',timeout:30000});
+     // Exercise the compiled utilities (including arbitrary values and dark variants), not just the presence of a CSS file.
+     const compiled=await page.evaluate(()=>{
+       const probe=document.createElement('div');
+       probe.className='flex min-h-[44px] rounded-2xl bg-surface text-graphite dark:text-graphite';
+       document.body.appendChild(probe);
+       const style=getComputedStyle(probe);
+       const actual={display:style.display,minHeight:style.minHeight,radius:style.borderRadius,background:style.backgroundColor,color:style.color};
+       probe.remove();
+       return {actual,cdn:!!document.querySelector('script[src*="cdn.tailwindcss.com"]'),localSheets:[...document.styleSheets].some(s=>s.href&&new URL(s.href).origin===location.origin&&/\/assets\/.*\.css$/.test(new URL(s.href).pathname))};
+     });
+     assert.deepEqual(compiled.actual,{display:'flex',minHeight:'44px',radius:'16px',background:'rgb(255, 252, 247)',color:'rgb(31, 42, 36)'},label+': compiled CSS contract');
+     assert.equal(compiled.cdn,false,label+': runtime Tailwind CDN still present');
+     assert.equal(compiled.localSheets,true,label+': compiled CSS asset missing');
       assert.equal(await page.locator('.terra-splash').count(),0);
     }
     await page.waitForTimeout(450);

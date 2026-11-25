@@ -51,7 +51,8 @@ test('quota guard: smoke test blocks external APIs and service workers',()=>{
  assert.match(smoke,/Browser smoke requires a loopback preview/);
  assert.match(smoke,/origin===previewOrigin\|\|\(request\.method\(\)==='GET'&&staticTypes\.get\(origin\)===request\.resourceType\(\)\)/);
  assert.match(smoke,/return allowed\?route\.continue\(\):route\.abort\(\)/);
- assert.match(smoke,/https:\/\/cdn\.tailwindcss\.com/);
+ assert.doesNotMatch(smoke,/\['https:\/\/cdn\.tailwindcss\.com','script'\]/);
+ assert.match(smoke,/runtime Tailwind CDN still present/);
  assert.doesNotMatch(smoke,/https:\/\/[^'\"\n]*firebase/);
  assert.equal((smoke.match(/serviceWorkers:'block'/g)||[]).length,2);
  assert.match(smoke,/await isolate\(page\)/);

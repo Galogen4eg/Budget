@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Plus, X, PieChart, Bell, Calendar, CreditCard, Clock, Trash2, 
   CheckCircle2, RotateCcw, AlertTriangle, Smile,
@@ -13,7 +13,8 @@ import { useData } from '../contexts/DataContext';
 import { toast } from 'sonner';
 import { assertDebtDeletionSafe } from '../utils/familyWorkspace';
 import { resolveDebtOwnerForSave } from '../utils/debtOwner';
-import { addItem, updateItem, deleteItem } from '../utils/db';
+import { generateUniqueId, updateItem, deleteItem } from '../utils/db';
+import { parseDebtAmount, parseDebtAmounts } from '../utils/debtEdit';
 import { 
   findLinkedExpenseForDebt, 
   computeDebtMonthPaymentStatus, 
@@ -53,7 +54,32 @@ const DebtSnowball: React.FC<Props> = ({
   const [sortBy, setSortBy] = useState<DebtSortOption>('date');
   
   const { familyId, user } = useAuth();
-  const { updateSettings, updateMandatoryPaymentBundle, householdPersonal, members } = useData();
+  const { updateSettings, updateMandatoryPaymentBundle, saveDebtEdit, householdPersonal, members } = useData();
+  const savingDebt=useRef(false);
+  const newDebtId=useRef<string|null>(null);
+  const [isSavingDebt,setIsSavingDebt]=useState(false);
+  const [debtError,setDebtError]=useState('');
+  const [totalDraft,setTotalDraft]=useState<string|null>(null);
+  const [monthlyDraft,setMonthlyDraft]=useState<string|null>(null);
+  const [paidDraft,setPaidDraft]=useState('0');
+  const openDebtEditor=(debt:Partial<ExtendedDebt>)=>{
+    setDebtError('');setTotalDraft(null);setMonthlyDraft(null);newDebtId.current=null;
+    setPaidDraft(String(Math.max(0,Math.round((debt.totalAmount??0)*100)-Math.round((debt.currentBalance??debt.totalAmount??0)*100))/100));
+    setEditingDebt({...debt,linkedExpenseId:debt.linkedExpenseId??findLinkedExpenseForDebt(debt.id??'',settings.mandatoryExpenses)?.id??null});
+  };
+  const changeDebtAmount=(field:'total'|'paid'|'monthly',raw:string)=>{
+    if(field==='total')setTotalDraft(raw);else if(field==='paid')setPaidDraft(raw);else setMonthlyDraft(raw);
+    setDebtError('');
+    try{
+      const value=parseDebtAmount(raw);
+      if(field==='monthly')setEditingDebt(prev=>({...prev,monthlyPayment:value}));
+      else{
+        const total=field==='total'?value:parseDebtAmount(totalDraft??String(editingDebt?.totalAmount??0));
+        const paid=field==='paid'?value:parseDebtAmount(paidDraft);
+        if(paid<=total)setEditingDebt(prev=>({...prev,totalAmount:total,currentBalance:(Math.round(total*100)-Math.round(paid*100))/100}));
+      }
+    }catch{/* Preserve the draft for correction; submit validates all fields. */}
+  };
 
   // Синхронизация режима расчета при открытии формы редактирования
   useEffect(() => {
@@ -148,6 +174,7 @@ const DebtSnowball: React.FC<Props> = ({
   };
 
   const applySafeBudget = () => {
+    setMonthlyDraft(null);
     if (!safeMonthlyBudget || !editingDebt?.totalAmount) return;
     
     const total = Number(editingDebt.totalAmount);
@@ -231,103 +258,37 @@ const DebtSnowball: React.FC<Props> = ({
     return data;
   }, [mode, editingDebt?.monthlyPayment, editingDebt?.dueDate, editingDebt?.totalAmount, editingDebt?.currentBalance]);
 
-  const parseDecimal = (val: string | number | undefined | null): number => {
-    if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val * 100) / 100;
-    if (!val) return 0;
-    const clean = val.toString().replace(/\s+/g, '').replace(',', '.');
-    const num = parseFloat(clean);
-    return isNaN(num) ? 0 : Math.round(num * 100) / 100;
-  };
-
-  const handleUpdateDebt = async (e: React.FormEvent) => {
+  const handleUpdateDebt = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const target = e.target as typeof e.target & {
-      title: { value: string };
-      totalAmount: { value: string };
-      paidAmount: { value: string };
-      monthlyPayment: { value: string };
-      dueDate: { value: string };
-      finalClosingDate: { value: string };
-    };
-
-    const totalAmount = parseDecimal(target.totalAmount.value);
-    const paidAmount = parseDecimal(target.paidAmount.value);
-    const currentBalance = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
-    const formTarget = target as any;
-    const linkedExpenseId = formTarget.linkedExpenseId?.value || null;
-
-    const updatedDebt: Partial<ExtendedDebt> = {
-      ...editingDebt,
-      name: target.title.value,
-      totalAmount: totalAmount,
-      currentBalance: currentBalance,
-      monthlyPayment: parseDecimal(target.monthlyPayment.value),
-      dueDate: target.dueDate.value,
-      finalClosingDate: target.finalClosingDate.value,
-      channels: editingDebt?.channels || ['site'],
-      notifyBefore: editingDebt?.notifyBefore || 3,
-      notifyIfOverdue: editingDebt?.notifyIfOverdue ?? true,
-      color: '#4a7c59',
-      strategy: mode,
-      linkedExpenseId: linkedExpenseId || null
-    };
-    
-    const owner=members.find(m=>m.userId && m.userId===user?.uid)?.id;
-    let memberId: string | undefined;
-    try { memberId = resolveDebtOwnerForSave(editingDebt, owner, householdPersonal); }
-    catch(error) { toast.error(error instanceof Error ? error.message : 'Долг недоступен'); return; }
-    const debtId = editingDebt?.id || Date.now().toString();
-    const newDebt = { 
-      ...updatedDebt, 
-      id: debtId,
-      ...(memberId ? { memberId } : {}),
-      paidThisMonth: editingDebt?.paidThisMonth ?? false 
-    } as unknown as Debt;
-
-    if (editingDebt?.id) {
-      if (familyId) await updateItem(familyId, 'debts', editingDebt.id, newDebt);
-      setDebts(debts.map(d => d.id === editingDebt.id ? newDebt : d));
-    } else {
-      if (familyId) await addItem(familyId, 'debts', newDebt);
-      setDebts([...debts, newDebt]);
-    }
-
-    // Двусторонняя синхронизация с карточкой обязательного платежа
-    const expenses = settings.mandatoryExpenses || [];
-    const targetLinkedExpense = linkedExpenseId 
-      ? expenses.find(exp => exp.id === linkedExpenseId)
-      : findLinkedExpenseForDebt(debtId, expenses);
-
-    if (targetLinkedExpense || linkedExpenseId) {
-      const targetId = linkedExpenseId || targetLinkedExpense?.id;
-      const parsedDay = updatedDebt.dueDate ? new Date(updatedDebt.dueDate).getDate() : undefined;
-
-      const updatedExpenses = expenses.map(exp => {
-        if (exp.id === targetId) {
-          const expTitle = updatedDebt.name || exp.name || (exp as any).title || 'Обязательный платеж';
-          return {
-            ...exp,
-            name: expTitle,
-            title: expTitle,
-            amount: updatedDebt.monthlyPayment !== undefined && updatedDebt.monthlyPayment > 0 ? updatedDebt.monthlyPayment : exp.amount,
-            day: (parsedDay && !isNaN(parsedDay)) ? parsedDay : (exp.day || 1),
-            expenseType: 'debt' as const,
-            linkedDebtId: debtId
-          };
-        }
-        if (exp.linkedDebtId === debtId && exp.id !== targetId) {
-          return {
-            ...exp,
-            linkedDebtId: null
-          };
-        }
-        return exp;
-      });
-
-      await updateMandatoryPaymentBundle({mandatoryExpenses:updatedExpenses,manualPaidExpenses:settings.manualPaidExpenses??{}},[]);
-    }
-
-    setEditingDebt(null);
+    if(savingDebt.current||!editingDebt)return;
+    setDebtError('');
+    const data=new FormData(e.currentTarget);
+    const field=(name:string)=>String(data.get(name)??'');
+    try{
+      const amounts=parseDebtAmounts(field('totalAmount'),field('paidAmount'),field('monthlyPayment'));
+      const name=field('title').trim();
+      if(!name)throw new Error('Введите название долга.');
+      const linkedExpenseId=field('linkedExpenseId')||null;
+      if(linkedExpenseId&&debts.some(debt=>debt.id!==editingDebt.id&&debt.linkedExpenseId===linkedExpenseId))throw new Error('Платёж уже связан с другим долгом.');
+      const owner=members.find(m=>m.userId&&m.userId===user?.uid)?.id;
+      const memberId=resolveDebtOwnerForSave(editingDebt,owner,householdPersonal);
+      const creating=!editingDebt.id;
+      const id=editingDebt.id||(newDebtId.current??=generateUniqueId());
+      const newDebt={
+        ...editingDebt,...amounts,id,name,
+        ...(memberId?{memberId}:{}),
+        dueDate:field('dueDate'),finalClosingDate:field('finalClosingDate'),
+        channels:editingDebt.channels||['site'],notifyBefore:editingDebt.notifyBefore??3,
+        notifyIfOverdue:editingDebt.notifyIfOverdue??true,color:'#4a7c59',strategy:mode,
+        paidThisMonth:editingDebt.paidThisMonth??false,linkedExpenseId
+      } as unknown as Debt;
+      savingDebt.current=true;setIsSavingDebt(true);
+      await saveDebtEdit(newDebt,creating);
+      setEditingDebt(null);
+    }catch(error){
+      const message=error instanceof Error?error.message:'Не удалось сохранить долг.';
+      setDebtError(message);toast.error(message);
+    }finally{savingDebt.current=false;setIsSavingDebt(false);}
   };
 
   const togglePaidStatus = async (id: string) => {
@@ -501,7 +462,7 @@ const DebtSnowball: React.FC<Props> = ({
   }, [totalRemaining, monthlyDebtLoad]);
 
   const handleOpenAddModal = () => {
-    setEditingDebt({ 
+    openDebtEditor({ 
       id: undefined, 
       name: '', 
       totalAmount: 0, 
@@ -937,7 +898,7 @@ const DebtSnowball: React.FC<Props> = ({
 
                       <button 
                         type="button"
-                        onClick={() => setEditingDebt(extendedDebt)}
+                        onClick={() => openDebtEditor(extendedDebt)}
                         aria-label="Редактировать параметры долга"
                         className="w-full py-3 px-3 bg-[var(--terra-soft)] hover:bg-stone-200/80 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 font-bold rounded-2xl border border-stone-300/80 dark:border-white/10 active:scale-[0.98] transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
@@ -1203,7 +1164,7 @@ const DebtSnowball: React.FC<Props> = ({
                       const debt = debts.find(d => d.id === editingDebt.id);
                       if (debt) setDebtToDelete(debt);
                     }}
-                    title="Удалить этот долг"
+                    disabled={isSavingDebt} title="Удалить этот долг"
                     aria-label="Удалить запись" 
                     className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
                   >
@@ -1213,7 +1174,7 @@ const DebtSnowball: React.FC<Props> = ({
                 <button 
                   type="button"
                   onClick={() => setEditingDebt(null)}
-                  aria-label="Закрыть окно" 
+                  disabled={isSavingDebt} aria-label="Закрыть окно" 
                   className="p-2 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -1238,7 +1199,7 @@ const DebtSnowball: React.FC<Props> = ({
 
               <button 
                 type="button"
-                onClick={() => setMode('auto')}
+                onClick={() => {setMonthlyDraft(null);setMode('auto');}}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
                   mode === 'auto' 
                     ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-emerald-400 shadow-xs font-extrabold' 
@@ -1250,7 +1211,8 @@ const DebtSnowball: React.FC<Props> = ({
               </button>
             </nav>
 
-            <form onSubmit={handleUpdateDebt} className="flex flex-col gap-4">
+            <form onSubmit={handleUpdateDebt} className="flex flex-col gap-4" aria-busy={isSavingDebt}>
+              <fieldset disabled={isSavingDebt} className="flex flex-col gap-4 min-w-0">
               
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold tracking-wider text-stone-500 dark:text-stone-400 uppercase flex items-center justify-between">
@@ -1291,12 +1253,10 @@ const DebtSnowball: React.FC<Props> = ({
                     Общая сумма
                   </label>
                   <input 
-                    name="totalAmount" 
-                    type="number" 
-                    min="0"
-                    step="0.01"
-                    value={editingDebt.totalAmount || ''} 
-                    onChange={(e) => setEditingDebt(prev => ({ ...prev, totalAmount: parseDecimal(e.target.value) }))}
+                    name="totalAmount" aria-label="Общая сумма"
+                    type="text" inputMode="decimal"
+                    value={totalDraft??String(editingDebt.totalAmount??0)}
+                    onChange={e=>changeDebtAmount('total',e.target.value)}
                     placeholder="0.00" 
                     required 
                     className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
@@ -1308,11 +1268,9 @@ const DebtSnowball: React.FC<Props> = ({
                     Выплачено
                   </label>
                   <input 
-                    name="paidAmount" 
-                    type="number" 
-                    min="0"
-                    step="0.01"
-                    defaultValue={editingDebt.id ? ((editingDebt.totalAmount || 0) - (editingDebt.currentBalance ?? 0)) : ''} 
+                    name="paidAmount" aria-label="Выплачено"
+                    type="text" inputMode="decimal"
+                    value={paidDraft} onChange={e=>changeDebtAmount('paid',e.target.value)} 
                     placeholder="0.00" 
                     required 
                     className="w-full bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-base font-semibold rounded-2xl px-4 py-3.5 focus:bg-white dark:focus:bg-[var(--terra-surface)] focus:border-[#4a7c59] focus:ring-1 focus:ring-[#4a7c59] outline-none transition" 
@@ -1327,12 +1285,10 @@ const DebtSnowball: React.FC<Props> = ({
                     {mode === 'auto' && <Lock className="w-3 h-3 text-[#4a7c59] dark:text-emerald-400" />}
                   </label>
                   <input 
-                    name="monthlyPayment" 
-                    type="number" 
-                    min="0"
-                    step="0.01"
-                    value={editingDebt.monthlyPayment || ''} 
-                    onChange={(e) => setEditingDebt(prev => ({ ...prev, monthlyPayment: parseDecimal(e.target.value) }))}
+                    name="monthlyPayment" aria-label="Месячный взнос"
+                    type="text" inputMode="decimal"
+                    value={mode==='auto'?String(editingDebt.monthlyPayment??0):monthlyDraft??String(editingDebt.monthlyPayment??0)}
+                    onChange={e=>changeDebtAmount('monthly',e.target.value)}
                     placeholder="0.00" 
                     readOnly={mode === 'auto'}
                     required 
@@ -1452,6 +1408,7 @@ const DebtSnowball: React.FC<Props> = ({
                   onChange={(e) => {
                     const selectedExpId = e.target.value;
                     const foundExp = (settings.mandatoryExpenses || []).find(exp => exp.id === selectedExpId);
+                    if(foundExp&&!editingDebt.monthlyPayment)setMonthlyDraft(null);
                     setEditingDebt(prev => ({
                       ...prev,
                       linkedExpenseId: selectedExpId || null,
@@ -1462,7 +1419,7 @@ const DebtSnowball: React.FC<Props> = ({
                 >
                   <option value="">-- Без привязки к обязательному платежу --</option>
                   {(settings.mandatoryExpenses || []).map(exp => (
-                    <option key={exp.id} value={exp.id}>
+                    <option key={exp.id} value={exp.id} disabled={Boolean(exp.linkedDebtId&&exp.linkedDebtId!==editingDebt.id)}>
                       {exp.name} ({exp.amount.toLocaleString('ru-RU')} ₽, день {exp.day}-й)
                     </option>
                   ))}
@@ -1472,6 +1429,7 @@ const DebtSnowball: React.FC<Props> = ({
                 </p>
               </div>
 
+              {debtError&&<p role="alert" className="rounded-xl p-3 text-sm bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]">{debtError}</p>}
               <footer className="flex items-center gap-3 pt-3 mt-1">
                 <button 
                   type="button"
@@ -1484,10 +1442,10 @@ const DebtSnowball: React.FC<Props> = ({
                   type="submit"
                   className="w-2/3 py-3.5 px-6 bg-[#4a7c59] hover:bg-[#3d6749] text-white font-bold rounded-2xl text-sm transition-all shadow-md hover:shadow-lg shadow-[#4a7c59]/20 text-center cursor-pointer"
                 >
-                  Сохранить
+                  {isSavingDebt?'Сохранение…':'Сохранить'}
                 </button>
               </footer>
-
+              </fieldset>
             </form>
           </div>
         </div>

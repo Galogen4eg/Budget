@@ -12,7 +12,7 @@ import {
 } from '../constants';
 import { 
   subscribeToCollection, subscribeToGlobalRules,
-  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection, subscribeToPersonalCollection, savePersonalItems, deletePersonalItem
+  addItemsBatch, deleteItemsBatch, addItem, deleteItem, createCategoriesIfMissing, saveAppSettingsPatch, commitMandatoryPaymentBundle, commitPersonalMandatoryPaymentBundle, commitDebtEdit, subscribeToAppSettings, subscribeToHouseholdBudgetPolicy, subscribeToScopedFinancialCollection, subscribeToPersonalCollection, savePersonalItems, deletePersonalItem
 } from '../utils/db';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ import { missingIncomeCategories } from '../utils/categoryCatalog';
 import { displayBudgetMode, budgetDisplayPreferenceKey, projectPersonalDisplayFinance, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 import { ledgerBalance, sumMoney } from '../utils/budgetFinancialMath';
+import { planDebtExpenseLink } from '../utils/debtEdit';
 import { initialFinancialRead, updateFinancialRead, financialReadStatus, type FinancialCollection, type FinancialReadStatus } from '../utils/financialReadState';
 
 // Default Settings
@@ -96,6 +97,7 @@ interface DataContextType {
     changes: Pick<AppSettings, 'mandatoryExpenses' | 'manualPaidExpenses'>,
     debtChanges: ReadonlyArray<{id: string; changes: Partial<Debt>}>
   ) => Promise<void>;
+  saveDebtEdit: (debt:Debt,creating:boolean)=>Promise<void>;
   debts: Debt[];
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   loyaltyCards: LoyaltyCard[];
@@ -388,6 +390,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDebts(previous=>previous.map(debt=>byId.has(debt.id)
         ? {...debt,...byId.get(debt.id)} : debt));
     }
+  };
+
+  const saveDebtEdit=async(debt:Debt,creating:boolean)=>{
+    if(familyId){
+      if(financialDataStatus!=='ready'||!user?.uid||(householdPersonal&&!linkedMemberId))throw new Error('Дождитесь подтверждения финансовых данных.');
+      await commitDebtEdit(familyId,user.uid,householdPersonal?linkedMemberId:undefined,debt,creating);
+      return; // Authoritative listeners publish both saved documents.
+    }
+    const current=settingsRef.current;
+    const mandatoryExpenses=planDebtExpenseLink(current.mandatoryExpenses??[],debt);
+    const next={...current,mandatoryExpenses};
+    settingsRef.current=next;setSettings(next);
+    setDebts(previous=>creating?[...previous,debt]:previous.map(item=>item.id===debt.id?debt:item));
   };
 
   // Shared and private learned rules never reuse another scope's storage.
@@ -736,7 +751,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     settingsReady, familyCalendarReady, shoppingReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,
-    settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, // Expose scoped settings
+    settings:financialSettings, setSettings, updateSettings, updateMandatoryPaymentBundle, saveDebtEdit, // Expose scoped settings
     debts: visibleDebts, setDebts,
     loyaltyCards, setLoyaltyCards,
     notifications, setNotifications,

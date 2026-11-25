@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { nextShoppingAmount } from './shoppingAmount';
+import { planDebtExpenseLink } from './debtEdit';
 import { savingsContributionKopecks, nextSavingsGoalAmount, assertGoalDeletionSafe } from './transactionSavingsConsistency';
 import { isSavingsTransfer as isSavingsTransferForRepair } from './savingsSync';
 import { assertCalendarVersion, markOccurrenceSkipped } from './familyPlanEngine';
@@ -201,6 +202,38 @@ export const commitMandatoryPaymentBundle = async (
     }
   });
 };
+
+/** Atomic create/edit of a debt and its reciprocal mandatory-expense link. */
+export async function commitDebtEdit(familyId:string,uid:string,personalMemberId:string|undefined,debt:Debt,creating:boolean):Promise<void>{
+  if(!familyId||!uid||auth.currentUser?.uid!==uid||!debt.id)throw new Error('Семейный профиль недоступен');
+  const familyRef=doc(db,'families',familyId);
+  const configRef=personalMemberId?doc(db,'families',familyId,'members',uid,'config','settings'):doc(db,'families',familyId,'config','settings');
+  const debtRef=doc(db,'families',familyId,'debts',debt.id);
+  await runTransaction(db,async tx=>{
+    const family=await tx.get(familyRef);
+    const data=family.data();
+    if(!data?.members?.includes(uid)||(data.budgetPolicy??'family')!==(personalMemberId?'personal':'family'))throw new Error('Режим бюджета изменился. Повторите действие.');
+    if(personalMemberId){
+      const profile=await tx.get(doc(db,'families',familyId,'members',personalMemberId));
+      if(profile.data()?.userId!==uid||debt.memberId!==personalMemberId)throw new Error('Личный долг недоступен');
+    }
+    const config=await tx.get(configRef);
+    const previous=await tx.get(debtRef);
+    if(creating?previous.exists():!previous.exists())throw new Error(creating?'Долг уже существует. Обновите список.':'Долг удалён. Обновите список.');
+    if(previous.exists()&&(previous.data()?.memberId??null)!==(debt.memberId??null))throw new Error('Владелец долга изменился. Обновите список.');
+    const field=personalMemberId?'personalMandatoryExpenses':'mandatoryExpenses';
+    const stored=config.data()?.[field];
+    if(personalMemberId&&!Array.isArray(stored))throw new Error('Личные платежи ещё не перенесены');
+    if(stored!==undefined&&!Array.isArray(stored))throw new Error('Список обязательных платежей повреждён');
+    const expenses=(stored??[]) as AppSettings['mandatoryExpenses'];
+    const updated=planDebtExpenseLink(expenses,debt);
+    if(personalMemberId&&updated.some(e=>e.memberId!==personalMemberId))throw new Error('Обязательный платёж принадлежит другому участнику');
+    // Only change the link list; never overwrite concurrently updated payment history.
+    if(updated.some((e,i)=>e!==expenses[i]))tx.set(configRef,cleanForFirestore({[field]:updated}),{merge:true});
+    if(creating)tx.set(debtRef,cleanForFirestore(debt));
+    else tx.update(debtRef,cleanForFirestore(debt));
+  });
+}
 
 // Legacy support wrapper (deprecated for direct use in components)
 export const saveSettings = async (familyId: string, settings: AppSettings) => {

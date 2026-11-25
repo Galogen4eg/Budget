@@ -1,4 +1,4 @@
-import {makeFamilyFixtures} from './fixtures/realisticFamily.mjs';
+import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
@@ -34,9 +34,12 @@ await rows.doc(original.id).set(original);
 // Keep empty-state CRUD isolated. A separate populated run tests realistic history and layout.
 const populated=process.argv.includes('--populated');
 if(populated){
- const fixtures=makeFamilyFixtures({now:new Date(date),members:users.map((u,i)=>({id:i?'b':'a',userId:u.uid}))});
+ const fixtureMembers=users.map((u,i)=>({id:i?'b':'a',userId:u.uid}));
+ const fixtures=makeFamilyFixtures({now:new Date(date),members:fixtureMembers});
  // Seed once in the emulator, never in the production database.
  const batch=db.batch();
+ batch.set(family.collection('config').doc('settings'),fixtureSettings(fixtureMembers),{merge:true});
+ for(const category of fixtureCategories)if(category.id!=='food')batch.create(family.collection('categories').doc(category.id),category);
  for(const [kind,records] of Object.entries(fixtures)){
   for(const record of records)batch.create(family.collection(kind).doc(record.id),record);
  }
@@ -120,6 +123,18 @@ try{
  const b=await openUser(users[1],{width:1440,height:900});
 
 if(process.argv.includes('--navigation')){
+ if(populated){
+  // Edit a known imported transaction while both sessions have hundreds of records.
+  const title='QA импорт в наполненной семье';
+  await edit(b,original.note).click();
+  await nameField(b).fill(title);
+  await save(b,true);
+  const stored=(await rows.doc(original.id).get()).data();
+  assert.equal(stored.note,title);
+  for(const k of ['amount','date','category','memberId','userId','rawNote','type'])assert.equal(stored[k],original[k],k);
+  await edit(a,title).waitFor({state:'visible',timeout:20000});
+  console.log('PASS edit imported operation with populated family, server reread and second user');
+ }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;
  await family.collection('members').doc(users[1].uid).collection('config').doc('settings').set({theme:'dark'},{merge:true});

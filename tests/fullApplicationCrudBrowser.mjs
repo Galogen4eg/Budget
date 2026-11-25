@@ -1,3 +1,4 @@
+import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
@@ -100,6 +101,10 @@ try{
  const a=await openUser(users[0],{width:390,height:844});
  const b=await openUser(users[1],{width:1440,height:900});
 
+if(process.argv.includes('--navigation')){
+ const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
+ if(result.failures.length)process.exitCode=1;
+}else{
 const failures=[];
 let phase='';
 const panel=(p,id)=>p.locator('[data-tab-panel="'+id+'"]');
@@ -267,6 +272,7 @@ await scenario('BUD-16/17/18 mandatory payments persistence',async()=>{
 });
 console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:7,passed:7-failures.length}));
 if(failures.length)process.exitCode=1;
+}
 
 }catch(error){
  console.error('FAIL FULL setup',error);process.exitCode=1;

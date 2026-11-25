@@ -7,7 +7,9 @@ const src=readFileSync(new URL('../firebase.ts',import.meta.url),'utf8');
 const value=key=>src.match(new RegExp('\\b'+key+'\\s*:\\s*"([^"]+)"'))?.[1];
 const apiKey=value('apiKey'),project=value('projectId');
 if(!apiKey||project!=='budg-1d5e0'){console.error('Unexpected Firebase configuration');process.exit(1);}
-const email=process.env.QA_EMAIL_1.trim();
+// Match LoginScreen.formatLoginToEmail for both plain logins and email addresses.
+const login=process.env.QA_EMAIL_1.trim().toLowerCase();
+const email=login.includes('@')?login:login+'@family.local';
 const familyId=process.env.QA_FAMILY_ID.trim();
 const password=process.env.QA_PASSWORD_1;
 const fail=message=>{console.error(message);process.exit(1);};

@@ -12,7 +12,10 @@
     "scrape:entertainment": "node scripts/scrape-entertainment.js",
     "scrape:pikabu": "node scripts/scrape-pikabu.js",
     "scrape:threads": "node scripts/scrape-threads.js",
-    "prebuild": "node --experimental-strip-types --test tests/*.test.mjs functions/tests/*.test.cjs"
+    "prebuild": "node --experimental-strip-types --test tests/*.test.mjs functions/tests/*.test.cjs",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build",
+    "check:terra-ui": "node scripts/check-terra-ui.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
@@ -56,6 +59,8 @@
     "@vitejs/plugin-react": "^4.3.1",
     "tailwindcss": "3.4.17",
     "typescript": "~5.5.3",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "storybook": "10.6.7",
+    "@storybook/react-vite": "10.6.7"
   }
 }

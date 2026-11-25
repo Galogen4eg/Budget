@@ -1,0 +1,88 @@
+name: Terra local CSS parity
+
+on:
+  pull_request:
+    branches: [terra/full-audit-verified-shell]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-css-parity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+      - name: TypeScript diagnostics
+        run: npx tsc --noEmit
+      - name: Run all regression tests and compile Vite
+        run: npm run build
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+      # Full tests and TypeScript run once in Budget CI/check.
+      # Browser job builds the preview without the npm prebuild hook.
+      - name: Build browser preview (without duplicate unit suite)
+        run: npx vite build
+      - name: Install Chromium headless shell
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Browser smoke at mobile, tablet and desktop widths
+        run: node tests/budgetBrowserSmoke.mjs
+      - name: Upload screenshots when available
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: budget-browser-screenshots
+          path: artifacts/budget-browser/
+          if-no-files-found: ignore
+  crud-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install project dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+      - name: Bundle actual Firestore persistence functions for Node
+        run: npx esbuild tests/firestoreCrud.emulator.ts --bundle --platform=node --packages=external --format=esm --outfile=artifacts/firestore-crud.mjs
+      - name: Run isolated create/edit/delete and savings scenarios
+        env:
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          CI: 'true'
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project budg-1d5e0 --only firestore --config tests/firestore-crud.emulator.json "node artifacts/firestore-crud.mjs"
+      - name: Install Chromium for authenticated CRUD
+        run: npx playwright install --with-deps chromium
+      - name: Verify browser CRUD through actual Firestore rules and two authenticated users
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/transactionCrudBrowser.mjs"
+      - name: Verify all additional authenticated module scenarios independently
+        if: always() && !cancelled()
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs"
+
+      - name: Verify authenticated navigation, controls and responsive states in emulator
+        if: always() && !cancelled()
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/fullApplicationCrudBrowser.mjs --navigation"

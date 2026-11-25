@@ -57,7 +57,7 @@ async function openUser(user,viewport){
   const req=route.request(),url=new URL(req.url());
   // API routes require real integrations, not the isolated client test.
   const allowed=(url.origin===origin&&!url.pathname.startsWith('/api/'))||['http://127.0.0.1:8080','http://127.0.0.1:9099'].includes(url.origin)||
-   (req.method()==='GET'&&['https://cdn.tailwindcss.com','https://fonts.googleapis.com','https://fonts.gstatic.com'].includes(url.origin));
+   (req.method()==='GET'&&['https://fonts.googleapis.com','https://fonts.gstatic.com'].includes(url.origin));
   return allowed?route.continue():route.abort();
  });
  await page.goto(origin,{waitUntil:'domcontentloaded'});

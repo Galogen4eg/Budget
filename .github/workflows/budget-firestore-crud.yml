@@ -4,14 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-    paths:
-      - 'utils/db.ts'
-      - 'utils/transactionSavingsConsistency.ts'
-      - 'firebase.ts'
-      - 'tests/firestoreCrud.emulator.ts'
-      - 'tests/firestore-crud.emulator.json'
-      - 'tests/firestore-crud.emulator.rules'
-      - '.github/workflows/budget-firestore-crud.yml'
 
 permissions:
   contents: read
@@ -23,7 +15,7 @@ concurrency:
 jobs:
   crud-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -42,3 +34,7 @@ jobs:
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
           CI: 'true'
         run: npx --yes firebase-tools@14.27.0 emulators:exec --project budg-1d5e0 --only firestore --config tests/firestore-crud.emulator.json "node artifacts/firestore-crud.mjs"
+      - name: Install Chromium for authenticated CRUD
+        run: npx playwright install --with-deps chromium
+      - name: Verify browser CRUD through actual Firestore rules and two authenticated users
+        run: npx --yes firebase-tools@14.27.0 emulators:exec --project demo-budget --only auth,firestore --config firebase.test.json "node tests/transactionCrudBrowser.mjs"

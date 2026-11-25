@@ -2,7 +2,8 @@ export type AlfaRowIssue={sheet:string;row:number;reason:string};
 export type AlfaParseReport={operationRows:number;ready:number;needsReview:number;duplicates:number;errors:AlfaRowIssue[];serviceRows:number};
 export function newAlfaReport():AlfaParseReport{return {operationRows:0,ready:0,needsReview:0,duplicates:0,errors:[],serviceRows:0};}
 export class AlfaStatementRowsError extends Error{
- constructor(public readonly report:AlfaParseReport){super('Выписка содержит ошибки: '+report.errors.length+' строк. Импорт не начат.');this.name='AlfaStatementRowsError';}
+ readonly report:AlfaParseReport;
+ constructor(report:AlfaParseReport){super('Выписка содержит ошибки: '+report.errors.length+' строк. Импорт не начат.');this.name='AlfaStatementRowsError';this.report=report;}
 }
 export function rowIsBlank(row:readonly unknown[]){return row.every(v=>String(v??'').trim()==='');}
 export function parseAlfaDate(raw:unknown,time?:unknown):Date|null{

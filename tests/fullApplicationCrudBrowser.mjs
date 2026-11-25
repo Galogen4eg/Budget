@@ -286,6 +286,26 @@ await scenario('BUD-16/17/18 mandatory payments persistence',async()=>{
  await btn(b,'Удалить платеж').click();await btn(b,'Подтвердить удаление').click();
  await currentDoc(ref,x=>!entry(x),'mandatory delete');
 });
+await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
+ const ref=family.collection('config').doc('settings');
+ await ref.set({mandatoryExpenses:[],manualPaidExpenses:{}},{merge:true});
+ await nav(b,'overview','Обзор');
+ phase='empty reserve';await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+ const dialog=b.getByRole('dialog',{name:'Структура резерва'});
+ await dialog.getByText('Нет обязательных платежей',{exact:true}).waitFor({state:'visible'});
+ assert.equal(await btn(dialog,'Отметить выбранные как оплаченные').isDisabled(),true);
+ assert.equal(await dialog.getByRole('checkbox').count(),0);
+ await btn(dialog,'Закрыть').click();
+ phase='real reserve payment';await ref.set({mandatoryExpenses:[{id:'qa-reserve',name:'QA резерв',amount:100.25,day:10,remind:false}]},{merge:true});
+ await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+ const checkbox=dialog.getByRole('checkbox',{name:'Выбрать платёж: QA резерв',exact:true});
+ await checkbox.waitFor({state:'visible'});
+ await checkbox.check();
+ await btn(dialog,'Отметить выбранные как оплаченные').click();
+ await currentDoc(ref,snapshot=>Object.values(snapshot.data()?.manualPaidExpenses??{}).some(ids=>Array.isArray(ids)&&ids.includes('qa-reserve')),'confirmed reserve paid mark');
+ await dialog.getByText('Оплачено',{exact:true}).waitFor({state:'visible'});
+ await btn(dialog,'Закрыть').click();
+});
 await scenario('SVC-debt linked obligation create, edit, unlink and conflict rejection',async()=>{
  const ref=family.collection('config').doc('settings');
  await ref.set({mandatoryExpenses:[{id:'qa-link',name:'QA связанный платёж',amount:90,day:8,remind:true},{id:'qa-occupied',name:'QA занятый платёж',amount:50,day:4,remind:false,linkedDebtId:'other-debt'}]},{merge:true});
@@ -321,7 +341,7 @@ await scenario('SVC-debt linked obligation create, edit, unlink and conflict rej
  await b.getByRole('heading',{name:'Удалить долг?'}).waitFor({state:'visible'});
  await btn(b,'Удалить').click();await currentDoc(saved.ref,x=>!x.exists,'linked debt delete after unlink');
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:8,passed:8-failures.length}));
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:9,passed:9-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

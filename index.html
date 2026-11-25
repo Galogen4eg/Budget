@@ -61,32 +61,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link rel="stylesheet" href="/terra-tailwind.css" />
     <script>
-      function showError(title, detail) {
+      function showError() {
         const root = document.getElementById('root');
-        if (root && (!root.hasChildNodes() || root.querySelector("[data-terra-boot]"))) {
-           document.body.innerHTML = `
-             <div style="padding: 2rem; font-family: system-ui, -apple-system, sans-serif; text-align: center; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #fff; color: #333;">
-               <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">${title} 😔</h2>
-               <p style="color: #666; margin-bottom: 1rem;">Приложение не смогло загрузиться.</p>
-               <div style="background: #f5f5f5; padding: 1rem; border-radius: 0.8rem; text-align: left; overflow: auto; max-width: 90%; width: 400px; font-size: 0.8rem; color: #d32f2f; margin-bottom: 1.5rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-                 <strong>Error:</strong> ${detail}
-               </div>
-               <button onclick="window.location.reload()" style="background: #007AFF; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 0.8rem; font-weight: 600; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,122,255,0.3);">Попробовать снова</button>
-             </div>
-           `;
+        if (root && (!root.hasChildNodes() || root.querySelector('[data-terra-boot]'))) {
+          root.innerHTML = '<main class="terra-boot-error" role="alert"><h2>Не удалось загрузить приложение</h2><p>Обновите страницу. Если ошибка повторяется, проверьте соединение.</p><button type="button" id="terra-reload">Попробовать снова</button></main>';
+          root.querySelector('#terra-reload').addEventListener('click',()=>window.location.reload());
         }
       }
 
       window.addEventListener('error', function(e) {
         if (e.message && e.message.includes('ResizeObserver')) return;
         console.error("Global Error:", e);
-        showError("Ошибка запуска", e.message);
+        showError();
       });
 
       window.addEventListener('unhandledrejection', function(e) {
         console.error("Unhandled Rejection:", e.reason);
-        const msg = e.reason ? (e.reason.message || e.reason.toString()) : "Unknown Promise Error";
-        showError("Ошибка инициализации", msg);
+        showError();
       });
 
 

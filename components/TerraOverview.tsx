@@ -251,7 +251,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       );
       if (recorded || (personalDisplayOnly&&allTransactions.some(tx=>tx.type==='expense'&&tx.linkedExpenseId===expenseId&&tx.date.slice(0,7)===currentMonthKey))) {
         toast.info('Платёж связан с финансовой операцией. Измените или удалите её, чтобы снять оплату.');
-        return;
+        return false;
       }
     }
     const bill = relevantMandatoryExpenses.find(expense => expense.id === expenseId);
@@ -265,7 +265,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }, debtChanges);
     } catch {
       toast.error('Не удалось сохранить отметку платежа и связанный долг.');
+      return false;
     }
+    return true;
   }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, familyMonthTransactions,
       relevantMandatoryExpenses, isCurrentCalendarMonth, updateMandatoryPaymentBundle, personalDisplayOnly, allTransactions]);
 
@@ -284,7 +286,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }, debtChanges);
     } catch {
       toast.error('Не удалось записать оплату обязательств и связанных долгов.');
+      return false;
     }
+    return true;
   }, [financialSettings.manualPaidExpenses, financialSettings.mandatoryExpenses, currentMonthKey, relevantMandatoryExpenses,
       isCurrentCalendarMonth, updateMandatoryPaymentBundle]);
 

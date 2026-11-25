@@ -8,6 +8,7 @@ import {
   Search, CheckCircle2
 } from 'lucide-react';
 import TerraMobileHeader from './TerraMobileHeader';
+import { TerraHeaderAction } from './TerraPageHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -514,20 +515,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         onOpenSettings={onOpenSettings}
         onOpenNotifications={onOpenNotifications}
         rightExtra={
-          <button 
-            type="button"
-            onClick={handleTelegramSend}
-            disabled={isSendingTelegram}
-            title="Отправить список в Telegram"
-            aria-label="Отправить список в Telegram"
-            className="min-w-[44px] min-h-[44px] rounded-xl bg-[var(--terra-soft)] hover:bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center transition-colors terra-press cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
-          >
-            {isSendingTelegram ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Send size={18} className="translate-x-0.5" />
-            )}
-          </button>
+          <TerraHeaderAction label="Отправить список в Telegram" onClick={handleTelegramSend} disabled={isSendingTelegram}
+            icon={isSendingTelegram ? <Loader2 size={18} className="animate-spin"/> : <Send size={18}/>}/>
         }
       />
       {beforeContent}

@@ -61,7 +61,7 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
           </button>
         )}
 
-        {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className={`relative w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]`}><Bell size={18} aria-hidden="true"/>{unread>0&&<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-600" aria-hidden="true"/>}</button>}
+        {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className={`relative w-11 h-11 rounded-xl ${TOOLBAR_ACTION_IDLE} flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]`}><Bell size={18} aria-hidden="true"/>{unread>0&&<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--terra-danger-text)]" aria-hidden="true"/>}</button>}
         {onOpenSettings && (
           <button
             type="button"

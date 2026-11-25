@@ -6,6 +6,7 @@ on:
       - 'tests/productionQaAccess.mjs'
       - 'tests/productionTransactionCrud.mjs'
       - 'tests/productionNavigation.mjs'
+      - 'tests/navigationAudit.mjs'
       - 'tests/productionModulesCrud.mjs'
       - '.github/workflows/budget-production-qa-access.yml'
   workflow_dispatch:
@@ -25,7 +26,7 @@ jobs:
         with:
           node-version: '24'
       - name: Validate production QA scripts without connecting to Firebase
-        run: node --check tests/productionQaAccess.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs && node --check tests/productionModulesCrud.mjs
+        run: node --check tests/productionQaAccess.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs && node --check tests/navigationAudit.mjs && node --check tests/productionModulesCrud.mjs
   read-only-access:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -36,7 +37,7 @@ jobs:
         with:
           node-version: '24'
       - name: Check production QA script syntax
-        run: node --check tests/productionQaAccess.mjs && node --check tests/productionModulesCrud.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs
+        run: node --check tests/productionQaAccess.mjs && node --check tests/productionModulesCrud.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs && node --check tests/navigationAudit.mjs
       - name: Verify secrets and read-only production access
         id: access
         env:

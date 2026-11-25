@@ -750,7 +750,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="bg-gradient-to-r from-[#FEF7EC] to-[#FAF6EE] dark:from-[#282118] dark:to-[#1C1C1E] border-2 border-[#E09F3E]/60 dark:border-amber-900/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#E09F3E] text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
-                  <Sparkles size={20} className="animate-pulse" />
+                  <Sparkles size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
@@ -818,9 +818,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <div 
                   key={item.tempId}
                   onClick={() => handleOpenEditModal(item)}
-                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
+                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-colors duration-150 cursor-pointer ${
                     isHighlighted
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
+                      ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-solid)]'
                       : isUnrecognized 
                         ? 'bg-[#FFFDF7] dark:bg-[#241F18] border-2 border-[#E09F3E]/45 shadow-[0_2px_12px_rgba(224,159,62,0.08)] hover:border-[#E09F3E]' 
                         : 'bg-[var(--terra-surface)] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
@@ -851,15 +851,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                             }}
                             placeholder={item.rawNote || category?.label || 'Название в истории...'}
                             className="font-bold text-stone-900 dark:text-white text-sm bg-stone-100/60 dark:bg-white/5 hover:bg-white dark:hover:bg-[#252528] focus:bg-white dark:focus:bg-[#252528] px-2.5 py-1 rounded-lg border border-transparent hover:border-stone-300 dark:hover:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none transition w-full"
-                            title="Отредактируйте название для истории без проваливания в карточку"
+                            aria-label="Название операции в истории"
+                            title="Название операции в истории"
                           />
                           <Edit3 size={13} className="text-stone-400 shrink-0 pointer-events-none -ml-6 z-10 opacity-70" />
                         </div>
 
                         {isHighlighted ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold shadow-sm animate-bounce">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-xs font-semibold">
                             <Sparkles size={13} className="text-emerald-200" />
-                            Авто-распознано правилом!
+                            Категория определена
                           </span>
                         ) : isUnrecognized ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF7EC] dark:bg-amber-950/60 text-[#B87008] dark:text-amber-300 text-[11px] font-bold border border-[#F3D5A5]/60">

@@ -10,8 +10,19 @@
 }
 
 /* Terra semantic color roles: shared by all screens and portals. */
-:root { --terra-canvas:#F6F1E8; --terra-surface:#FFFCF7; --terra-soft:#EFE7DA; --terra-border:#E2D8C8; --terra-ink:#1F2A24; --terra-muted:#66706A; --terra-primary:#4A7C59; --terra-primary-hover:#3E694B; --terra-primary-soft:#E6F0E8; --terra-accent:#C69143; --terra-focus:#4A7C59; }
-html.dark { --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A27; --terra-border:#313733; --terra-ink:#F3F1EC; --terra-muted:#A4ADA7; --terra-primary-soft:#223328; --terra-focus:#8BC49B; }
+:root {
+ --terra-canvas:#F6F1E8; --terra-surface:#FFFCF7; --terra-soft:#EFE7DA; --terra-border:#E2D8C8;
+ --terra-ink:#1F2A24; --terra-muted:#5D675F; --terra-primary-solid:#4A7C59; --terra-primary:var(--terra-primary-solid);
+ --terra-primary-hover:#3E694B; --terra-on-primary:#FFFFFF; --terra-primary-text:#356044; --terra-primary-soft:#E6F0E8; --terra-accent:#C69143; --terra-focus:#356044;
+ --terra-danger-text:#A8322C; --terra-danger-soft:#FCE8E5; --terra-control-border:#7C8377; --terra-offline-text:#79500F; --terra-offline-soft:#FFF1D6; --terra-pending-text:#345B80; --terra-pending-soft:#E7EFF7;
+}
+html.dark {
+ --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A27; --terra-border:#313733;
+ --terra-ink:#F3F1EC; --terra-muted:#A4ADA7; --terra-primary-solid:#4A7C59; --terra-primary-hover:#3E694B; --terra-on-primary:#FFFFFF; --terra-primary-text:#9BD1A8; --terra-primary-soft:#223328; --terra-focus:#8BC49B;
+ --terra-danger-text:#FDA4A0; --terra-danger-soft:#3B2424; --terra-control-border:#707B73; --terra-offline-text:#F5CD82; --terra-offline-soft:#392D1B; --terra-pending-text:#ACD3FF; --terra-pending-soft:#223447;
+}
+.font-body {font-family:"Nunito Sans",system-ui,sans-serif;}
+.font-display {font-family:"Literata",serif;}
 /* Restrict focus changes to chart internals; preserve keyboard indication. */
 [data-testid^="overview-chart-"] .recharts-wrapper:focus:not(:focus-visible),
 [data-testid^="overview-chart-"] .recharts-surface:focus:not(:focus-visible) { outline:none !important; }

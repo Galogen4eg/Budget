@@ -106,6 +106,11 @@ try{
   const modal=b.getByRole('dialog',{name:'Уведомления',exact:true});
   await modal.getByText('Нет уведомлений',{exact:true}).waitFor({state:'visible'});
   assert.equal(await modal.getByRole('button',{name:'Прочитать все',exact:true}).isDisabled(),true);
+  await modal.getByRole('button',{name:'Закрыть',exact:true}).focus();
+  await b.keyboard.press('Shift+Tab');
+  assert.equal(await modal.getByRole('button',{name:'Новые 0',exact:true}).evaluate(el=>document.activeElement===el),true,'Focus must wrap to last control');
+  await b.keyboard.press('Tab');
+  assert.equal(await modal.getByRole('button',{name:'Закрыть',exact:true}).evaluate(el=>document.activeElement===el),true,'Focus must wrap to first control');
   const unread=modal.getByRole('button',{name:'Новые 0',exact:true});
   await unread.click();
   assert.equal(await unread.getAttribute('aria-pressed'),'true');

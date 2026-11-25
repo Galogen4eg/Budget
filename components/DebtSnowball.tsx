@@ -714,7 +714,7 @@ const DebtSnowball: React.FC<Props> = ({
             <div className="w-16 h-16 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 mx-auto flex items-center justify-center mb-4">
               <Smile className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">Долгов нет! 🎉</h3>
+            <h3 className="text-lg font-display font-bold text-stone-900 dark:text-white">Нет долгов</h3>
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
               Все кредиты и рассрочки закрыты или еще не добавлены в систему. Нажмите кнопку ниже, чтобы внести новый долг.
             </p>
@@ -1153,19 +1153,6 @@ const DebtSnowball: React.FC<Props> = ({
         </div>
 
       </section>
-
-      {/* 8. Вдохновляющий редакционный блок «Маленькие шаги к свободе» */}
-      <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-card h-28 sm:h-32 bg-stone-800 text-white flex items-end p-4 sm:p-5">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#2a4332]/95 via-[#3d6549]/80 to-[#5e8c68]/70" />
-        <div className="relative z-10">
-          <h4 className="text-xs sm:text-sm font-display font-bold text-white">
-            Маленькие шаги к финансовой свободе
-          </h4>
-          <p className="text-[11px] sm:text-xs text-white/80 mt-0.5 max-w-xl leading-snug">
-            Каждый досрочный платёж уменьшает базу начисления процентов и приближает день полного освобождения от кредитов.
-          </p>
-        </div>
-      </div>
 
       {/* 9. Модальное окно подтверждения удаления долга */}
       {debtToDelete && (

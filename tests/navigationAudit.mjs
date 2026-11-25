@@ -1,5 +1,5 @@
 /** Shared UI scenarios. Caller owns browser, data and network isolation. */
-export async function runNavigationAudit(page,{includeInventoryDetails=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
+export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
 page.setDefaultTimeout(10000);
 const failures=[],counts=[];
 const first=loc=>loc.filter({visible:true}).first();
@@ -38,6 +38,8 @@ async function inventory(id){
  });
  if(!result.controls)throw new Error('Mounted panel contains no visible controls');
  counts.push({viewport:label,section:id,...result});
+ const geometry=await page.evaluate(section=>{const shell=document.querySelector('[data-terra-shell]'),tab=document.querySelector('[data-terra-tabbar]'),p=document.querySelector('[data-tab-panel="'+section+'"]');if(!shell||!p)return null;const shown=el=>!!el?.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';return {overflow:shell.scrollWidth>shell.clientWidth+1,headerCount:[...p.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,mobile:innerWidth<768,overlap:shown(tab)&&p.getBoundingClientRect().bottom>tab.getBoundingClientRect().top+2};},id);
+ if(geometry){if(geometry.overflow)throw new Error('Shell horizontal overflow');if(geometry.overlap)throw new Error('Tabbar overlaps content');if(geometry.mobile&&geometry.headerCount!==1)throw new Error('Expected one mobile section header, got '+geometry.headerCount);}
  if(includeInventoryDetails){
   const controls=await panel(id).evaluate(el=>[...el.querySelectorAll('button,a[href],input,select,textarea,[role=button],[role=switch],[role=tab],[role=checkbox]')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').map(e=>({tag:e.tagName.toLowerCase(),role:e.getAttribute('role'),name:(e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.textContent?.trim()||'').replace(/\s+/g,' ').slice(0,120),disabled:!!(e.disabled||e.getAttribute('aria-disabled')==='true'),pressed:e.getAttribute('aria-pressed'),expanded:e.getAttribute('aria-expanded')})));
   console.log('CONTROL INVENTORY '+label+' '+id+' '+JSON.stringify(controls));
@@ -127,7 +129,7 @@ async function checkSections(){
    await p.getByPlaceholder('Поиск по сообщениям...').fill('QA navigation search');
    await button(p,'Закрыть').click();
    await p.getByPlaceholder('Поиск по сообщениям...').waitFor({state:'hidden'});
-  }else console.log('BLOCKED '+label+' CHAT-topic-open: no topic fixture');
+  }else throw new Error('No topic fixture: topic navigation not verified');
  });
  for(const [name,target] of [
   ['Долги','debt'],['Карты лояльности','wallet'],['Чеки ФНС и выписки','receipts']
@@ -296,15 +298,11 @@ async function checkButtons(){
   const close=button(page,'Закрыть редактор товара');await expectVisible(close);
   action='cancel product editor';await close.click();await close.waitFor({state:'hidden'});
  });
- await buttonScenario('CHT-01-create-topic-placeholder',async()=>{
+ await buttonScenario('CHT-01-create-topic-unavailable',async()=>{
   await nav('chat','Чат');const p=panel('chat');if(mobile())await button(p,'К спискам чатов').click();
-  action='click create topic';await button(p,'Создать тему').click();
-  const notice=first(page.getByText('Создание новых тем временно недоступно до подключения синхронизации.',{exact:true}));
-  await expectVisible(notice);
-  // A toast proves the button is a placeholder, not a functional topic flow.
-  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'confirmed placeholder on production'});
-  console.log('BUTTON LIMIT '+label+' CHT-01 topic creation explicitly unavailable');
-  throw new Error('Topic creation is unavailable');
+  action='check explicit unavailable topic creation';
+  const create=button(p,'Создать тему');await expectVisible(create);check(await create.isDisabled(),'Unimplemented topic creation must be disabled');
+  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'explicitly disabled; topic persistence not implemented'});
  });
  await buttonScenario('SRV-04-wallet-editor-cancel',async()=>{
   await nav('services','Сервисы');const p=panel('services');action='open wallet';await button(p,/^Карты лояльности/,false).click();
@@ -340,8 +338,8 @@ async function extraViewportInventory(){
 }
 
  await ready();
- await checkSections();await checkButtons();
- label='mobile-390';await page.setViewportSize({width:390,height:844});await reload();await checkSections();await checkButtons();
+ if(!inventoryOnly){await checkSections();await checkButtons();
+ label='mobile-390';await page.setViewportSize({width:390,height:844});await reload();await checkSections();await checkButtons();}
  await extraViewportInventory();
  console.log('BUTTON AUDIT SUMMARY '+JSON.stringify({controlResults,unavailable,scope:'explicit named actions; not exhaustive, no external calls or intentional financial writes'}));
  console.log('SUMMARY '+JSON.stringify({failures,counts}));

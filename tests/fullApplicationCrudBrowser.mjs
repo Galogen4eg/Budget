@@ -104,6 +104,10 @@ try{
 if(process.argv.includes('--navigation')){
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;
+ await family.collection('members').doc(users[1].uid).collection('config').doc('settings').set({theme:'dark'},{merge:true});
+ await b.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+ const dark=await runNavigationAudit(b,{includeInventoryDetails:true,inventoryOnly:true,extraViewports:[[360,800],[375,812],[390,844],[768,1024],[1024,768],[1280,800],[1920,1080]]});
+ if(dark.failures.length)process.exitCode=1;
 }else{
 const failures=[];
 let phase='';
@@ -171,8 +175,12 @@ await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/resto
  await a.getByPlaceholder('Например: Сыр Российский').fill('QA молоко изменено');
  await btn(a,'Сохранить изменения').click();
  await currentDoc(saved.ref,x=>x.exists&&x.data().title==='QA молоко изменено','shopping rename');
- phase='desktop quantity and complete';await btn(p,'Увеличить количество: QA молоко изменено').click();
- await currentDoc(saved.ref,x=>x.exists&&Number(x.data().amount)===2,'shopping quantity');
+ phase='desktop quantity and complete';
+ const prior=(await saved.ref.get()).data();
+ const step=['кг','л'].includes(String(prior.unit??'шт').trim().toLowerCase())?0.5:1;
+ const expectedAmount=(Math.round(Number(prior.amount)*10)+Math.round(step*10))/10;
+ await btn(p,'Увеличить количество: QA молоко изменено').click();
+ await currentDoc(saved.ref,x=>x.exists&&Number(x.data().amount)===expectedAmount,'shopping quantity');
  await p.getByRole('checkbox',{name:'Отметить купленным: QA молоко изменено',exact:true}).locator('xpath=..').click();
  await currentDoc(saved.ref,x=>x.exists&&x.data().completed===true,'shopping purchased');
  phase='restore from completed';await btn(p,'Вернуть в список: QA молоко изменено').click();
@@ -188,8 +196,10 @@ await scenario('CHAT message and other-account heart reaction',async()=>{
  await btn(p,'Отправить сообщение').click();
  const saved=await findOne('chat','text','QA сообщение');
  assert.equal(saved.data().userId,users[1].uid);
- phase='second account receives message';await visible(q.getByText('QA сообщение',{exact:true})).waitFor({state:'visible'});
- const heart=btn(q,'Реакция сердце');
+ phase='second account receives message';const received=q.locator('[data-chat-message-id="'+saved.id+'"]');
+ await received.getByTestId('chat-message-text').waitFor({state:'visible'});
+ assert.equal(await received.getByTestId('chat-message-text').textContent(),'QA сообщение');
+ const heart=btn(received,'Реакция сердце');
  await heart.click();await currentDoc(saved.ref,x=>x.exists&&x.data().heartUsers?.includes(users[0].uid),'heart set');
  phase='heart undo';await heart.click();await currentDoc(saved.ref,x=>x.exists&&!x.data().heartUsers?.includes(users[0].uid),'heart removed');
 });

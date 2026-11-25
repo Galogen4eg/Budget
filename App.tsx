@@ -201,7 +201,8 @@ export default function App() {
   const [editingGoal, setEditingGoal] = useState<any>(null);
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
-  const [isImporting, setIsImporting] = useState(false); 
+  const [isImporting, setIsImporting] = useState(false);
+  const importingRef=useRef(false); 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [pinMode, setPinMode] = useState<'unlock' | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -478,6 +479,8 @@ export default function App() {
   };
 
   const handleImport = async (file: File) => {
+    if(importingRef.current)return;
+    importingRef.current=true;
     setIsImporting(true);
     importFileDigestRef.current = null;
     importFileRef.current = file;
@@ -506,7 +509,7 @@ export default function App() {
           }
         }
         toast.error(err.message || "Ошибка чтения");
-    } finally { setIsImporting(false); }
+    } finally { importingRef.current=false;setIsImporting(false); }
   };
 
   const handleMoveToPantry = async (item: ShoppingItem) => {
@@ -991,12 +994,13 @@ export default function App() {
       >
         {/* Offline Alert Banner */}
         {!isOnline && (
-          <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
+          <div className="bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)] text-sm font-semibold px-4 py-2 flex items-center justify-center gap-2 shrink-0 z-30">
             <WifiOff size={15} />
             <span>Нет сети. Сохранение изменений на сервере не подтверждено</span>
           </div>
         )}
 
+        {isImporting&&<div role="status" className="shrink-0 px-4 py-2 text-sm bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]">Чтение выписки…</div>}
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<TerraOverview 
@@ -1040,7 +1044,7 @@ export default function App() {
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
-                    onImportClick={() => document.getElementById('import-input')?.click()}
+                    onImportClick={() => {if(!importingRef.current)document.getElementById('import-input')?.click();}}
                     onToggleMandatoryPaid={handleToggleMandatoryPaid}
                     onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
                     onAddMandatoryExpense={() => {

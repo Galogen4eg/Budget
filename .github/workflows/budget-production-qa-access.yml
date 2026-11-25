@@ -5,6 +5,7 @@ on:
     paths:
       - 'tests/productionQaAccess.mjs'
       - 'tests/productionTransactionCrud.mjs'
+      - 'tests/productionNavigation.mjs'
       - '.github/workflows/budget-production-qa-access.yml'
   workflow_dispatch:
 permissions:
@@ -16,13 +17,14 @@ jobs:
   read-only-access:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/production-access-check')
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - name: Verify secrets and read-only production access
+        id: access
         env:
           QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
           QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
@@ -31,6 +33,7 @@ jobs:
       - name: Install browser test dependencies
         run: npm install --no-audit --no-fund
       - name: Install Chromium
+        id: chromium
         run: npx playwright install --with-deps chromium
       - name: Verify production transaction CRUD in isolated QA family
         env:
@@ -38,3 +41,10 @@ jobs:
           QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
           QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
         run: node tests/productionTransactionCrud.mjs
+      - name: Verify production navigation across all six sections and settings
+        if: always() && steps.access.outcome == 'success' && steps.chromium.outcome == 'success'
+        env:
+          QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
+          QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
+          QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
+        run: node tests/productionNavigation.mjs

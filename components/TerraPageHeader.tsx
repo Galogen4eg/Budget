@@ -5,7 +5,7 @@ type HeaderActionProps = {
   label: string;
   onClick: () => void;
   icon: React.ReactNode;
-  variant?: 'secondary' | 'primary' | 'danger';
+  variant?: 'secondary' | 'primary' | 'danger' | 'pending';
   showLabel?: boolean;
   disabled?: boolean;
   pressed?: boolean;
@@ -14,7 +14,7 @@ type HeaderActionProps = {
 export function TerraHeaderAction({ label, onClick, icon, variant = 'secondary', showLabel = false, disabled, pressed }: HeaderActionProps) {
   const tone = variant === 'primary' ? TOOLBAR_ACTION_PRIMARY : variant === 'danger'
     ? 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]'
-    : TOOLBAR_ACTION_IDLE;
+    : variant === 'pending' ? 'bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]' : TOOLBAR_ACTION_IDLE;
   return <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled}
     aria-pressed={pressed} className={`${showLabel ? TOOLBAR_ACTION : ICON_ACTION} ${tone} terra-press cursor-pointer`}>
     <span aria-hidden="true" className="inline-flex shrink-0 items-center justify-center">{icon}</span>

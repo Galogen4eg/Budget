@@ -42,7 +42,7 @@ async function guard(){
 const marker='QA '+randomUUID().replace(/-/g,'').replace(/[0-9]/g,n=>String.fromCharCode(103+Number(n)));
 const original=marker+' запись',renamed=marker+' изменено';
 const failures=[],blocked=[],completed=[];
-const collections=new Set(['events','shopping','loyalty','debts','chat']);
+const collections=new Set(['events','shopping','loyalty','debts','chat','transactions']);
 let page,phase,apiError='none';
 const panel=id=>page.locator('[data-tab-panel="'+id+'"]');
 const visible=l=>l.filter({visible:true});
@@ -90,6 +90,7 @@ async function cleanupMarked(collection,key,values){
    check(scalar(doc,key)===title&&title.startsWith(marker)&&doc.updateTime,'Cleanup refused invalid marker');
    if(collection==='events'||collection==='chat')check(scalar(doc,'userId')===uid,'Cleanup owner mismatch');
    if(collection==='debts')check(!scalar(doc,'linkedExpenseId')&&scalar(doc,'memberId')===uid,'Cleanup refused linked debt');
+   if(collection==='transactions')check(scalar(doc,'rawNote')===marker&&scalar(doc,'type')==='income'&&scalar(doc,'userId')===uid&&scalar(doc,'memberId')===uid&&!scalar(doc,'linkedGoalId')&&!scalar(doc,'linkedExpenseId')&&!bool(doc,'externalSavingsConfirmed'),'Cleanup refused unexpected transaction');
    const id=idOf(doc,collection);
    await request(ref(collection,id)+'?currentDocument.updateTime='+encodeURIComponent(doc.updateTime),{method:'DELETE'});
    await absent(collection,doc);
@@ -129,6 +130,55 @@ async function run(name,fn,cleanup){
   if(!skip&&cleanup){try{await page.close();await cleanup();await loginBrowser();}catch{failures.push({name,phase:'cleanup'});console.error('FAIL LIVE '+name+' cleanup; halted to protect QA data');throw new Error('Cleanup failed');}}
  }
  if(passed){completed.push(name);console.log('PASS LIVE '+name);}
+}
+const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const equal=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+const sharedSettings=()=>familyDoc('config','settings');
+const personalSettings=()=>familyDoc('members',uid,'config','settings');
+let billBaseline,billID,themeBaseline,settingsChanged=false;
+const settingKeys=['theme','privacyMode'];
+const settingSnapshot=(doc,keys)=>Object.fromEntries(keys.filter(k=>doc?.fields?.[k]!==undefined).map(k=>[k,doc.fields[k]]));
+async function patchOnly(url,doc,keys,restore){
+ await guard();check(doc?.updateTime,'Missing conditional revision');
+ const qs=new URLSearchParams();for(const k of keys)qs.append('updateMask.fieldPaths',k);
+ qs.set('currentDocument.updateTime',doc.updateTime);
+ await request(url+'?'+qs,{method:'PATCH',body:{fields:restore}});
+ const after=await request(url);
+ check(equal(settingSnapshot(after,keys),restore),'Restore verification mismatch');
+}
+async function restorePersonal(){
+ if(!settingsChanged)return;
+ const current=await request(personalSettings(),{allowMissing:true});
+ if(equal(settingSnapshot(current,settingKeys),themeBaseline))return;
+ check(current&&['light','dark','system'].includes(scalar(current,'theme'))&&typeof bool(current,'privacyMode')!=='string','Unexpected preference state');
+ // Restore only the two deliberately modified keys, not the rest of the profile.
+ await patchOnly(personalSettings(),current,settingKeys,themeBaseline);
+ console.log('PASS LIVE restored original personal settings');
+}
+const billFields=['mandatoryExpenses','manualPaidExpenses'];
+const bills=doc=>array(doc,'mandatoryExpenses').map(fields);
+const billName=x=>x.name?.stringValue;
+const paidMap=doc=>doc?.fields?.manualPaidExpenses?.mapValue?.fields??{};
+const paidIds=doc=>Object.values(paidMap(doc)).flatMap(x=>(x.arrayValue?.values??[]).map(v=>v.stringValue));
+const markedBill=doc=>bills(doc).filter(x=>billName(x)===original||billName(x)===renamed);
+async function restoreBills(){
+ if(!billBaseline)return;
+ const current=await request(sharedSettings());
+ const found=markedBill(current);
+ check(found.length<=1&&bills(current).length===found.length,'Cleanup refused unrelated obligations');
+ if(found.length){const item=found[0];check(!item.linkedDebtId?.stringValue&&(!billID||item.id?.stringValue===billID),'Cleanup refused linked or unexpected obligation');billID=item.id?.stringValue;}
+ check(paidIds(current).every(id=>id===billID),'Cleanup refused unrelated paid history');
+ if(!equal(settingSnapshot(current,billFields),billBaseline))await patchOnly(sharedSettings(),current,billFields,billBaseline);
+ console.log('PASS LIVE restored original mandatory-payment fields');
+}
+async function openAppearance(){
+ await nav('overview','Обзор');
+ await btn(page,page.viewportSize().width<768?'Настройки и профиль':'Настройки').click();
+ const dialog=page.getByRole('dialog',{name:'Настройки',exact:true});
+ await dialog.waitFor({state:'visible'});
+ await btn(dialog,/Оформление и приватность/,false).click();
+ await dialog.getByRole('group',{name:'Тема приложения'}).waitFor({state:'visible'});
+ return dialog;
 }
 const eventDialog=()=>page.getByRole('dialog').filter({has:page.locator('#event-title-input')});
 async function eventOpen(title){await nav('plans','Планы');await btn(panel('plans'),'День').click();await btn(panel('plans'),new RegExp('^Открыть событие: '+title+'(?:,|$)'),false).click();await eventDialog().waitFor({state:'visible'});}
@@ -195,7 +245,85 @@ try{
   phase='undo payment';await mutation(()=>btn(card(renamed),'Отменить платёж').click());await same('debts',doc,x=>number(x,'currentBalance')===900.25,'undo');
   phase='delete debt';await btn(card(renamed),'Удалить карточку').click();const h=page.getByRole('heading',{name:'Удалить долг?',exact:true});await h.waitFor({state:'visible'});await mutation(()=>btn(h.locator('xpath=../..'),'Удалить').click());await absent('debts',doc);
  },()=>cleanupMarked('debts','name',[original,renamed]));
- console.log('LIVE MODULE SUMMARY '+JSON.stringify({completed,failures,blocked,notCovered:['second production account and reactions','settings write/restore','mandatory payments config mutation','external integrations','all nested controls']}));
+
+ await run('BUD-income-CRUD-history',async()=>{
+  await nav('budget','Бюджет');
+  phase='create income';await btn(panel('budget'),'Добавить операцию').click();
+  const h=page.getByRole('heading',{name:'Новая операция',exact:true});await h.waitFor({state:'visible'});
+  const form=h.locator('xpath=../..');
+  await btn(form,/ДОХОД/i,false).click();
+  await page.getByRole('textbox',{name:'Сумма операции'}).fill('321.09');
+  await page.getByRole('textbox',{name:'Название в истории'}).fill(original);
+  await page.getByPlaceholder('Добавить заметку семьи (чек, комментарий...)').fill(marker);
+  await mutation(()=>btn(form,'Добавить операцию').click());await h.waitFor({state:'hidden'});
+  const doc=await created('transactions','note',original);
+  check(scalar(doc,'type')==='income'&&number(doc,'amount')===321.09&&scalar(doc,'rawNote')===marker&&scalar(doc,'userId')===uid&&scalar(doc,'memberId')===uid&&!scalar(doc,'linkedGoalId')&&!scalar(doc,'linkedExpenseId'),'Income persistence mismatch');
+  phase='history search and type filter';
+  const history=panel('budget');
+  const search=history.getByRole('searchbox',{name:'Поиск по истории операций'});
+  const type=history.getByLabel('Тип операций в истории');
+  const edit=title=>btn(history,'Редактировать операцию: '+title);
+  await btn(history,'Весь месяц').click();await search.fill(original);await type.selectOption('income');await edit(original).waitFor({state:'visible'});
+  await type.selectOption('expense');await edit(original).waitFor({state:'hidden'});
+  await type.selectOption('all');await search.fill('QA несуществующая запись');await edit(original).waitFor({state:'hidden'});
+  await search.fill(original);await edit(original).click();
+  phase='rename income';await page.getByRole('textbox',{name:'Название в истории'}).fill(renamed);
+  const eh=page.getByRole('heading',{name:'Редактирование операции',exact:true});
+  await mutation(()=>btn(eh.locator('xpath=../..'),'Сохранить изменения').click());await eh.waitFor({state:'hidden'});
+  await same('transactions',doc,x=>scalar(x,'note')===renamed&&number(x,'amount')===321.09&&scalar(x,'type')==='income'&&scalar(x,'rawNote')===marker,'income rename');
+  phase='mobile reload and delete income';await reset(390);await nav('budget','Бюджет');
+  await edit(renamed).click();
+  await btn(page,'Удалить операцию').click();await mutation(()=>btn(page,'Подтвердить удаление').click());await eh.waitFor({state:'hidden'});await absent('transactions',doc);
+ },()=>cleanupMarked('transactions','note',[original,renamed]));
+ await run('BUD-mandatory-payment-CRUD',async()=>{
+  const family=await request(familyDoc());if(scalar(family,'budgetPolicy')==='personal')throw new Blocked('Personal budget config requires distinct test');
+  const initial=await request(sharedSettings());
+  if(bills(initial).length||paidIds(initial).length)throw new Blocked('Existing mandatory payments');
+  billBaseline=settingSnapshot(initial,billFields);
+  await nav('budget','Бюджет');
+  phase='new mandatory payment';await btn(panel('budget'),'Добавить обязательный платёж').click();
+  const h=page.getByRole('heading',{name:'Новый обязательный платёж',exact:true});await h.waitFor({state:'visible'});
+  await page.locator('#paymentName').fill(original);await page.locator('#paymentAmount').fill('1250.45');await page.locator('#paymentDay').fill('18');
+  phase='save mandatory payment';await mutation(()=>btn(page,'Добавить платёж').click());await h.waitFor({state:'hidden'});
+  const saved=await poll(async()=>{const doc=await request(sharedSettings());const found=markedBill(doc);return found.length===1?found[0]:null;},'new bill');
+  billID=saved.id?.stringValue;check(billID&&number({fields:saved},'amount')===1250.45&&!saved.linkedDebtId?.stringValue,'Bill amount or link mismatch');
+  phase='edit and mark paid';await btn(panel('budget'),'Редактировать обязательный платёж: '+original).click();
+  const eh=page.getByRole('heading',{name:'Редактирование платежа',exact:true});await eh.waitFor({state:'visible'});
+  await page.locator('#paymentName').fill(renamed);await page.locator('#paymentAmount').fill('1300.55');
+  const mark=btn(page,/Отметить оплаченным вручную/,false);if(await mark.getAttribute('aria-pressed')!=='true')await mark.click();
+  await mutation(()=>btn(page,'Сохранить изменения').click());await eh.waitFor({state:'hidden'});
+  await poll(async()=>{const doc=await request(sharedSettings());return bills(doc).some(x=>x.id?.stringValue===billID&&billName(x)===renamed&&number({fields:x},'amount')===1300.55)&&paidIds(doc).includes(billID);},'bill edit and paid state');
+  phase='mobile reload and undo paid';await reset(390);await nav('budget','Бюджет');
+  await btn(panel('budget'),'Редактировать обязательный платёж: '+renamed).click();await eh.waitFor({state:'visible'});
+  check(await page.locator('#paymentAmount').inputValue()==='1300.55'&&await mark.getAttribute('aria-pressed')==='true','Persisted payment mismatch');
+  await mark.click();await mutation(()=>btn(page,'Сохранить изменения').click());await eh.waitFor({state:'hidden'});
+  await poll(async()=>!paidIds(await request(sharedSettings())).includes(billID),'undo payment');
+  phase='delete mandatory payment';await btn(panel('budget'),'Редактировать обязательный платёж: '+renamed).click();await btn(page,'Удалить платеж').click();await mutation(()=>btn(page,'Подтвердить удаление').click());await eh.waitFor({state:'hidden'});
+  await poll(async()=>{const doc=await request(sharedSettings());return !bills(doc).some(x=>x.id?.stringValue===billID)&&!paidIds(doc).includes(billID);},'bill deletion');
+ },restoreBills);
+ await run('SET-theme-privacy-persistence',async()=>{
+  themeBaseline=settingSnapshot(await request(personalSettings(),{allowMissing:true}),settingKeys);
+  const labels={light:'Светлая',dark:'Тёмная',system:'Системная'};
+  phase='open appearance';let d=await openAppearance();
+  const group=()=>d.getByRole('group',{name:'Тема приложения'});
+  const selected=await group().locator('button[aria-pressed="true"]').innerText();
+  const initial=Object.keys(labels).find(k=>labels[k]===selected.trim());
+  check(initial,'No selected theme');
+  const privacy=()=>d.getByRole('switch',{name:/Скрывать суммы/});
+  const initialPrivacy=await privacy().getAttribute('aria-checked')==='true';
+  const next=initial==='dark'?'light':'dark';
+  phase='save theme and privacy';settingsChanged=true;
+  await mutation(()=>btn(group(),labels[next]).click());
+  await poll(async()=>scalar(await request(personalSettings()),'theme')===next,'theme write');
+  await mutation(()=>privacy().click());
+  await poll(async()=>bool(await request(personalSettings()),'privacyMode')===!initialPrivacy,'privacy write');
+  phase='reload preferences at mobile width';await reset(390);d=await openAppearance();
+  check(await btn(group(),labels[next]).getAttribute('aria-pressed')==='true'&&await privacy().getAttribute('aria-checked')===String(!initialPrivacy),'Personal preferences lost on reload');
+  phase='restore preferences in UI';await mutation(()=>btn(group(),labels[initial]).click());
+  await poll(async()=>scalar(await request(personalSettings()),'theme')===initial,'theme restore');
+  await mutation(()=>privacy().click());await poll(async()=>bool(await request(personalSettings()),'privacyMode')===initialPrivacy,'privacy restore');
+ },restorePersonal);
+ console.log('LIVE MODULE SUMMARY '+JSON.stringify({completed,failures,blocked,notCovered:['second production account and reactions','goals and category/rule CRUD','bank import and duplicates','quick-list/pantry persistence','external integrations','all nested controls']}));
  if(failures.length||blocked.length)process.exitCode=1;
 }catch{console.error('FAIL LIVE suite setup or safety/cleanup guard');process.exitCode=1;}
 finally{await browser?.close();}

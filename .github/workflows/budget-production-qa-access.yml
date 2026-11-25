@@ -18,12 +18,14 @@ jobs:
   read-only-access:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/full-application-regression')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
+      - name: Check production QA script syntax
+        run: node --check tests/productionModulesCrud.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs
       - name: Verify secrets and read-only production access
         id: access
         env:

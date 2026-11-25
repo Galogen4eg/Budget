@@ -1,7 +1,26 @@
-# Budget: full regression round
+# Production regression register
 
-Release base: 49a19ed971b69e2d1ed6aee4fa87b69277eaed2c. This QA branch adds no application code. The seven scenarios in fullApplicationCrudBrowser.mjs run on a disposable loopback Firebase project, with two independent authenticated accounts and actual checked-in rules. No production records are touched. Each scenario has an independent error record; a failure must fail the workflow. The existing financial operation test and six-viewport browser smoke remain mandatory.
+Target: budget-omega-jade.vercel.app, deployed 49a19ed971b69e2d1ed6aee4fa87b69277eaed2c. QA-only work; no product release in this PR. Production uses the existing isolated single-owner QA family. All writes must be guarded. Emulator results are separate.
 
-Coverage added (not yet run): events, shopping, chat send/reaction, personal theme, wallet, debts, mandatory payments. Existing confirmed production checks: transaction CRUD with reload and cleanup; navigation at 1440/390. Remaining: all nested buttons, imports with representative bank files, quick lists/pantry, recurring event edits, category and goal UI CRUD, external services, actual second production user, offline and physical devices. No claim of complete coverage until each is verified.
+## Evidence and defects
 
-Source-confirmed limitations: FamilyChat topic create/delete are placeholders that show informational messages, file attachment is not supported. Wallet camera banner can pre-fill simulated demo data; real camera recognition not established. Do not treat mere navigation to these features as success.
+| ID | Priority | Scenario | Evidence | Status |
+|---|---|---|---|---|
+| LIVE-001 | P2 | Mobile reopen/rename event | Actions 45629046092, timeout at mobile reload and rename | Failed; exact cause unconfirmed. Explicit current date and desktop/mobile accessible-name variants added. |
+| LIVE-002 | P1 | Debt creation / cleanup | Actions 45629046092, assertion at create debt, then cleanup guard refused | Failed; possible leftover. Source DebtSnowball handleUpdateDebt assigns memberId only when !editingDebt, but new draft is an object. Verify missing owner on QA-like residual without logging record contents. Never auto-delete an unverified prior record. |
+| LIVE-003 | P2 | Chat create/delete topics | FamilyChat handleCreateTopic/handleDeleteActiveTopic | Source-confirmed placeholders, not browser-verified. |
+| LIVE-004 | P2 | Chat attachments | FamilyChat handleFileChange warns unsupported | Source-confirmed limitation. |
+| LIVE-005 | P2 | Loyalty card scan | Wallet camera banner pre-fills demo values | Source-confirmed simulation; actual scan not verified. |
+| LIVE-006 | P2 | Shopping cleanup coverage | ShoppingQuickListsPanel writes family purchase history when an item is completed | Prior test deletes shopping row only; historical QA markers can remain. No unrelated history deletion. |
+
+## Confirmed live
+
+Post-deploy run 45626390939: expense CRUD, invalid zero, reload, mobile edit, delete and cleanup; all six section navigation and nine settings subsections at 1440/390. Run 45629046092: shopping CRUD, chat send/search/reload, loyalty CRUD passed; event and debt failed as above. Second run 45629879781: results pending at register creation. Do not treat status pending as pass.
+
+## Coverage additions pending actual execution
+
+Income create/edit/delete and history filtering, mandatory payments create/edit/pay/undo/delete, theme/privacy persistence and restore, quick-list save/reapply/delete, synthetic XLSX preview and cancel. Prior debt residue diagnostic reads counts/booleans only. Cleanup checks exact unique markers and Firestore revision. Any safety block remains a non-pass.
+
+## Remaining coverage
+
+Actual XLSX commit/reimport/idempotence, bank-specific fixtures and duplicate handling; category/rule/goal CRUD; pantry and repeat-purchase history; recurring calendar event edits; all nested controls; responsive visual QA at additional widths; offline and physical device; second production account/reactions; Telegram/Gemini/FNS/bank integrations. Source code inspection is not execution. Do not claim full coverage until verified or explicitly blocked.

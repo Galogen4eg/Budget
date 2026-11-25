@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
+import * as XLSX from 'xlsx';
 
 // Real production, but strictly limited to the explicitly configured QA family.
 const origin='https://budget-omega-jade.vercel.app';
@@ -180,18 +181,43 @@ async function openAppearance(){
  await dialog.getByRole('group',{name:'Тема приложения'}).waitFor({state:'visible'});
  return dialog;
 }
+const library=()=>familyDoc('config','shoppingLists');
+let quickAttempted=false;
+async function cleanupQuick(){
+ if(!quickAttempted)return;
+ await cleanupMarked('shopping','title',[original]);
+ await guard();
+ const doc=await request(library(),{allowMissing:true});
+ if(!doc)return;
+ const templates=array(doc,'templates');
+ const matched=templates.filter(x=>fields(x).name?.stringValue===original);
+ check(matched.length<=1,'Duplicate QA template');
+ if(!matched.length)return;
+ const products=fields(matched[0]).items?.arrayValue?.values??[];
+ check(products.length===1&&fields(products[0]).title?.stringValue===original,'Unexpected QA template contents');
+ await patchOnly(library(),doc,['templates'],{templates:{arrayValue:{values:templates.filter(x=>fields(x).name?.stringValue!==original)}}});
+ console.log('PASS LIVE removed exact marked quick-list template');
+}
+async function inspectDebtResidue(){
+ await guard();
+ const records=await query('debts');
+ const qaLike=records.filter(d=>/^QA [a-p]{32} (?:запись|изменено)$/.test(scalar(d,'name')??'')&&number(d,'totalAmount')===1000.50&&number(d,'monthlyPayment')===100&&!scalar(d,'linkedExpenseId'));
+ console.log('SAFE DEBT STATE '+JSON.stringify({nonempty:records.length>0,qaSignatureCount:qaLike.length,matchingOwner:qaLike.filter(d=>scalar(d,'memberId')===uid).length,missingOwner:qaLike.filter(d=>!scalar(d,'memberId')).length}));
+}
 const eventDialog=()=>page.getByRole('dialog').filter({has:page.locator('#event-title-input')});
-async function eventOpen(title){await nav('plans','Планы');await btn(panel('plans'),'День').click();await btn(panel('plans'),new RegExp('^Открыть событие: '+title+'(?:,|$)'),false).click();await eventDialog().waitFor({state:'visible'});}
+async function eventOpen(title){await nav('plans','Планы');await btn(panel('plans'),'День').click();const p=panel('plans');const event=visible(p.getByRole('button',{name:new RegExp('^(?:Открыть событие: )?'+title+'(?:,|$|\\s)'),exact:false})).first();await event.click();await eventDialog().waitFor({state:'visible'});}
 try{
  const response=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+encodeURIComponent(apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true}),signal:AbortSignal.timeout(25000)});
  const auth=await response.json();check(response.ok&&auth.idToken&&auth.localId,'Production auth failed');
  token=auth.idToken;uid=auth.localId;await guard();
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  await loginBrowser();console.log('PASS LIVE production isolated account authenticated');
+ await inspectDebtResidue();
  await run('PLN-event-CRUD',async()=>{
   await empty('events');await nav('plans','Планы');await btn(panel('plans'),'День').click();
   phase='open new event';await btn(panel('plans'),'Добавить событие').click();
   const d=eventDialog();await d.locator('#event-title-input').fill(original);
+  const calendarDate=d.locator('input[type=date]');check(await calendarDate.count()===1,'Expected one calendar date field');await calendarDate.fill(new Date().toISOString().slice(0,10));
   await d.getByPlaceholder('Добавить пункт (билеты, термос)...').fill('QA пункт');await btn(d,'Добавить пункт чек-листа').click();
   phase='save event';await mutation(()=>btn(d,'Создать').click());await d.waitFor({state:'hidden'});
   const doc=await created('events','title',original);
@@ -323,6 +349,49 @@ try{
   await poll(async()=>scalar(await request(personalSettings()),'theme')===initial,'theme restore');
   await mutation(()=>privacy().click());await poll(async()=>bool(await request(personalSettings()),'privacyMode')===initialPrivacy,'privacy restore');
  },restorePersonal);
+
+ await run('SHP-quick-list-save-reapply-delete',async()=>{
+  await empty('shopping');const before=await request(library(),{allowMissing:true});
+  if(array(before,'templates').length>=25)throw new Blocked('Template limit');
+  quickAttempted=true;
+  await nav('shopping','Покупки');const p=panel('shopping');
+  phase='create template product';await p.getByRole('textbox',{name:'Быстрое добавление товаров'}).fill(original);
+  await mutation(()=>btn(p,'Добавить товары в общий список').click());
+  const doc=await created('shopping','title',original);
+  phase='save quick list';await btn(p,/Быстрые списки/,false).click();
+  const options=p.locator('#shopping-template-options');
+  await options.getByRole('textbox',{name:'Название нового списка'}).fill(original);
+  await mutation(()=>btn(options,'Сохранить текущие').click());
+  const saved=await poll(async()=>{const x=await request(library());const matches=array(x,'templates').map(fields).filter(t=>t.name?.stringValue===original);check(matches.length<=1,'Duplicate template');return matches[0]||null;},'saved template');
+  check(saved.items?.arrayValue?.values?.length===1&&fields(saved.items.arrayValue.values[0]).title?.stringValue===original,'Template item mismatch');
+  phase='delete source product';await btn(p,/Быстрые списки/,false).click();await mutation(()=>btn(p,'Удалить товар: '+original).click());await absent('shopping',doc);
+  phase='reload and reuse saved template';await reset(390);await nav('shopping','Покупки');await btn(p,/Быстрые списки/,false).click();
+  await mutation(()=>btn(options,new RegExp('^'+original+' · 1+JSON.stringify({completed,failures,blocked,notCovered:['second production account and reactions','goals and category/rule CRUD','bank import commit and duplicates','pantry and repeat-purchase persistence','external integrations','all nested controls']}));
+ if(failures.length||blocked.length)process.exitCode=1;
+}catch{console.error('FAIL LIVE suite setup or safety/cleanup guard');process.exitCode=1;}
+finally{await browser?.close();}
+),false).click());const reapplied=await created('shopping','title',original);
+  check(Number(scalar(reapplied,'amount'))===1,'Reapplied quantity mismatch');
+  phase='delete saved template';await mutation(()=>btn(options,'Удалить шаблон '+original).click());
+  await poll(async()=>!array(await request(library()),'templates').some(x=>fields(x).name?.stringValue===original),'template deletion');
+  phase='remove reapplied product';await btn(p,/Быстрые списки/,false).click();await btn(p,'Редактировать товар: '+original).click();
+  await mutation(()=>visible(page.getByTitle('Удалить',{exact:true})).first().click());await absent('shopping',reapplied);
+ },cleanupQuick);
+ await run('BUD-import-preview-cancel',async()=>{
+  const raw=original+' выписка';
+  const day=new Date();const date=[String(day.getUTCDate()).padStart(2,'0'),String(day.getUTCMonth()+1).padStart(2,'0'),day.getUTCFullYear()].join('.');
+  const sheet=XLSX.utils.aoa_to_sheet([['Дата','Сумма','Описание','Тип операции','Валюта'],[date+' 12:00:00','-42,17',raw,'Расход','RUB']]);
+  const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'QA');
+  const bytes=XLSX.write(book,{type:'buffer',bookType:'xlsx'});
+  phase='upload synthetic statement';await nav('budget','Бюджет');
+  await page.locator('#import-input').setInputFiles({name:'qa-statement.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:bytes});
+  const dialog=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Проверка выписки',exact:true})});
+  await dialog.waitFor({state:'visible'});
+  phase='verify parsed row';await visible(dialog.getByRole('button',{name:/Редактировать операцию /})).first().waitFor({state:'visible'});
+  check(await dialog.getByRole('button',{name:/Редактировать операцию /}).count()===1,'Unexpected preview row count');
+  phase='cancel import';await btn(dialog,'Отмена').click();await dialog.waitFor({state:'hidden'});
+  check((await query('transactions','rawNote',raw)).length===0,'Cancel unexpectedly persisted transaction');
+ });
  console.log('LIVE MODULE SUMMARY '+JSON.stringify({completed,failures,blocked,notCovered:['second production account and reactions','goals and category/rule CRUD','bank import and duplicates','quick-list/pantry persistence','external integrations','all nested controls']}));
  if(failures.length||blocked.length)process.exitCode=1;
 }catch{console.error('FAIL LIVE suite setup or safety/cleanup guard');process.exitCode=1;}

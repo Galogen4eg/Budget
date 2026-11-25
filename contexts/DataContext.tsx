@@ -21,6 +21,7 @@ import { missingIncomeCategories } from '../utils/categoryCatalog';
 import { displayBudgetMode, budgetDisplayPreferenceKey, projectPersonalDisplayFinance, projectPersonalFinance, visibleBudgetRecords, toPersonalSettingsPatch } from '../utils/familyBudgetPolicy';
 import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 import { ledgerBalance, sumMoney } from '../utils/budgetFinancialMath';
+import { initialFinancialRead, updateFinancialRead, financialReadStatus, type FinancialCollection, type FinancialReadStatus } from '../utils/financialReadState';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -78,6 +79,8 @@ interface DataContextType {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   importSourcesReady: boolean;
+  financialDataStatus: FinancialReadStatus;
+  retryFinancialData: () => void;
   settingsReady: boolean;
   familyCalendarReady: boolean;
   shoppingReady: boolean;
@@ -167,6 +170,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [transactionsReady, setTransactionsReady] = useState(false);
+  const [financialRead,setFinancialRead]=useState(()=>initialFinancialRead(null));
+  const [financialRetry,setFinancialRetry]=useState(0);
+  const [policyReadError,setPolicyReadError]=useState(false);
+  const [settingsReadError,setSettingsReadError]=useState(false);
+  const financialRetryAfter=useRef(0);
+  const rememberReadFailure=(error:Error)=>{
+    if(/resource.exhausted|quota|429/i.test(String((error as Error & {code?:string}).code||'')+' '+error.message))
+      financialRetryAfter.current=Math.max(financialRetryAfter.current,Date.now()+300_000);
+  };
+  const retryFinancialData=()=>{
+    if(Date.now()<financialRetryAfter.current){toast.info('Повторная проверка временно недоступна. Попробуйте позже.');return;}
+    financialRetryAfter.current=Date.now()+10_000;
+    setTransactionsReady(false);
+    setFinancialRead(initialFinancialRead(null));
+    setPolicyReadError(false);setSettingsReadError(false);
+    setFinancialRetry(n=>n+1);
+  };
   const [catalogReady, setCatalogReady] = useState(false);
   const [localRules, setLocalRules] = useState<LearnedRule[]>([]);
   const [globalRules, setGlobalRules] = useState<LearnedRule[]>([]);
@@ -237,28 +257,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const baseSettings=settingsReady?settings:DEFAULT_SETTINGS;
   useEffect(()=>{
     if(!familyId||!user?.uid)return;
-    setHouseholdPolicy(null);
-    return subscribeToHouseholdBudgetPolicy(familyId,
-      value=>setHouseholdPolicy({familyId,actorUid:user.uid,policy:value.policy}),
-      ()=>setHouseholdPolicy(null));
-  },[familyId,user?.uid]);
+    setHouseholdPolicy(null);setPolicyReadError(false);
+    let active=true;
+    const stop=subscribeToHouseholdBudgetPolicy(familyId,
+      value=>{if(active){setPolicyReadError(false);setHouseholdPolicy({familyId,actorUid:user.uid,policy:value.policy});}},
+      error=>{if(active){rememberReadFailure(error);setPolicyReadError(true);setHouseholdPolicy(null);}});
+    return ()=>{active=false;stop();};
+  },[familyId,user?.uid,financialRetry]);
   const financialSettings=useMemo(()=>householdPersonal?projectPersonalFinance(baseSettings,policyReady&&settingsReady?linkedMemberId:undefined):baseSettings,[householdPersonal,baseSettings,linkedMemberId,policyReady,settingsReady]);
   useEffect(()=>{
     if(!familyId||!user?.uid||!settingsScope)return;
-    setLoadedSettingsScope(null);
-    return subscribeToAppSettings(familyId,user.uid,data=>{
+    setLoadedSettingsScope(null);setSettingsReadError(false);
+    let active=true;
+    const stop=subscribeToAppSettings(familyId,user.uid,data=>{
+      if(!active)return;
       const next={...DEFAULT_SETTINGS,...data,widgets:mergeWidgets(data.widgets)};
       settingsRef.current=next;
-      setSettings(next);
+      setSettings(next);setSettingsReadError(false);
       setLoadedSettingsScope(settingsScope);
-
-    });
-  },[familyId,user?.uid,settingsScope]);
+    },error=>{if(active){rememberReadFailure(error);setSettingsReadError(true);setLoadedSettingsScope(null);}});
+    return ()=>{active=false;stop();};
+  },[familyId,user?.uid,settingsScope,financialRetry]);
   // A settings snapshot for an unrelated field must not reset the current mode.
   useEffect(()=>{if(settingsReady)setBudgetMode(baseSettings.defaultBudgetMode||'personal');},[settingsScope,settingsReady,baseSettings.defaultBudgetMode]);
-  const visibleTransactions=useMemo(()=>householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[householdPersonal,transactions,linkedMemberId,policyReady]);
-  const visibleGoals=useMemo(()=>householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[householdPersonal,goals,linkedMemberId,policyReady]);
-  const visibleDebts=useMemo(()=>householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[householdPersonal,debts,linkedMemberId,policyReady]);
+  // Each account, family and ledger policy owns an independent snapshot scope.
+  const financialQueryMemberId=householdPersonal?linkedMemberId:undefined;
+  const financialScope=familyId?JSON.stringify([familyId,user?.uid??null,policyReady,householdPersonal,financialQueryMemberId??null,financialRetry]):null;
+  const financialScopeMatches=!familyId||financialRead.scope===financialScope;
+  const financialDataStatus:FinancialReadStatus=familyId&&(policyReadError||settingsReadError)?'error':financialReadStatus(financialRead,financialScope,settingsReady&&policyReady);
+  const visibleTransactions=useMemo(()=>!financialScopeMatches?[]:householdPersonal?visibleBudgetRecords(transactions,'personal',policyReady?linkedMemberId:undefined):transactions,[financialScopeMatches,householdPersonal,transactions,linkedMemberId,policyReady]);
+  const visibleGoals=useMemo(()=>!financialScopeMatches?[]:householdPersonal?visibleBudgetRecords(goals,'personal',policyReady?linkedMemberId:undefined):goals,[financialScopeMatches,householdPersonal,goals,linkedMemberId,policyReady]);
+  const visibleDebts=useMemo(()=>!financialScopeMatches?[]:householdPersonal?visibleBudgetRecords(debts,'personal',policyReady?linkedMemberId:undefined):debts,[financialScopeMatches,householdPersonal,debts,linkedMemberId,policyReady]);
 
 
   const displaySettings=useMemo(()=>personalDisplayOnly?projectPersonalDisplayFinance(financialSettings,linkedMemberId):financialSettings,[personalDisplayOnly,financialSettings,linkedMemberId]);
@@ -267,21 +296,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const displayMembers=useMemo(()=>personalDisplayOnly||householdPersonal?members.filter(m=>m.id===linkedMemberId):members,[personalDisplayOnly,householdPersonal,members,linkedMemberId]);
   const personalOpeningKnown=!personalDisplayOnly||(Boolean(linkedMemberId)&&typeof financialSettings.personalInitialBalance==='number'&&Number.isFinite(financialSettings.personalInitialBalance));
 
-  // Shared queries do not depend on which member profile happened to load first.
-  const financialQueryMemberId=householdPersonal?linkedMemberId:undefined;
   useEffect(()=>{
-    if(!familyId)return;
+    if(!familyId||!financialScope)return;
+    const scope=financialScope;
+    setFinancialRead(initialFinancialRead(scope));
     setTransactions([]);setGoals([]);setDebts([]);setTransactionsReady(false);
     if(!policyReady||(householdPersonal&&!financialQueryMemberId))return;
+    let active=true;
     const mode=householdPersonal?'personal':'family';
-    const onError=(error:Error)=>console.error('Financial subscription failed',error);
+    const receive=(kind:FinancialCollection,apply:(items:any[])=>void)=>(items:any[],metadata:{fromCache:boolean;hasPendingWrites:boolean})=>{
+      if(!active)return;
+      apply(items);
+      setFinancialRead(previous=>updateFinancialRead(previous,scope,kind,metadata.fromCache?'stale':'ready'));
+      if(kind==='transactions')setTransactionsReady(!metadata.fromCache&&!metadata.hasPendingWrites);
+    };
+    const fail=(kind:FinancialCollection)=>(error:Error)=>{
+      if(!active)return;
+      rememberReadFailure(error);
+      setFinancialRead(previous=>updateFinancialRead(previous,scope,kind,'error'));
+      if(kind==='transactions')setTransactionsReady(false);
+      console.error('Financial subscription failed',kind,error);
+    };
     const unsubs=[
-      subscribeToScopedFinancialCollection(familyId,'transactions',mode,financialQueryMemberId,items=>{setTransactions(items.map(sanitizeTransaction));setTransactionsReady(true);},error=>{setTransactionsReady(false);onError(error);}),
-      subscribeToScopedFinancialCollection(familyId,'goals',mode,financialQueryMemberId,items=>setGoals(items as SavingsGoal[]),onError),
-      subscribeToScopedFinancialCollection(familyId,'debts',mode,financialQueryMemberId,items=>setDebts(items as Debt[]),onError)
+      subscribeToScopedFinancialCollection(familyId,'transactions',mode,financialQueryMemberId,receive('transactions',items=>setTransactions(items.map(sanitizeTransaction))),fail('transactions')),
+      subscribeToScopedFinancialCollection(familyId,'goals',mode,financialQueryMemberId,receive('goals',items=>setGoals(items as SavingsGoal[])),fail('goals')),
+      subscribeToScopedFinancialCollection(familyId,'debts',mode,financialQueryMemberId,receive('debts',items=>setDebts(items as Debt[])),fail('debts'))
     ];
-    return ()=>unsubs.forEach(unsub=>unsub());
-  },[familyId,user?.uid,policyReady,householdPersonal,financialQueryMemberId]);
+    return ()=>{active=false;unsubs.forEach(unsub=>unsub());};
+  },[familyId,financialScope,policyReady,householdPersonal,financialQueryMemberId]);
 
   const isInitialLoad = useRef(true);
   const merchantCatalogSyncAttempted = useRef(new Set<string>());
@@ -689,7 +731,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     goals: visibleGoals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady: transactionsReady && catalogReady && settingsReady,
+    importSourcesReady: transactionsReady && catalogReady && settingsReady && financialDataStatus==='ready',
+    financialDataStatus,retryFinancialData,
     settingsReady, familyCalendarReady, shoppingReady,
     learnedRules, setLearnedRules: updateRules,
     aiKnowledge, addAIKnowledge, deleteAIKnowledge,

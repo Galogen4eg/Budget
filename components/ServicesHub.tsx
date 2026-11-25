@@ -1,3 +1,4 @@
+import { FinancialDataState } from './FinancialDataState';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
@@ -33,7 +34,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     financialSettings: settings, 
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
-    transactions
+    transactions,financialDataStatus,retryFinancialData
   } = useData();
 
   useEffect(() => {
@@ -59,7 +60,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         </svg>
       ),
       component: (
-        <DebtSnowball 
+        financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={onOpenSettings}/>:<DebtSnowball 
           debts={debts} 
           setDebts={setDebts} 
           settings={settings} 

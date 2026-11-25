@@ -1,3 +1,4 @@
+import { FinancialDataState } from './components/FinancialDataState';
 
 import TerraSplash from './components/TerraSplash';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
@@ -120,7 +121,7 @@ export default function App() {
     goals, setGoals,
     members, setMembers,
     categories, setCategories,
-    importSourcesReady, settingsReady,
+    importSourcesReady, settingsReady, financialDataStatus,retryFinancialData,
     settings, financialSettings, householdPersonal, personalDisplayOnly, displaySettings, displayTransactions, displayMembers, updateSettings, updateMandatoryPaymentBundle,
     setLearnedRules, learnedRules,
     filteredTransactions,
@@ -213,7 +214,7 @@ export default function App() {
   
   // Offline / Network Status
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [showOnlineRestored, setShowOnlineRestored] = useState(false);
+
 
 
   useEffect(()=>{if(householdPersonal||!settingsReady)stopTelegramBotListener();},[householdPersonal,settingsReady]);
@@ -231,9 +232,7 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setShowOnlineRestored(true);
-      triggerHaptic('success');
-      setTimeout(() => setShowOnlineRestored(false), 3000);
+
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -1008,21 +1007,13 @@ export default function App() {
         {!isOnline && (
           <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
             <WifiOff size={15} />
-            <span>Офлайн-режим. Изменения сохраняются локально на вашем устройстве</span>
-          </div>
-        )}
-
-        {/* Network Restored Banner */}
-        {showOnlineRestored && isOnline && (
-          <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-center gap-2 shadow-sm shrink-0 transition-all z-30">
-            <Wifi size={15} />
-            <span>Соединение восстановлено. Данные синхронизируются...</span>
+            <span>Нет сети. Сохранение изменений на сервере не подтверждено</span>
           </div>
         )}
 
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
-                <TerraOverview 
+                {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)}/>:<TerraOverview 
                     onOpenAddModal={() => setIsAddModalOpen(true)}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1043,12 +1034,12 @@ export default function App() {
                         setSelectedEvent(ev);
                         setIsAddEventModalOpen(true);
                     }}
-                />
+                />}
             </div>
             
             <div key={tabScope+'-budget'} data-tab-panel="budget" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'budget' ? 'flex' : 'hidden'}`}>
                 {mountTab('budget') && <Suspense fallback={<TabLoading/>}>
-                  <TerraBudget
+                  {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)}/>:<TerraBudget
                     key={householdPersonal?'private-budget':personalDisplayOnly?'personal-display':'joint-budget'}
                     transactions={displayTransactions}
                     categories={categories}
@@ -1095,7 +1086,7 @@ export default function App() {
                             return false;
                         }
                     }}
-                />
+                />}
                 </Suspense>}
 
             </div>

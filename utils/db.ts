@@ -86,7 +86,7 @@ const USER_SPECIFIC_KEYS: (keyof AppSettings)[] = [
 ];
 
 // Subscribe to both Shared Settings (Family) and User Settings (Member)
-export const subscribeToAppSettings = (familyId: string, userId: string, callback: (settings: AppSettings) => void) => {
+export const subscribeToAppSettings = (familyId: string, userId: string, callback: (settings: AppSettings) => void, onError?: (error: Error)=>void) => {
   if (!familyId || !userId) return () => {};
 
   let sharedSettings: Partial<AppSettings> = {};
@@ -103,14 +103,14 @@ export const subscribeToAppSettings = (familyId: string, userId: string, callbac
     sharedReady=true;
     sharedSettings=selectKeys(doc.data()??{},false);
     mergeAndCallback();
-  },()=>{sharedReady=false;});
+  },error=>{sharedReady=false;onError?.(error);});
 
   const unsubUser = onSnapshot(doc(db, 'families', familyId, 'members', userId, 'config', 'settings'), {includeMetadataChanges:true}, (doc) => {
     if(doc.metadata.fromCache&&!userReady)return;
     userReady=true;
     userSettings=selectKeys(doc.data()??{},true);
     mergeAndCallback();
-  },()=>{userReady=false;});
+  },error=>{userReady=false;onError?.(error);});
 
   return () => {
       unsubShared();
@@ -918,14 +918,14 @@ export function previewHouseholdBudgetPolicy(familyId:string,actorUid:string,tar
 export function subscribeToScopedFinancialCollection(
   familyId:string,collectionName:'transactions'|'goals'|'debts',
   policy:'family'|'personal',memberId:string|undefined,
-  onValue:(records:any[])=>void,onError:(error:Error)=>void
+  onValue:(records:any[],metadata:{fromCache:boolean;hasPendingWrites:boolean})=>void,onError:(error:Error)=>void
 ):()=>void{
-  if(!familyId||(policy==='personal'&&!memberId)){onValue([]);return ()=>{};}
+  if(!familyId||(policy==='personal'&&!memberId)){onError(new Error('Финансовая область недоступна'));return ()=>{};}
   const ref=collection(db,'families',familyId,collectionName);
   const scoped=policy==='personal'?query(ref,where('memberId','==',memberId)):query(ref);
-  return onSnapshot(scoped,snapshot=>{
-    onValue(snapshot.docs.map(record=>({...record.data(),id:record.id})));
-  },error=>{onValue([]);onError(error);});
+  return onSnapshot(scoped,{includeMetadataChanges:true},snapshot=>{
+    onValue(snapshot.docs.map(record=>({...record.data(),id:record.id})),snapshot.metadata);
+  },onError);
 }
 
 

@@ -642,7 +642,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
               type="button"
               onClick={onClose} 
               className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] flex items-center justify-center text-[#68726B] dark:text-stone-300 hover:bg-[#EAE6DE] dark:hover:bg-[#2C2C2E] transition-colors shrink-0 cursor-pointer"
-              title="Закрыть"
+              title="Закрыть" aria-label="Закрыть"
             >
               <X className="w-5 h-5" />
             </button>

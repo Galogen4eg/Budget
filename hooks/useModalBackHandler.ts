@@ -1,48 +1,37 @@
 import { useEffect, useRef } from 'react';
+import { modalBackTarget } from '../utils/modalBackTarget';
 
-/**
- * Интеграция модальных окон с кнопкой «Назад» (popstate).
- * При открытии добавляет запись в history.pushState, а при нажатии «Назад» 
- * закрывает активное модальное окно. Не вызывает history.back() при размонтировании,
- * чтобы не провоцировать каскадные закрытия родительских окон.
- */
-export function useModalBackHandler(isOpen: boolean, onClose: () => void) {
-  const isPushedRef = useRef(false);
-  const onCloseRef = useRef(onClose);
-
-  // Always keep latest onClose reference
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      isPushedRef.current = false;
-      return;
-    }
-
-    const modalId = `modal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    try {
-      window.history.pushState({ modalId }, '');
-      isPushedRef.current = true;
-    } catch (e) {
-      console.warn("Failed to push state for modal back handler:", e);
-    }
-
-    const handlePopState = (event: PopStateEvent) => {
-      if (isPushedRef.current) {
-        isPushedRef.current = false;
-        onCloseRef.current();
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      isPushedRef.current = false;
-    };
-  }, [isOpen]);
+type Entry={id:string;close:()=>void};
+const entries:Entry[]=[];
+let sequence=0;
+function onPopState(event:PopStateEvent){
+ const id=modalBackTarget(entries.map(entry=>entry.id),event.state?.modalId);
+ if(id===null)return;
+ const entry=entries[entries.length-1];
+ // Consume exactly one active registration before invoking its callback.
+ if(entry?.id===id){entries.pop();entry.close();}
 }
-
+export function useModalBackHandler(isOpen:boolean,onClose:()=>void){
+ const onCloseRef=useRef(onClose);
+ onCloseRef.current=onClose;
+ useEffect(()=>{
+  if(!isOpen)return;
+  const id='terra-modal-'+Date.now()+'-'+(++sequence);
+  try{
+   window.history.pushState({...window.history.state,modalId:id},'');
+  }catch(error){
+   console.warn('Failed to push modal history state:',error);
+   return;
+  }
+  const entry:Entry={id,close:()=>onCloseRef.current()};
+  if(entries.length===0)window.addEventListener('popstate',onPopState);
+  entries.push(entry);
+  return ()=>{
+   const index=entries.indexOf(entry);
+   if(index>=0)entries.splice(index,1);
+   if(entries.length===0)window.removeEventListener('popstate',onPopState);
+   // Do not call history.back() on ordinary close: that could close a parent.
+  };
+ },[isOpen]);
+}
 export default useModalBackHandler;

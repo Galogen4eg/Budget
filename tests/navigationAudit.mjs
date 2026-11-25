@@ -96,7 +96,7 @@ async function checkSections(){
   const heading=page.getByRole('heading',{name:'Новая операция',exact:true});
   action='wait for new transaction heading';await expectVisible(heading);
   action='fill amount without saving';await page.getByRole('textbox',{name:'Сумма операции'}).fill('12.34');
-  const editor=page.getByRole('dialog',{name:'Новая операция',exact:true});
+  const editor=page.getByRole('dialog',{name:'Новая операция',exact:true,includeHidden:true});
   const category=button(editor,'Выбрать категорию');
   action='open nested category picker';await category.click();
   const picker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
@@ -106,6 +106,10 @@ async function checkSections(){
   await picker.waitFor({state:'hidden'});await expectVisible(editor);
   if(await editor.getByRole('textbox',{name:'Сумма операции'}).inputValue()!=='12.34')throw new Error('Draft lost when returning from category picker');
   if(!await category.evaluate(el=>document.activeElement===el))throw new Error('Focus not restored to category button');
+  action='Back dismisses only the registered nested picker';await category.click();await expectVisible(picker);
+  await page.evaluate(()=>window.history.back());
+  await picker.waitFor({state:'hidden'});await expectVisible(editor);
+  if(await editor.getByRole('textbox',{name:'Сумма операции'}).inputValue()!=='12.34')throw new Error('Draft lost after Back');
   action='cancel editor';await button(editor,'Закрыть модальное окно').click();
   await heading.waitFor({state:'hidden'});
   if(!await button(p,'Добавить операцию').evaluate(el=>document.activeElement===el))throw new Error('Focus not restored to editor trigger');

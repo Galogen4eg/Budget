@@ -70,12 +70,13 @@ async function verify(title,amount){
 const visible=locator=>locator.filter({visible:true}).first();
 const heading=name=>page.getByRole('heading',{name,exact:true});
 const edit=title=>visible(page.getByRole('button',{name:'Редактировать операцию: '+title,exact:true}));
-const titleField=()=>page.locator('label').filter({hasText:/^Название в истории$/}).locator('..').locator('input[type=text]');
+const titleField=()=>page.locator('label').filter({hasText:/^\s*Название в истории\s*$/}).locator('xpath=..').locator('input[type=text]');
 const amountField=()=>page.getByRole('textbox',{name:'Сумма операции'});
 async function budget(){
  await visible(page.locator('nav').getByRole('button',{name:'Бюджет',exact:true})).click({timeout:45000});
  await page.locator('[data-tab-panel="budget"]').waitFor({state:'visible',timeout:30000});
- await visible(page.getByRole('button',{name:'Добавить операцию',exact:true})).waitFor({state:'visible',timeout:30000});
+ await visible(page.locator('[data-tab-panel="budget"]').getByRole('button',{name:'Добавить операцию',exact:true})).waitFor({state:'visible',timeout:30000});
+ check(await visible(page.locator('nav').getByRole('button',{name:'Бюджет',exact:true})).getAttribute('aria-current')==='page','QA budget navigation not active');
 }
 async function save(editing){
  await guard();
@@ -139,12 +140,18 @@ try{
  const browserAuth=await signed;
  const identity=await browserAuth.json();
  check(browserAuth.ok()&&identity.localId===uid,'Browser auth not the guarded QA account');
- await budget();
- // Production readiness signal confirms family/transaction/category/settings data.
+ // Navigate only once authenticated family data is ready. Early navigation can
+ // be superseded by the initial start-tab/settings effect in App.tsx.
+ stage='await family readiness';
  await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:45000});
+ stage='navigate to budget';
+ await budget();
  console.log('PASS actual production login and budget panel at 1440px');
- stage='create expense: open editor';
- await visible(page.locator('[data-tab-panel="budget"]').getByRole('button',{name:'Добавить операцию',exact:true})).click();
+ stage='create expense: click add button';
+ const add=visible(page.locator('[data-tab-panel="budget"]').getByRole('button',{name:'Добавить операцию',exact:true}));
+ await add.click();
+ console.log('PASS clicked Add transaction button');
+ stage='create expense: wait for editor heading';
  await heading('Новая операция').waitFor({state:'visible'});
  console.log('PASS opened new expense editor');
  stage='create expense: fill title';
@@ -187,8 +194,8 @@ try{
  stage='mobile reload';
  await page.setViewportSize({width:390,height:844});
  await page.reload({waitUntil:'domcontentloaded'});
- await budget();
  await page.waitForFunction(()=>window.__budgetAlfaSyncProtocol===2,null,{timeout:45000});
+ await budget();
  await edit(renamed).click();
  check(await titleField().inputValue()===renamed,'Reloaded title mismatch');
  check(Number(await amountField().inputValue())===123.45,'Reloaded amount mismatch');
@@ -219,6 +226,15 @@ try{
  console.error('FAIL stage: '+stage+'; '+(/^(QA |Invalid |Unexpected |Missing |Production auth failed: |Firestore HTTP |Expected exactly |Marked record |Server |Update created |Editor did not |Browser auth |Run marker |Invalid zero |Wrong |Rename changed |Reloaded |Deleted )/.test(reason)?reason.split('\n')[0].slice(0,200):'browser or network action failed'));
  if(saveError!=='unknown')console.error('Firebase error: '+saveError);
  if(error?.name==='TimeoutError')console.error('Timeout while performing the named stage');
+ if(page){
+  // Report only fixed booleans, not page text or dynamic selectors containing private data.
+  const state=await page.evaluate(()=>{
+   const visible=e=>!!e?.getClientRects().length&&getComputedStyle(e).visibility!=='hidden';
+   const panel=document.querySelector('[data-tab-panel="budget"]');
+   return {budgetVisible:visible(panel),addButtonVisible:[...(panel?.querySelectorAll('button[aria-label="Добавить операцию"]')??[])].some(visible),newEditor:[...document.querySelectorAll('h2')].some(e=>visible(e)&&e.textContent.trim()==='Новая операция'),editEditor:[...document.querySelectorAll('h2')].some(e=>visible(e)&&e.textContent.trim()==='Редактирование операции'),ready:window.__budgetAlfaSyncProtocol===2};
+  }).catch(()=>null);
+  console.log('SAFE UI STATE '+JSON.stringify(state));
+ }
 }finally{
  await browser?.close();
  try{await cleanup();}

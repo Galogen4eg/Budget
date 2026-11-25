@@ -7,6 +7,8 @@ import { alfaOperationId } from './alfaIdentity';
 import { isAlfaOperationDuplicate } from './alfaDuplicates';
 import { analyzeTransaction, matchMerchantBrand } from './analyzerHelper';
 import { isCategoryForType } from './categoryCatalog';
+import { isEligibleForImport } from './importSafety';
+import { newAlfaReport, AlfaStatementRowsError, parseAlfaDate, parseAlfaAmount, rowIsBlank, isAlfaServiceRow, type AlfaParseReport } from './alfaRowValidation';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -14,7 +16,8 @@ export const parseAlfaStatement = (
   defaultMemberId: string,
   learnedRules: LearnedRule[] = [],
   categories: Category[],
-  existingTransactions: Transaction[] = []
+  existingTransactions: Transaction[] = [],
+  onReport?: (report:AlfaParseReport)=>void
 ): Promise<Transaction[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -33,13 +36,15 @@ export const parseAlfaStatement = (
         });
 
         let allParsedTransactions: Transaction[] = [];
+        const report=newAlfaReport();
+        const issue=(sheet:string,row:number,reason:string)=>{report.errors.push({sheet,row,reason});};
         const occurrenceBySignature = new Map<string, number>();
 
         for (const sheetName of workbook.SheetNames) {
           const sheet = workbook.Sheets[sheetName];
           const json: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 
-          if (!json || json.length < 2) continue;
+          if (!json||json.every(rowIsBlank))continue;
 
           let headerRowIndex = -1;
           const keywords = {
@@ -61,20 +66,18 @@ export const parseAlfaStatement = (
             }
           }
 
-          // Fallback heuristic: look for data pattern if header not found
-          if (headerRowIndex === -1) {
-            for (let i = 0; i < Math.min(json.length, 20); i++) {
-                const row = json[i];
-                const hasSomethingLikeDate = row.some(c => /\d{2}[./-]\d{2}[./-]\d{2,4}/.test(String(c)));
-                const hasSomethingLikeAmount = row.some(c => /^-?\d+([.,]\d{1,2})?$/.test(String(c).replace(/\s/g, '')));
-                if (hasSomethingLikeDate && hasSomethingLikeAmount) {
-                    headerRowIndex = i > 0 ? i - 1 : 0;
-                    break;
-                }
-            }
+          // Without a reliable header we cannot safely identify all operation columns.
+          if (headerRowIndex === -1){
+            json.forEach((row,i)=>{if(!rowIsBlank(row)){report.operationRows++;issue(sheetName,i+1,'Не удалось определить заголовок и колонки');}else report.serviceRows++;});
+            continue;
           }
-
-          if (headerRowIndex === -1) continue;
+          // Preamble and header are service rows, but a date+amount before the header is suspicious.
+          for(let i=0;i<=headerRowIndex;i++){
+            const row=json[i];
+            if(i<headerRowIndex&&row.some(v=>parseAlfaDate(v))&&row.some(v=>parseAlfaAmount(v)!==null)){
+              report.operationRows++;issue(sheetName,i+1,'Возможная операция перед заголовком');
+            }else report.serviceRows++;
+          }
 
           const headers = json[headerRowIndex].map((h: any) => String(h).toLowerCase().trim());
           
@@ -113,82 +116,20 @@ export const parseAlfaStatement = (
              if (maxLen > 5) effectiveColNote = bestCol;
           }
 
-          if (colDate === -1 || colAmount === -1) continue;
+          if(colDate===-1||colAmount===-1){
+            for(let i=headerRowIndex+1;i<json.length;i++)if(!rowIsBlank(json[i])){report.operationRows++;issue(sheetName,i+1,'Не найдены колонки даты и суммы');}else report.serviceRows++;
+            continue;
+          }
 
           for (let i = headerRowIndex + 1; i < json.length; i++) {
             const row = json[i];
-            if (!row || row.length <= Math.max(colDate, colAmount)) continue;
-
-            let dateObj: Date | null = null;
-            const rawDateValue = row[colDate];
-            
-            // Comprehensive regex for dates and times
-            const dateRegex = /(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/;
-
-            if (rawDateValue instanceof Date && !isNaN(rawDateValue.getTime())) {
-              dateObj = new Date(rawDateValue);
-            } else {
-              const s = String(rawDateValue).trim();
-              const parts = s.match(dateRegex);
-              if (parts) {
-                const d = parseInt(parts[1]);
-                const m = parseInt(parts[2]) - 1;
-                let y = parseInt(parts[3]);
-                if (y < 100) y += 2000;
-                
-                const h = parts[4] ? parseInt(parts[4]) : 0;
-                const min = parts[5] ? parseInt(parts[5]) : 0;
-                const sec = parts[6] ? parseInt(parts[6]) : 0;
-                
-                dateObj = new Date(y, m, d, h, min, sec);
-              }
-            }
-
-            if (!dateObj || isNaN(dateObj.getTime())) continue;
-
-            if (colTime !== -1 && row[colTime]) {
-              const rawTime = String(row[colTime]).trim();
-              const tParts = rawTime.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
-              if (tParts) {
-                dateObj.setHours(parseInt(tParts[1]));
-                dateObj.setMinutes(parseInt(tParts[2]));
-                dateObj.setSeconds(tParts[3] ? parseInt(tParts[3]) : 0);
-              }
-            }
-            
-            const dateStr = dateObj.toISOString();
-
-            let amount = 0;
-            const rawAmount = row[colAmount];
-            
-            if (typeof rawAmount === 'number') {
-              amount = rawAmount;
-            } else {
-              // Robust string cleaning: remove ALL unicode spaces (including \u00A0 & \u202F)
-              // This is critical for banks that use thin spaces for thousands
-              let clean = String(rawAmount)
-                .replace(/[\s\u00A0\u202F\u1680\u180E\u2000-\u200A\u2028\u2029\u205F\u3000]/g, '') 
-                .replace(/[^\d.,-]/g, ''); // Keep only digits, dots, commas, minus
-
-              // Handle comma vs dot intelligently
-              // If both exist, dot likely thousands separator if RU locale implied or reversed
-              // Standard logic: replace comma with dot for float parsing
-              if (clean.includes(',') && clean.includes('.')) {
-                  // Assuming 1.200,50 -> 1200.50 (EU/RU style)
-                  if (clean.indexOf('.') < clean.indexOf(',')) {
-                      clean = clean.replace('.', '').replace(',', '.');
-                  } else {
-                      // 1,200.50 -> 1200.50 (US style)
-                      clean = clean.replace(',', '');
-                  }
-              } else {
-                  clean = clean.replace(',', '.');
-              }
-              
-              amount = parseFloat(clean);
-            }
-
-            if (isNaN(amount) || amount === 0) continue;
+            if(!row||isAlfaServiceRow(row,colDate,colAmount,effectiveColNote)){report.serviceRows++;continue;}
+            report.operationRows++;
+            const dateObj=parseAlfaDate(row[colDate],colTime!==-1&&colTime!==colDate?row[colTime]:undefined);
+            if(!dateObj){issue(sheetName,i+1,'Некорректная дата или время');continue;}
+            const dateStr=dateObj.toISOString();
+            const amount=parseAlfaAmount(row[colAmount]);
+            if(amount===null){issue(sheetName,i+1,'Некорректная сумма или точность');continue;}
 
             const rawNote = effectiveColNote !== -1 ? String(row[effectiveColNote] || '').trim() : "Операция";
             
@@ -243,8 +184,8 @@ export const parseAlfaStatement = (
               id, date: dateStr, amount: absAmount, type, rawNote, note
             });
 
-            if (!isDuplicate) {
-              allParsedTransactions.push({
+            if (isDuplicate) {report.duplicates++;} else {
+              const transaction:Transaction={
                 id,
                 amount: absAmount,
                 type,
@@ -255,11 +196,15 @@ export const parseAlfaStatement = (
                 rawNote: rawNote,
                 // Preview-only metadata: stripped by ImportModal before persistence.
                 ...(mcc ? { mcc } : {})
-              });
+              };
+              allParsedTransactions.push(transaction);
+              if(isEligibleForImport(transaction,categories))report.ready++;else report.needsReview++;
             }
           }
         }
 
+        onReport?.(report);
+        if(report.errors.length)throw new AlfaStatementRowsError(report);
         if (allParsedTransactions.length === 0) {
           throw new Error("Новых уникальных операций не найдено.");
         }

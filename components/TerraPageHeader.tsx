@@ -36,6 +36,7 @@ interface TerraPageHeaderProps {
 export function TerraPageHeader({ title, subtitle, leading, globalActions, actions, children, headingLevel = 1 }: TerraPageHeaderProps) {
   const Heading = headingLevel === 2 ? 'h2' : 'h1';
   return <header data-terra-mobile-header data-terra-page-header className="terra-page-header">
+    <div className="terra-page-header-layout">
     <div className="terra-page-header-main">
       {leading}
       <div className="terra-page-header-title">
@@ -45,6 +46,7 @@ export function TerraPageHeader({ title, subtitle, leading, globalActions, actio
       {globalActions && <div className="terra-page-header-global">{globalActions}</div>}
     </div>
     {actions && <div className="terra-page-header-actions">{actions}</div>}
+    </div>
     {children}
   </header>;
 }

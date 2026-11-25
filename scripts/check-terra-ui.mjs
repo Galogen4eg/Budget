@@ -28,6 +28,20 @@ try {
           assert.equal(await header.count(), 1);
           assert.equal(await header.getByRole('heading', { name: title, exact: true }).count(), 1);
           assert.equal(await header.evaluate(e => e.scrollWidth <= e.clientWidth), true, `${id}: overflow at ${width}`);
+          // Wide headers should not spend a second row on a small action group.
+          if (primary) {
+            const geometry = await header.evaluate(e => {
+              const main = e.querySelector('.terra-page-header-main').getBoundingClientRect();
+              const actions = e.querySelector('.terra-page-header-actions').getBoundingClientRect();
+              return { mainTop: main.top, mainBottom: main.bottom, actionsTop: actions.top, actionsBottom: actions.bottom, height: e.getBoundingClientRect().height };
+            });
+            if (width >= 768) {
+              assert.ok(geometry.actionsTop >= geometry.mainTop && geometry.actionsBottom <= geometry.mainBottom, `${id}/${theme}/${width}: actions should fit on one row ${JSON.stringify(geometry)}`);
+              assert.ok(geometry.height <= 80, `${id}/${theme}/${width}: excessive header height`);
+            } else {
+              assert.ok(geometry.actionsTop >= geometry.mainBottom - 1, `${id}/${theme}/${width}: mobile actions should stay below title`);
+            }
+          }
           const secondary = { overview: 'AI Ассистент', budget: 'Импорт выписки', plans: 'Голосовой ввод', shopping: 'Отправить список в Telegram' }[id];
           for (const label of ['Уведомления', 'Настройки и профиль', ...(primary ? [primary] : []), ...(secondary ? [secondary] : [])]) {
             const button = header.getByRole('button', { name: label, exact: true });

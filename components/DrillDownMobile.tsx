@@ -1,3 +1,5 @@
+import { chartBarPercent } from '../utils/analyticsPresentation';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -11,6 +13,7 @@ import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
 
 interface DrillDownMobileProps {
+  privacyMode:boolean;
   categoryTitle: string;
   categoryIcon: React.ReactNode;
   currentMonthFormatted: string;
@@ -63,6 +66,7 @@ interface DrillDownMobileProps {
 }
 
 export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
+  privacyMode,
   categoryTitle,
   categoryIcon,
   currentMonthFormatted,
@@ -95,6 +99,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   currentMember,
   categories = []
 }) => {
+  const formatAmount=(value:number)=>privacyMode?'•••':formatBudgetMoney(value);
   const [showFilterOptions, setShowFilterOptions] = useState(false);
   const surface=useModalSurface(()=>{if(viewMode==='analytics')setViewMode('inspector');else onClose();},{initialSelector:'[aria-label="Закрыть или вернуться назад"]'});
 
@@ -113,18 +118,8 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
     return max;
   }, [chartData]);
 
-  // Sampled 8-10 bars for mobile chart rendering
-  const mobileBars = useMemo(() => {
-    if (chartData.length <= 10) return chartData;
-    // Sample evenly across the data
-    const step = chartData.length / 8;
-    const sampled: typeof chartData = [];
-    for (let i = 0; i < 8; i++) {
-      const idx = Math.min(chartData.length - 1, Math.floor(i * step));
-      sampled.push(chartData[idx]);
-    }
-    return sampled;
-  }, [chartData]);
+  // Render all periods; do not sample away transaction days.
+  const mobileBars=chartData;
 
   // Progress towards monthly limit
   const limitProgress = useMemo(() => {
@@ -286,9 +281,9 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   </p>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <h2 className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight">
-                      {netBalance > 0 ? '+' : ''}{netBalance.toLocaleString('ru-RU')} ₽
+                      {netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
                     </h2>
-                    {trendPercent !== 0 && (
+                    {!privacyMode&&trendPercent !== 0 && (
                       <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                         trendPercent < 0
                           ? 'bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-300'
@@ -316,7 +311,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                     <span className="text-xs font-semibold text-[#4A4E4A] dark:text-stone-300">Доход</span>
                   </div>
                   <p className="text-base font-headline font-bold text-[#4A7C59] dark:text-emerald-400">
-                    +{totalIncome.toLocaleString('ru-RU')} ₽
+                    +{formatAmount(totalIncome)} ₽
                   </p>
                   <p className="text-[11px] text-[#4A4E4A]/70 dark:text-stone-400 mt-0.5">
                     {incomeCount} {incomeCount === 1 ? 'пополнение' : 'пополнения'}
@@ -332,7 +327,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                     <span className="text-xs font-semibold text-[#4A4E4A] dark:text-stone-300">Расход</span>
                   </div>
                   <p className="text-base font-headline font-bold text-[#B83230] dark:text-rose-400">
-                    -{totalExpense.toLocaleString('ru-RU')} ₽
+                    -{formatAmount(totalExpense)} ₽
                   </p>
                   <p className="text-[11px] text-[#4A4E4A]/70 dark:text-stone-400 mt-0.5">
                     {expenseCount} {expenseCount === 1 ? 'списание' : 'списания'}
@@ -341,7 +336,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               </div>
 
               {/* Family Member Contribution */}
-              {memberBreakdown.length > 0 && (
+              {!privacyMode&&memberBreakdown.length > 0 && (
                 <div className="pt-1 space-y-2">
                   <div className="flex items-center justify-between text-xs text-[#4A4E4A] dark:text-stone-400">
                     <span className="font-semibold flex items-center gap-1.5">
@@ -357,8 +352,8 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                       const initial = name.charAt(0).toUpperCase();
                       const isNetExpense = item.expense >= item.income;
                       const formattedSum = isNetExpense 
-                        ? `-${item.expense.toLocaleString('ru-RU')} ₽` 
-                        : `+${item.income.toLocaleString('ru-RU')} ₽`;
+                        ? `-${formatAmount(item.expense)} ₽` 
+                        : `+${formatAmount(item.income)} ₽`;
 
                       return (
                         <div key={item.member?.id || idx} className="bg-white dark:bg-[#252528] rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs border border-[#E4E0D8]/40 dark:border-white/5">
@@ -384,7 +379,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                             <div 
                               className="h-full rounded-full transition-all"
                               style={{ 
-                                width: `${Math.max(4, item.share)}%`,
+                                width: `${chartBarPercent(item.share,100)}%`,
                                 backgroundColor: item.member?.color || (idx === 0 ? '#4A7C59' : '#C4A66A')
                               }}
                             />
@@ -429,7 +424,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               ) : (
                 groupedTransactionsByDay.map(group => {
                   const isDayExpense = group.dayTotal <= 0;
-                  const daySummaryLabel = `итог дня: ${isDayExpense ? '' : '+'}${group.dayTotal.toLocaleString('ru-RU')} ₽`;
+                  const daySummaryLabel = `итог дня: ${isDayExpense ? '' : '+'}${formatAmount(group.dayTotal)} ₽`;
 
                   return (
                     <div key={group.label} className="flex flex-col space-y-1.5 pt-1">
@@ -487,7 +482,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
                               <div className="text-right shrink-0 ml-2">
                                 <p className={`text-sm font-bold ${isExpense ? 'text-[#B83230] dark:text-rose-400' : 'text-[#4A7C59] dark:text-green-400'}`}>
-                                  {isExpense ? '-' : '+'}{tx.amount.toLocaleString('ru-RU')} ₽
+                                  {isExpense ? '-' : '+'}{formatAmount(tx.amount)} ₽
                                 </p>
                               </div>
                             </div>
@@ -562,7 +557,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   <span className="text-xs font-semibold text-[#4A4E4A] dark:text-stone-400 uppercase tracking-wide">
                     Всего расходов
                   </span>
-                  {trendPercent !== 0 && (
+                  {!privacyMode&&trendPercent !== 0 && (
                     <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold ${
                       trendPercent <= 0
                         ? 'bg-[#C8E8D0] dark:bg-emerald-950/40 text-[#2A6038] dark:text-emerald-300'
@@ -575,14 +570,14 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
                 <div className="flex items-baseline justify-between mt-1">
                   <div className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight">
-                    {totalExpense.toLocaleString('ru-RU')} <span className="text-lg font-normal text-[#4A4E4A] dark:text-stone-400">₽</span>
+                    {formatAmount(totalExpense)} <span className="text-lg font-normal text-[#4A4E4A] dark:text-stone-400">₽</span>
                   </div>
                   <div className="flex items-center text-xs text-[#4A4E4A] dark:text-stone-400 font-medium">
-                    {categoryLimit ? `Лимит: ${categoryLimit.toLocaleString('ru-RU')} ₽` : 'Без лимита'}
+                    {privacyMode?'Лимит скрыт':categoryLimit ? `Лимит: ${formatAmount(categoryLimit)} ₽` : 'Без лимита'}
                   </div>
                 </div>
 
-                {categoryLimit && categoryLimit > 0 && (
+                {!privacyMode&&categoryLimit && categoryLimit > 0 && (
                   <div className="w-full bg-[#E4E0D8] dark:bg-white/10 rounded-full h-1.5 mt-3 overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${
@@ -602,7 +597,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 </div>
                 <div>
                   <div className="text-lg font-headline font-bold text-[#2E3230] dark:text-white">
-                    {avgDaily.toLocaleString('ru-RU')} <span className="text-xs font-normal text-[#4A4E4A]">₽</span>
+                    {formatAmount(avgDaily)} <span className="text-xs font-normal text-[#4A4E4A]">₽</span>
                   </div>
 
                 </div>
@@ -616,17 +611,17 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 </div>
                 <div>
                   <div className="text-lg font-headline font-bold text-[#4A7C59] dark:text-green-400">
-                    +{totalIncome.toLocaleString('ru-RU')} <span className="text-xs font-normal">₽</span>
+                    +{formatAmount(totalIncome)} <span className="text-xs font-normal">₽</span>
                   </div>
                   <p className="text-[11px] text-[#4A4E4A] dark:text-stone-400 font-medium mt-0.5">
-                    Баланс: {netBalance > 0 ? '+' : ''}{netBalance.toLocaleString('ru-RU')} ₽
+                    Баланс: {netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Chart Section */}
-            <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col space-y-3">
+            {privacyMode?<p role="status" className="p-4 rounded-xl bg-[var(--terra-surface)] text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<div data-testid="drilldown-chart" className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col space-y-3">
               {/* Header & Toggle */}
               <div className="flex items-center justify-between">
                 <div>
@@ -677,32 +672,32 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               </div>
 
               {/* Visual Bar Chart */}
-              <div className="w-full pt-4 pb-1">
-                <div className="relative h-40 flex items-end justify-between gap-1.5 px-1">
+              <div className="w-full pt-4 pb-1 overflow-x-auto" tabIndex={0} aria-label="График по всем периодам">
+                <div className="relative h-40 flex items-end justify-between gap-1.5 px-1" style={{minWidth:Math.max(240,mobileBars.length*24)}}>
                   {mobileBars.map((bar) => {
-                    const expPercent = Math.min(100, Math.max(12, Math.round((bar.expense / chartMax) * 85)));
-                    const incPercent = bar.income > 0 ? Math.min(100, Math.max(15, Math.round((bar.income / chartMax) * 85))) : 0;
+                    const expPercent = chartBarPercent(bar.expense,chartMax);
+                    const incPercent = chartBarPercent(bar.income,chartMax);
                     const labelText = bar.dayNum ? String(bar.dayNum).padStart(2, '0') : bar.label.split(' ')[0];
 
                     return (
                       <div 
                         key={bar.id}
-                        className="flex-1 flex flex-col items-center gap-1 h-full justify-end group cursor-pointer relative"
+                        className="flex-1 min-w-[18px] flex flex-col items-center gap-1 h-full justify-end relative" title={`${bar.label}: расходы ${formatAmount(bar.expense)} ₽, доходы ${formatAmount(bar.income)} ₽`}
                       >
                         <div className="w-full flex items-end justify-center gap-0.5 h-full">
                           <div 
-                            className="w-2.5 bg-[#B83230] rounded-t-sm transition-all opacity-85 group-hover:opacity-100"
+                            className="w-2 bg-[var(--terra-danger-text)] rounded-t-sm" data-expense-bar={bar.id}
                             style={{ height: `${expPercent}%` }}
                           />
                           {incPercent > 0 && (
                             <div 
-                              className="w-2.5 bg-[#4A7C59] rounded-t-sm shadow-2xs transition-all opacity-85 group-hover:opacity-100"
+                              className="w-2 bg-[var(--terra-primary-text)] rounded-t-sm"
                               style={{ height: `${incPercent}%` }}
                             />
                           )}
                         </div>
 
-                        <span className="text-[10px] font-semibold text-[#74796E] dark:text-stone-400 group-hover:text-[#4A7C59]">
+                        <span className="text-xs font-medium text-[var(--terra-muted)]">
                           {labelText}
                         </span>
                       </div>
@@ -719,13 +714,13 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   </span>
                 </div>
                 <span className="text-[#4A4E4A] dark:text-stone-400 text-[11px]">
-                  {peakInfo.maxVal.toLocaleString('ru-RU')} ₽
+                  {formatAmount(peakInfo.maxVal)} ₽
                 </span>
               </div>}
-            </div>
+            </div>}
 
             {/* Family Breakdown */}
-            {memberBreakdown.length > 0 && (
+            {!privacyMode&&memberBreakdown.length > 0 && (
               <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -759,7 +754,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
                           <div className="text-right">
                             <span className="font-bold text-[#2E3230] dark:text-white">
-                              {item.expense.toLocaleString('ru-RU')} ₽
+                              {formatAmount(item.expense)} ₽
                             </span>
                             <span className="text-[#4A4E4A] dark:text-stone-400 text-[11px] ml-1">
                               ({item.share}%)
@@ -771,7 +766,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                           <div 
                             className="h-full rounded-full transition-all"
                             style={{ 
-                              width: `${Math.max(5, item.share)}%`,
+                              width: `${chartBarPercent(item.share,100)}%`,
                               backgroundColor: item.member?.color || (idx === 0 ? '#4A7C59' : '#C4A66A')
                             }}
                           />

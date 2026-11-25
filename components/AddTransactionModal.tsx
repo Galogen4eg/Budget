@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -137,6 +138,7 @@ export default function AddTransactionModal({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
+  const surface=useModalSurface(()=>{if(!isSubmitting)onClose();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
 
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
@@ -333,29 +335,20 @@ export default function AddTransactionModal({
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
         transition={{ duration: 0.18 }}
-        onClick={onClose} 
+        onClick={()=>{if(!isSubmitting)onClose();}} 
         className="absolute inset-0 bg-[#2E3230]/65 backdrop-blur-xs" 
       />
       
       {/* 2-Column Modal Dialog Container */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-label={initialTransaction ? 'Редактирование операции' : 'Новая операция'}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 8 }}
         transition={{ duration: 0.18, ease: 'easeOut' }}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.6 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.y > 100 || info.velocity.y > 300) {
-            onClose();
-          }
-        }}
-        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pb-[env(safe-area-inset-bottom,0px)]"
+        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
+
 
         <AnimatePresence initial={false} mode="wait">
           {currentView === 'main' && (
@@ -449,7 +442,6 @@ export default function AddTransactionModal({
                                 ? 'text-xl sm:text-2xl' 
                                 : 'text-2xl sm:text-3xl'
                             }`}
-                            autoFocus={!initialTransaction}
                           />
                           <span ref={spanRef} className={`absolute invisible whitespace-pre font-headline font-bold ${
                             amount.length > 9 
@@ -478,7 +470,7 @@ export default function AddTransactionModal({
                           const isExpression = /[\+\-\*\/]/.test(amount);
                           if (evalVal !== null && isExpression) {
                             return (
-                              <div className="text-xs font-bold text-[#4A7C59] dark:text-green-400 mt-1.5 flex items-center gap-1 bg-[#FAF6F0] dark:bg-white/5 px-2 py-1 rounded-lg w-max animate-pulse-slow">
+                              <div className="text-xs font-bold text-[#4A7C59] dark:text-green-400 mt-1.5 flex items-center gap-1 bg-[#FAF6F0] dark:bg-white/5 px-2 py-1 rounded-lg max-w-full">
                                 <span>= {evalVal.toLocaleString('ru-RU')} {settings.currency || '₽'}</span>
                               </div>
                             );
@@ -561,11 +553,9 @@ export default function AddTransactionModal({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-[#2A4C34] dark:text-green-300">
-                              Автоправило уже запомнено
+                              Автоправило сохранено
                             </span>
-                            <span className="px-1.5 py-0.2 rounded bg-[#4A7C59] text-white text-[9px] font-bold font-mono">
-                              АКТИВНО
-                            </span>
+
                           </div>
                           <p className="text-[11px] text-[#3D6849] dark:text-green-400/90 mt-0.5 leading-tight">
                             Ключ: <b className="font-mono">«{existingLearnedRule.keyword}»</b> ➔ Категория: <b>{categories.find(c => c.id === existingLearnedRule.categoryId)?.label || 'Категория'}</b>
@@ -669,7 +659,7 @@ export default function AddTransactionModal({
                     </AnimatePresence>
 
                     {/* Категория (Выбор) */}
-                    <div 
+                    <button type="button" aria-label="Выбрать категорию" aria-haspopup="dialog" aria-expanded={isDesktopCategoryPickerOpen||isMobileCategoryPickerOpen}
                       onClick={() => {
                         if (typeof window !== 'undefined' && window.innerWidth >= 768) {
                           setIsDesktopCategoryPickerOpen(true);
@@ -677,7 +667,7 @@ export default function AddTransactionModal({
                           setIsMobileCategoryPickerOpen(true);
                         }
                       }}
-                      className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-primary-border/60 hover:border-primary dark:border-white/10 shadow-sm flex items-center justify-between cursor-pointer transition group"
+                      className="w-full min-h-[44px] text-left bg-[var(--terra-surface)] rounded-xl p-3 border border-[var(--terra-border)] hover:border-[var(--terra-primary-text)] flex items-center justify-between cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div 
@@ -702,7 +692,7 @@ export default function AddTransactionModal({
                         </div>
                       </div>
                       <ChevronRight size={16} className="text-graphite-muted group-hover:text-primary group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
-                    </div>
+                    </button>
                   </div>
 
                   {/* Right Block: Metadata Details & Notes */}

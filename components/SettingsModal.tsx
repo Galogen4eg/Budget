@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -562,6 +563,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [currentFamilyId]);
 
   useBodyScrollLock();
+  const surface=useModalSurface(onClose,{initialSelector:'[aria-label="Закрыть настройки"]'});
+  const guideSurface=useModalSurface(()=>setShowInstallGuide(false),{enabled:showInstallGuide});
+  const logoutSurface=useModalSurface(()=>{if(!isLoggingOut)setShowLogoutConfirm(false);},{enabled:showLogoutConfirm,initialSelector:'[aria-label="Отмена выхода"]'});
 
   const handleTestKey = async () => {
     if (!apiKey.trim() || aiTestStatus === 'loading') return;
@@ -1466,8 +1470,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       {/* Main Container */}
       <div 
-        role="dialog" aria-modal="true" aria-label="Настройки" data-terra-settings="true"
-        className="modal-animate-enter motion-reduce:animate-none relative bg-[var(--terra-surface)] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-2xl overflow-hidden flex flex-col border-0 md:border border-[var(--terra-border)] z-10"
+        {...surface} role="dialog" aria-modal="true" aria-label="Настройки" data-terra-settings="true"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-[var(--terra-surface)] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-xl overflow-hidden pt-[env(safe-area-inset-top,0px)] md:pt-0 pb-[env(safe-area-inset-bottom,0px)] md:pb-0 flex flex-col border-0 md:border border-[var(--terra-border)] z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-14 px-5 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
@@ -1646,7 +1650,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {showInstallGuide && (
           <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowInstallGuide(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-[var(--terra-surface)] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} {...guideSurface} role="dialog" aria-modal="true" aria-label="Установка приложения" className="relative bg-[var(--terra-surface)] p-6 rounded-2xl max-w-sm w-full max-h-[85dvh] overflow-y-auto space-y-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl flex items-center justify-center mx-auto">
                 <Smartphone size={24} />
               </div>
@@ -1689,7 +1693,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="relative w-full max-w-lg bg-white dark:bg-[#1E2023] rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6 overflow-hidden border border-[var(--terra-border)] z-10"
+              {...logoutSurface} role="alertdialog" aria-modal="true" aria-label="Выйти из профиля?" className="relative w-full max-w-lg bg-[var(--terra-surface)] rounded-2xl shadow-xl p-5 sm:p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto border border-[var(--terra-border)] z-10"
             >
 
 
@@ -1711,8 +1715,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   disabled={isLoggingOut}
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-500 dark:text-gray-300 flex items-center justify-center transition-colors cursor-pointer"
+                  onClick={() => setShowLogoutConfirm(false)} aria-label="Отмена выхода"
+                  className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-500 dark:text-gray-300 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X size={18} />
                 </button>

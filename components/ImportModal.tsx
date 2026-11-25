@@ -1,3 +1,6 @@
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Check, X, FileText, ArrowDownRight, ArrowUpRight, 
@@ -87,6 +90,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  useBodyScrollLock();
+  const surface=useModalSurface(()=>{if(!isConfirmingImport)onCancel();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
   const pendingRulesRef = useRef<LearnedRule[]>([]);
   // Snapshot of saved family history, not the changing preview, keeps ranking stable.
   const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
@@ -572,23 +577,23 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     });
   }, [items, filterTab, searchQuery, categories]);
 
-  return (
+  return createPortal(
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           if (!isConfirmingImport) onCancel();
         }
       }}
-      className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-all duration-300 select-none cursor-pointer"
+      className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-opacity duration-150 cursor-pointer"
     >
       
       {/* Модальное диалоговое окно */}
-      <div 
+      <div {...surface}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-headline"
-        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[#FAF8F5] dark:bg-[#18181A] rounded-t-3xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(41,37,36,0.28)] border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[var(--terra-canvas)] rounded-none sm:rounded-2xl shadow-xl border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92dvh] overflow-hidden text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         
         {/* Кнопка закрытия в верхнем правом углу */}
@@ -603,12 +608,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </button>
 
         {/* ШАПКА МОДАЛЬНОГО ОКНА */}
-        <div className="px-3 sm:px-8 pt-5 pb-4 border-b border-[var(--terra-border)] bg-[var(--terra-surface)]">
+        <div className="px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:pt-4 pb-3 border-b border-[var(--terra-border)] bg-[var(--terra-surface)]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             
             {/* Заголовок и иконка */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#EAF2EC] dark:bg-primary/20 text-[#4A7C59] dark:text-green-400 flex items-center justify-center shadow-sm shrink-0">
+            <div className="flex min-w-0 items-center gap-3 pr-12">
+              <div className="w-10 h-10 rounded-xl bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center shrink-0">
                 <FileText size={22} strokeWidth={2.2} />
               </div>
               <div>
@@ -627,7 +632,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             </div>
 
             {/* Сводка и селектор авторов */}
-            <div className="flex flex-wrap items-center gap-2.5 pr-8 lg:pr-0">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               
               {/* Bank statement ownership is fixed by the authenticated family profile. */}
               <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 py-2 text-sm">
@@ -639,16 +644,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
 
               {/* Объединенный бейдж доходов и расходов в одной строке */}
-              <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-[var(--terra-soft)] border border-[#EBE4DC] dark:border-white/10 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-[var(--terra-soft)] min-w-0 max-w-full">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] dark:text-green-400">
                   <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
-                  <span className="text-stone-400 dark:text-gray-400 font-semibold uppercase text-[10px]">Доходы:</span>
+                  <span className="text-[var(--terra-muted)] font-medium text-xs">Доходы:</span>
                   <span className="tabular-nums font-bold">+{totalIncome.toLocaleString('ru-RU')} ₽</span>
                 </div>
                 <div className="h-3.5 w-px bg-stone-200 dark:bg-white/10" />
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#D95D39] dark:text-red-400">
                   <span className="w-2 h-2 rounded-full bg-[#D95D39]" />
-                  <span className="text-stone-400 dark:text-gray-400 font-semibold uppercase text-[10px]">Расходы:</span>
+                  <span className="text-[var(--terra-muted)] font-medium text-xs">Расходы:</span>
                   <span className="tabular-nums font-bold">-{totalExpense.toLocaleString('ru-RU')} ₽</span>
                 </div>
               </div>
@@ -664,7 +669,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
               <RippleButton 
                 onClick={() => setFilterTab('all')}
-                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs whitespace-nowrap cursor-pointer ${
+                className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   filterTab === 'all' 
                     ? 'bg-[#4A7C59] text-white' 
                     : 'bg-[var(--terra-soft)] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
@@ -750,7 +755,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="bg-gradient-to-r from-[#FEF7EC] to-[#FAF6EE] dark:from-[#282118] dark:to-[#1C1C1E] border-2 border-[#E09F3E]/60 dark:border-amber-900/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#E09F3E] text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
-                  <Sparkles size={20} className="animate-pulse" />
+                  <Sparkles size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
@@ -817,13 +822,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               return (
                 <div 
                   key={item.tempId}
-                  onClick={() => handleOpenEditModal(item)}
-                  className={`rounded-2xl p-3 sm:p-4 flex flex-col md:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] md:items-center justify-between gap-4 transition-all duration-500 cursor-pointer hover:shadow-md ${
+                  className={`rounded-xl p-3 flex flex-col lg:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] lg:items-center justify-between gap-3 transition-colors duration-150 ${
                     isHighlighted
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 ring-4 ring-emerald-500/30 shadow-lg scale-[1.01] animate-pulse'
+                      ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-solid)]'
                       : isUnrecognized 
-                        ? 'bg-[#FFFDF7] dark:bg-[#241F18] border-2 border-[#E09F3E]/45 shadow-[0_2px_12px_rgba(224,159,62,0.08)] hover:border-[#E09F3E]' 
-                        : 'bg-[var(--terra-surface)] border border-[#EBE4DC] dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.02)] hover:border-stone-300'
+                        ? 'bg-[var(--terra-surface)] border border-[var(--terra-offline-text)]' 
+                        : 'bg-[var(--terra-surface)] border border-[var(--terra-border)]'
                   }`}
                 >
                   {/* Левая часть: Иконка, Заголовок, МСС, Описание, Дата и Правило */}
@@ -851,15 +855,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                             }}
                             placeholder={item.rawNote || category?.label || 'Название в истории...'}
                             className="font-bold text-stone-900 dark:text-white text-sm bg-stone-100/60 dark:bg-white/5 hover:bg-white dark:hover:bg-[#252528] focus:bg-white dark:focus:bg-[#252528] px-2.5 py-1 rounded-lg border border-transparent hover:border-stone-300 dark:hover:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none transition w-full"
-                            title="Отредактируйте название для истории без проваливания в карточку"
+                            aria-label="Название операции в истории"
+                            title="Название операции в истории"
                           />
                           <Edit3 size={13} className="text-stone-400 shrink-0 pointer-events-none -ml-6 z-10 opacity-70" />
                         </div>
 
                         {isHighlighted ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[11px] font-extrabold shadow-sm animate-bounce">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-xs font-semibold">
                             <Sparkles size={13} className="text-emerald-200" />
-                            Авто-распознано правилом!
+                            Категория определена
                           </span>
                         ) : isUnrecognized ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF7EC] dark:bg-amber-950/60 text-[#B87008] dark:text-amber-300 text-[11px] font-bold border border-[#F3D5A5]/60">
@@ -911,14 +916,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                           setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId);
                           setCategoryDropdownSearch('');
                         }}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer ${
+                        className={`inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                           isUnrecognized 
-                            ? 'bg-[#E09F3E] text-white hover:bg-[#C98A2F]' 
+                            ? 'bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)]' 
                             : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300 hover:bg-[#d8f0de]'
                         }`}
                       >
                         <Tag size={14} />
-                        <span className="uppercase tracking-wider">{isUnrecognized ? 'ВЫБРАТЬ КАТЕГОРИЮ' : category!.label}</span>
+                        <span>{isUnrecognized ? 'Выбрать категорию' : category!.label}</span>
                         <ChevronDown size={14} strokeWidth={2.5} />
                       </button>
 
@@ -939,8 +944,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
 
                     {/* Сумма операции */}
-                    <div className="text-right min-w-[90px]">
-                      <span className={`text-base font-extrabold tabular-nums ${
+                    <div className="text-right min-w-[90px] max-w-full [overflow-wrap:anywhere]">
+                      <span className={`text-base font-semibold tabular-nums ${
                         isExpense ? 'text-stone-900 dark:text-white' : 'text-[#2E7D32] dark:text-green-400'
                       }`}>
                         {isExpense ? '-' : '+'}{item.amount.toLocaleString('ru-RU')} ₽
@@ -1218,7 +1223,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           // Stay in the analyzer; only its explicit Close button returns to the preview.
         }}
       />
-    </div>
+    </div>,document.body
   );
 };
 

@@ -46,6 +46,7 @@ interface TerraBudgetProps {
   onAddMandatoryExpense?: () => void;
   onSelectCategory?: (categoryId: string) => void;
   onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 /**
@@ -70,7 +71,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onEditMandatoryExpense,
   onAddMandatoryExpense,
   onSelectCategory,
-  onOpenSettings
+  onOpenSettings,
+  onOpenNotifications
 }) => {
   const { displayGoals:goals, householdPersonal, personalDisplayOnly, personalOpeningKnown, financialSettings, transactions:allTransactions } = useData();
   const personalOnly=householdPersonal||personalDisplayOnly;
@@ -398,12 +400,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           onImport={onImportClick}
           importTitle="Импорт выписки"
           onOpenSettings={onOpenSettings}
-          rightExtra={
-            <div className="relative">
+          onOpenNotifications={onOpenNotifications}
+        />
+        <div className="px-4 pt-3 space-y-2" data-testid="budget-month-selector">
               <button 
                 type="button"
                 onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-                aria-expanded={isMonthPickerOpen}
+                aria-expanded={isMonthPickerOpen} aria-controls="budget-month-controls"
                 aria-label={`Выбрать месяц: ${mobileMonthName}`}
                 className="min-h-[44px] px-3 py-2 rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-xs font-bold text-[var(--terra-ink)] dark:text-white hover:text-primary transition-colors flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
               >
@@ -413,12 +416,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
               {isMonthPickerOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setIsMonthPickerOpen(false)} 
-                  />
-                  <div className="absolute top-full mt-2 right-0 bg-white dark:bg-[var(--terra-soft)] border border-[var(--terra-border)] dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 min-w-[200px] space-y-1">
-                    <div className="text-[10px] uppercase font-bold text-[var(--terra-muted)] dark:text-gray-400 px-2 py-1">Выбор месяца</div>
+                  
+                  <div id="budget-month-controls" className="w-full max-w-sm bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl p-2 space-y-1">
+                    <div className="text-xs font-medium text-[var(--terra-muted)] px-2 py-1">Выбор месяца</div>
                     <div className="flex items-center justify-between px-2 pb-1 border-b border-[#EAE6DE]/60 dark:border-white/5">
                       <button
                         type="button"
@@ -452,11 +452,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </>
               )}
             </div>
-          }
-        />
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
           {/* KPI & Family Overview Card */}
           <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
@@ -614,16 +612,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       title={settings.privacyMode ? undefined : `Доходы: ${formatBudgetMoney(stat.income)} ₽, расходы: ${formatBudgetMoney(stat.expense)} ₽, итог: ${formatBudgetMoney(stat.net)} ₽`}
                       onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between relative cursor-pointer transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
+                        isSelected ? 'ring-2 ring-[var(--terra-focus)] z-10' : ''
                       } ${
                         isToday 
-                          ? 'bg-[#DDEFE2] dark:bg-[#1E3325] border border-[#4A7C59]/40' 
+                          ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-text)]' 
                           : 'bg-white dark:bg-[var(--terra-soft)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className={`text-xs ${
-                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[#C4A66A]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
+                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
                         }`}>
                           {dayNum}
                         </span>
@@ -634,9 +632,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
                       <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
                         stat.net < 0
-                          ? 'text-[#B83230] bg-[#FFDAD8]/50 dark:bg-red-950/40'
+                          ? 'text-[var(--terra-danger-text)] bg-[var(--terra-danger-soft)]'
                           : stat.net > 0
-                          ? 'text-[var(--terra-primary)] bg-[#C8E8D0]/60 dark:bg-green-950/40'
+                          ? 'text-[var(--terra-primary-text)] bg-[var(--terra-primary-soft)]'
                           : 'text-[var(--terra-muted)] dark:text-gray-400'
                       }`}>
                         {settings.privacyMode ? '•••' : badgeText}
@@ -672,15 +670,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       aria-label={inMonth?`Выбрать ${dayNum} ${mobileMonthName}`:undefined}
                       onKeyDown={(e) => { if(inMonth&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-14 rounded-lg p-1.5 flex flex-col justify-between relative cursor-pointer transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isSelected ? 'ring-2 ring-[#4A7C59] z-10' : ''
+                        isSelected ? 'ring-2 ring-[var(--terra-focus)] z-10' : ''
                       } ${
                         !inMonth ? 'bg-[#EAE6DE]/30 dark:bg-white/5 opacity-40' :
-                        isToday ? 'bg-[#DDEFE2] dark:bg-[#1E3325] border border-[#4A7C59]/40' : 'bg-white dark:bg-[var(--terra-soft)]'
+                        isToday ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-text)]' : 'bg-white dark:bg-[var(--terra-soft)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className={`text-xs ${
-                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[#C4A66A]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
+                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
                         }`}>
                           {dayNum}
                         </span>
@@ -892,8 +890,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {displayTopCategories.map((cat, idx) => (
                 <div 
                   key={cat.id || idx} 
+                  role={cat.id!=='uncategorized'&&onSelectCategory?'button':undefined}
+                  tabIndex={cat.id!=='uncategorized'&&onSelectCategory?0:undefined}
+                  aria-label={cat.id!=='uncategorized'&&onSelectCategory?`Аналитика категории: ${cat.label || (cat as any).name || 'Категория'}`:undefined}
+                  onKeyDown={e=>{if(cat.id!=='uncategorized'&&onSelectCategory&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onSelectCategory(cat.id);}}}
                   onClick={cat.id === 'uncategorized' ? undefined : () => onSelectCategory?.(cat.id)}
-                  className={`flex flex-col gap-1 min-h-[44px] px-1 py-2 rounded-lg ${cat.id === 'uncategorized' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'}`}
+                  className={`flex flex-col gap-1 min-h-[44px] px-1 py-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${cat.id === 'uncategorized' ? '' : 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'}`}
                   title={cat.id === 'uncategorized' ? 'Расходы без назначенной категории' : `Аналитика категории «${cat.label || (cat as any).name || ''}»`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -952,7 +954,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* ========================================================= */}
       {/* DESKTOP VIEW (Visible on md and up)                       */}
       {/* ========================================================= */}
-      <div className="hidden md:flex flex-col min-w-0 min-h-0 flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 pt-6 pb-20 gap-5 text-graphite dark:text-gray-100">
+      <div className="terra-budget-layout hidden md:flex flex-col min-w-0 min-h-0 flex-1 overflow-y-auto no-scrollbar w-full max-w-[1600px] mx-auto p-6 lg:p-8 pb-8 gap-5 text-[var(--terra-ink)]">
         {/* 1. TOP HEADER: Title, Month, Family Filters, Actions */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-border/70 dark:border-white/10">
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
@@ -1194,9 +1196,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </section>
 
       {/* 3. MAIN WORKSPACE: 7-col Interactive Calendar + 5-col Analytics Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="terra-budget-columns grid gap-5">
         {/* LEFT / CENTER: Full Calendar & Selected Day Detail (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
+        <div className="min-w-0 flex flex-col gap-4">
           {/* Full Interactive Calendar Card */}
           <div data-testid="budget-calendar-desktop" className={`${SURFACE_CARD} min-w-0`}>
             {/* Calendar Header */}
@@ -1327,20 +1329,20 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     {/* Amount badge on cell: Income minus expense (Day Net) */}
                     {hasTransactions ? (
                       dayNet > 0 ? (
-                        <div className="hidden sm:block bg-emerald-50 dark:bg-emerald-950/40 text-primary dark:text-green-400 font-headline text-[9px] font-extrabold px-1 py-0.5 rounded border border-primary/30 truncate text-right">
+                        <div className="hidden sm:block bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-headline text-xs tabular-nums font-extrabold px-1 py-0.5 rounded border border-primary/30 truncate text-right">
                           {settings.privacyMode ? '•••' : `+${formatDayAmount(dayNet)} ₽`}
                         </div>
                       ) : dayNet < 0 ? (
-                        <div className="hidden sm:block bg-[#FDF2F0] dark:bg-red-950/40 text-[#D95C48] dark:text-red-400 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-red-200 dark:border-red-900/30 truncate text-right">
+                        <div className="hidden sm:block bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)] font-headline text-xs tabular-nums font-bold px-1 py-0.5 rounded border border-red-200 dark:border-red-900/30 truncate text-right">
                           {settings.privacyMode ? '•••' : `-${formatDayAmount(dayNet)} ₽`}
                         </div>
                       ) : (
-                        <div className="hidden sm:block bg-[var(--terra-soft)] dark:bg-white/5 text-graphite-muted dark:text-gray-400 font-headline text-[9px] font-semibold px-1 py-0.5 rounded border border-surface-border/60 dark:border-white/10 truncate text-right">
+                        <div className="hidden sm:block bg-[var(--terra-soft)] text-[var(--terra-muted)] font-headline text-xs tabular-nums font-semibold px-1 py-0.5 rounded border border-surface-border/60 dark:border-white/10 truncate text-right">
                           {settings.privacyMode ? '•••' : '0 ₽'}
                         </div>
                       )
                     ) : paidMandatory ? (
-                      <div className="hidden sm:block bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-headline text-[9px] font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
+                      <div className="hidden sm:block bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)] font-headline text-xs tabular-nums font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
                         {settings.privacyMode ? '•••' : `${formatDayAmount(paidMandatory.amount)} ₽`}
                       </div>
                     ) : null}
@@ -1514,7 +1516,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         </div>
 
         {/* RIGHT: Analytics Sidebar (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div className="min-w-0 flex flex-col gap-4">
           {/* 1. Category Breakdown Card */}
           <div className={`${SURFACE_CARD} min-w-0`}>
             <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-surface-border/70 dark:border-white/10">
@@ -1746,7 +1748,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 <option value="income">Доходы</option>
               </select>
             </div>
-            <div className="max-h-72 overflow-y-auto divide-y divide-[var(--terra-border)] overscroll-contain">
+            <div className="divide-y divide-[var(--terra-border)]">
               {visibleHistory.length===0 && (
                 <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
                   {historySearch.trim() || historyType!=='all'

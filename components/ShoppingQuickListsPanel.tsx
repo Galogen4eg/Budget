@@ -136,13 +136,13 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
         <button type="button" onClick={() => setSection(section === 'templates' ? null : 'templates')}
           aria-expanded={section === 'templates'}
           aria-controls="shopping-template-options"
-          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-[var(--terra-border)] px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          className="min-w-0 min-h-[44px] justify-center rounded-xl bg-[var(--terra-soft)] text-[var(--terra-ink)] px-2 sm:px-3 py-2 text-sm font-semibold flex items-center gap-1.5 sm:gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
           <BookMarked size={16}/> Быстрые списки {section === 'templates' && <ChevronUp size={14}/>}
         </button>
         <button type="button" onClick={() => setSection(section === 'history' ? null : 'history')}
           aria-expanded={section === 'history'}
           aria-controls="shopping-repeat-options"
-          className="min-w-0 min-h-[44px] justify-center rounded-xl border border-[var(--terra-border)] px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          className="min-w-0 min-h-[44px] justify-center rounded-xl bg-[var(--terra-soft)] text-[var(--terra-ink)] px-2 sm:px-3 py-2 text-sm font-semibold flex items-center gap-1.5 sm:gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
           <RotateCcw size={16}/> Повторить покупки {section === 'history' && <ChevronUp size={14}/>}
         </button>
       </div>

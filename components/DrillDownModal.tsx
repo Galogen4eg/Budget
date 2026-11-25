@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
@@ -439,6 +440,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     : 'Текущий месяц';
 
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const surface=useModalSurface(onClose,{enabled:!isMobile,initialSelector:'[aria-label="Закрыть"]'});
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -565,12 +567,12 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       />
       
       {/* Main Modal Inspector Card with LOCKED CONSTANT HEIGHT to prevent size jumping */}
-      <motion.div
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-label="Аналитика операций" data-testid="transaction-drilldown" data-view={viewMode}
         initial={{ opacity: 0, scale: 0.98, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: 6 }}
         transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-6xl 2xl:max-w-7xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[90vh] max-h-[880px] min-h-[580px] border border-[#E4E0D8]/60 dark:border-white/10"
+        className="relative bg-[#FAF6F0] dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-6xl 2xl:max-w-7xl rounded-3xl shadow-[0_20px_60px_rgba(46,50,48,0.22)] overflow-hidden flex flex-col h-[90dvh] max-h-[880px] min-h-0 border border-[#E4E0D8]/60 dark:border-white/10"
       >
         {/* 1. Unified Top Modal Header */}
         <div className="bg-[#FAF6F0] dark:bg-[#1C1C1E] border-b border-[#E4E0D8] dark:border-white/10 flex flex-wrap items-center justify-between px-5 sm:px-8 py-3.5 gap-3 shrink-0">
@@ -613,7 +615,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     ? 'bg-[var(--terra-surface)] text-[#2E3230] dark:text-white shadow-xs'
                     : 'text-[#68726B] dark:text-stone-400 hover:text-[#2E3230] dark:hover:text-white'
                 }`}
-                title="Реестр операций"
+                title="Реестр операций" aria-label="Реестр операций" aria-pressed={viewMode==='inspector'}
               >
                 <List className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Реестр</span>
@@ -626,7 +628,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     ? 'bg-[#4A7C59] text-white shadow-xs'
                     : 'text-[#68726B] dark:text-stone-400 hover:text-[#2E3230] dark:hover:text-white'
                 }`}
-                title="Аналитика и графики трат"
+                title="Аналитика и графики трат" aria-label="Аналитика и графики трат" aria-pressed={viewMode==='analytics'}
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Аналитика</span>
@@ -639,8 +641,8 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
             <button 
               type="button"
               onClick={onClose} 
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-[#68726B] dark:text-stone-300 hover:bg-[#EAE6DE] dark:hover:bg-[#2C2C2E] transition-colors shrink-0 cursor-pointer"
-              title="Закрыть"
+              className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] flex items-center justify-center text-[#68726B] dark:text-stone-300 hover:bg-[#EAE6DE] dark:hover:bg-[#2C2C2E] transition-colors shrink-0 cursor-pointer"
+              title="Закрыть" aria-label="Закрыть"
             >
               <X className="w-5 h-5" />
             </button>
@@ -999,10 +1001,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     <div className="text-2xl font-headline font-extrabold text-[#2E3230] dark:text-white tracking-tight">
                       {settings.privacyMode ? '••••••' : `${totalExpense.toLocaleString('ru-RU')} ₽`}
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-[#4A7C59] dark:text-green-400 font-bold">
-                      <TrendingDown className="w-4 h-4" />
-                      <span>-18% к августу (оптимальный тренд)</span>
-                    </div>
+
                   </div>
                 </div>
 
@@ -1058,8 +1057,8 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                 categories={categories}
               />
 
-              {/* 3. Bottom Analytics Split (2 Columns) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Actual distribution by member */}
+              <div className="grid grid-cols-1 gap-5">
                 
                 {/* Left Column: Family Distribution */}
                 <div className="p-5 rounded-2xl bg-[#F5F1EA]/70 dark:bg-[#242428] border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col justify-between space-y-4">
@@ -1106,58 +1105,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                     })}
                   </div>
 
-                  <div className="pt-2 text-[11px] text-[#68726B] flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#4A7C59]" />
-                    <span>Основная доля списаний пришлась на плановые семейные расходы.</span>
-                  </div>
-                </div>
 
-                {/* Right Column: Insights & AI Patterns */}
-                <div className="p-5 rounded-2xl bg-[#F5F1EA]/70 dark:bg-[#242428] border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col justify-between space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#E4E0D8] dark:border-white/10">
-                    <div className="flex items-center gap-2">
-                      <PieChart className="w-4 h-4 text-amber-600" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#2E3230] dark:text-white">
-                        Аналитические выводы и паттерны
-                      </h4>
-                    </div>
-                    <span className="text-[11px] text-[#4A7C59] font-bold">Аналитика</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {/* Insight 1 */}
-                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
-                      <div className="w-6 h-6 rounded-lg bg-[#F5F1EA] dark:bg-stone-800 text-[#2E3230] dark:text-stone-300 flex items-center justify-center shrink-0 mt-0.5">
-                        <CalendarIcon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="text-xs text-[#68726B] dark:text-stone-300 leading-snug">
-                        <strong className="text-[#2E3230] dark:text-white font-bold block mb-0.5">Пиковые дни: Пятница и суббота</strong>
-                        Совершается до 67% операций категории. Рекомендуется планировать баланс заранее перед выходными.
-                      </div>
-                    </div>
-
-                    {/* Insight 2 */}
-                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
-                      <div className="w-6 h-6 rounded-lg bg-[#EAF2EC] dark:bg-green-950/40 text-[#4A7C59] flex items-center justify-center shrink-0 mt-0.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="text-xs text-[#68726B] dark:text-stone-300 leading-snug">
-                        <strong className="text-[#2E3230] dark:text-white font-bold block mb-0.5">Лимит категории</strong>
-                        Траты на 18% ниже запланированного бюджета категории. Экономия составила {Math.round(totalExpense * 0.18).toLocaleString('ru-RU')} ₽.
-                      </div>
-                    </div>
-
-                    {/* Insight 3 */}
-                    <div className="p-2.5 rounded-xl bg-[var(--terra-surface)] border border-[#E4E0D8]/60 dark:border-white/10 flex items-start gap-3 shadow-2xs">
-                      <div className="w-6 h-6 rounded-lg bg-[#F0E8DB] dark:bg-stone-800 text-[#4A4538] dark:text-stone-300 flex items-center justify-center shrink-0 mt-0.5">
-                        <Zap className="w-3.5 h-3.5 text-amber-600" />
-                      </div>
-                      <div className="text-xs text-[#68726B] dark:text-stone-300 leading-snug">
-                        <strong className="text-[#2E3230] dark:text-white font-bold block mb-0.5">Основной канал переводов</strong>
-                        92% операций выполнены через СБП без комиссий.
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
               </div>

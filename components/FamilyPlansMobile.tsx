@@ -56,6 +56,7 @@ interface FamilyPlansMobileProps {
   
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
+  beforeContent?: React.ReactNode;
 }
 
 const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
@@ -77,7 +78,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   isProcessingVoice,
   startListening,
   onOpenSettings,
-  onOpenNotifications
+  onOpenNotifications,
+  beforeContent
 }) => {
   const [filterMemberId, setFilterMemberId] = useState<string | 'all' | 'common'>('all');
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
@@ -745,16 +747,17 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         onAdd={() => onOpenEvent(null)}
         addTitle="Добавить событие"
         onOpenSettings={onOpenSettings}
+        onOpenNotifications={onOpenNotifications}
         rightExtra={
           <button
             type="button"
             onClick={startListening}
             aria-label="Голосовой ввод"
-            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-colors cursor-pointer ${
+            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
               isListening
-                ? 'bg-red-500 text-white '
+                ? 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]'
                 : isProcessingVoice
-                ? 'bg-amber-500 text-white'
+                ? 'bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]'
                 : 'bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white hover:text-[var(--terra-primary)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 shadow-xs'
             }`}
             title="Голосовой ввод события"
@@ -764,8 +767,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         }
       />
 
-      {/* 2. MAIN CONTENT WRAPPER with bottom nav padding */}
-      <div className="px-3.5 pt-3 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3.5 max-w-md sm:max-w-3xl mx-auto w-full">
+      {beforeContent}
+      {/* Main scroll content */}
+      <div className="px-4 pt-3 pb-4 md:pb-6 space-y-4 max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (
@@ -783,11 +787,11 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800 dark:text-rose-200 bg-rose-200/60 dark:bg-rose-900/80 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-semibold text-[var(--terra-danger-text)]">
                     Конфликт расписания
                   </span>
                 </div>
-                <p className="text-xs font-bold text-stone-900 dark:text-white truncate mt-0.5">
+                <p className="text-sm font-medium text-[var(--terra-ink)] break-words mt-0.5">
                   Обнаружено наложение по времени ({conflictPairs.length} {conflictPairs.length === 1 ? 'событие' : 'события'})
                 </p>
               </div>

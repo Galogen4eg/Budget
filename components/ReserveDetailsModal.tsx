@@ -1,3 +1,4 @@
+import { useModalSurface } from '../hooks/useDialogFocus';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -101,6 +102,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   currency = '₽'
 }) => {
   useBodyScrollLock(isOpen ?? true);
+  const surface=useModalSurface(onClose,{enabled:isOpen??true,initialSelector:'[aria-label="Закрыть"]'});
 
   const currentMonthName = useMemo(() => {
     const raw = new Date().toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
@@ -192,15 +194,13 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto">
-      <motion.div 
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-reserve-heading"
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 16 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-5xl bg-[#FCFAF7] dark:bg-[#1C1C1E] border-0 sm:border border-stone-200/90 dark:border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl shadow-stone-900/15 overflow-hidden text-stone-800 dark:text-stone-100 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-5xl bg-[var(--terra-surface)] border-0 sm:border border-[var(--terra-border)] rounded-none sm:rounded-2xl shadow-xl overflow-hidden text-stone-800 dark:text-stone-100 my-auto h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
-        {/* Top Decorative Glow Accent */}
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-36 bg-primary/10 blur-3xl pointer-events-none rounded-full" />
 
         {/* Modal Header */}
         <div className="px-6 md:px-8 pt-6 pb-4 border-b border-stone-200/70 dark:border-white/10 flex items-center justify-between relative z-10 bg-white/60 dark:bg-[#1C1C1E]/60 backdrop-blur-sm shrink-0">
@@ -210,15 +210,13 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl md:text-2xl font-display font-bold tracking-tight text-stone-900 dark:text-white">
+                <h2 id="terra-reserve-heading" className="text-xl md:text-2xl font-display font-bold tracking-tight text-stone-900 dark:text-white">
                   Структура резерва
                 </h2>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary dark:text-green-400 border border-primary/20">
-                  Активен
-                </span>
+
               </div>
-              <p className="text-[10px] sm:text-xs font-semibold text-stone-500 dark:text-stone-400 tracking-wider uppercase mt-0.5">
-                ПОЧЕМУ ЭТИ ДЕНЬГИ ВРЕМЕННО НЕДОСТУПНЫ ДЛЯ СВОБОДНЫХ ТРАТ
+              <p className="text-xs text-[var(--terra-muted)] mt-0.5">
+                Почему эти деньги временно недоступны
               </p>
             </div>
           </div>
@@ -227,7 +225,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Закрыть" 
-            className="w-10 h-10 rounded-full bg-stone-100 dark:bg-[#2C2C2E] hover:bg-stone-200 dark:hover:bg-[#3A3A3C] text-stone-500 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition flex items-center justify-center border border-stone-200/80 dark:border-white/10 shrink-0"
+            className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] bg-stone-100 dark:bg-[#2C2C2E] hover:bg-stone-200 dark:hover:bg-[#3A3A3C] text-stone-500 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition flex items-center justify-center border border-stone-200/80 dark:border-white/10 shrink-0"
           >
             <X className="w-5 h-5" />
           </button>

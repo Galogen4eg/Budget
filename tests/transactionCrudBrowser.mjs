@@ -99,6 +99,38 @@ try{
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const a=await openUser(users[0],{width:390,height:844});
  const b=await openUser(users[1],{width:1440,height:900});
+ let notificationFailure=false;
+ try{
+  const open=visible(b.getByRole('button',{name:'Уведомления',exact:true}));
+  await open.click();
+  const modal=b.getByRole('dialog',{name:'Уведомления',exact:true});
+  await modal.getByText('Нет уведомлений',{exact:true}).waitFor({state:'visible'});
+  assert.equal(await modal.getByRole('button',{name:'Прочитать все',exact:true}).isDisabled(),true);
+  await modal.getByRole('button',{name:'Закрыть',exact:true}).focus();
+  await b.keyboard.press('Shift+Tab');
+  assert.equal(await modal.getByRole('button',{name:'Новые 0',exact:true}).evaluate(el=>document.activeElement===el),true,'Focus must wrap to last control');
+  await b.keyboard.press('Tab');
+  assert.equal(await modal.getByRole('button',{name:'Закрыть',exact:true}).evaluate(el=>document.activeElement===el),true,'Focus must wrap to first control');
+  const unread=modal.getByRole('button',{name:'Новые 0',exact:true});
+  await unread.click();
+  assert.equal(await unread.getAttribute('aria-pressed'),'true');
+  await modal.getByText('Нет новых уведомлений',{exact:true}).waitFor({state:'visible'});
+  await modal.getByRole('button',{name:'Закрыть',exact:true}).click();
+  await modal.waitFor({state:'hidden'});
+  await open.click();
+  await modal.getByText('Нет уведомлений',{exact:true}).waitFor({state:'visible'});
+  await modal.getByRole('button',{name:'Закрыть',exact:true}).click();
+  await modal.waitFor({state:'hidden'});
+  console.log('PASS RC-01 authenticated empty notifications, filter and reopen');
+ }catch(error){
+  notificationFailure=true;
+  console.error('FAIL RC-01 notifications:',String(error?.message??error).slice(0,500));
+  await b.reload({waitUntil:'domcontentloaded'});
+  await visible(b.getByRole('button',{name:'Бюджет',exact:true})).waitFor({state:'visible',timeout:60000});
+  await visible(b.getByRole('button',{name:'Бюджет',exact:true})).click();
+  await edit(b,original.note).waitFor({state:'visible',timeout:20000});
+ }
+
  // U + R: rename a bank-imported expense from the second account. Verify
  // the actual Firestore document and the first user's subscribed UI.
  await edit(b,original.note).click();
@@ -143,6 +175,7 @@ try{
  await edit(b,'QA переименовано').waitFor({state:'visible'});
  assert.equal((await rows.get()).size,1);
  console.log('PASS authenticated transaction CRUD, imported rename, real rules, two independent sessions, server reread and reload');
+ if(notificationFailure)process.exitCode=1;
 }catch(error){
  for(const context of browser?.contexts()??[])for(const page of context.pages()){
   console.error('CRUD failure visible UI:',(await page.locator('body').innerText().catch(()=>'' )).slice(0,2500));

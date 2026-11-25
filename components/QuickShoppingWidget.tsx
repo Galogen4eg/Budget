@@ -38,7 +38,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('shopping')}
-          aria-label="Открыть все покупки"
+          aria-label="Открыть все покупки" data-testid="overview-shopping-link"
           className="min-h-[44px] shrink-0 flex items-center gap-0.5 px-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition cursor-pointer"
         >
           <span>Все</span>

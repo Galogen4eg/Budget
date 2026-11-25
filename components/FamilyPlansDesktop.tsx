@@ -280,7 +280,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     <div className="flex items-start min-w-0 w-full bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-white font-body">
       
       {/* Левая и центральная область: Календарь планов */}
-      <main className="flex-1 flex flex-col min-w-0 p-4 xl:p-6">
+      <main className="flex-1 flex flex-col min-w-0 p-6 xl:p-8">
         
         {/* Верхняя панель: Месяц, бейдж дней, фильтры и контролы */}
         <header className="flex flex-wrap items-center justify-between gap-4 mb-5 shrink-0">

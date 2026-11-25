@@ -13,7 +13,11 @@ test('mobile balance never presents a fabricated percentage or unverified month-
   assert.doesNotMatch(overview, /Доступно до конца\s*\{/);
 });
 test('mobile overview supports safe-area insets and long balance values', () => {
-  assert.match(overview, /pb-\[calc\(6rem\+env\(safe-area-inset-bottom,0px\)\)\]/);
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/terra-ui.css', import.meta.url), 'utf8');
+  assert.match(app, /data-terra-tabbar className="md:hidden shrink-0/);
+  assert.match(css, /\.terra-shell \{padding-top:env\(safe-area-inset-top,0px\);\}/);
+  assert.doesNotMatch(overview,/pb-\[calc\(6rem\+env/);
   assert.match(overview, /break-words.*tabular-nums/);
 });
 test('mobile header and spending scale controls expose touch-size targets', () => {

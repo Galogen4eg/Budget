@@ -1,3 +1,5 @@
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -107,6 +109,9 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
   const [conflictToConfirm, setConflictToConfirm] = useState<{ eventData: FamilyEvent; conflictingEvent: FamilyEvent } | null>(null);
+  useBodyScrollLock();
+  const surface=useModalSurface<HTMLElement>(()=>{if(!isSaving)onClose();},{initialSelector:'[aria-label="Закрыть редактор события"]'});
+  const conflictSurface=useModalSurface(()=>setConflictToConfirm(null),{enabled:!!conflictToConfirm});
 
   // Custom reminder state
   const [isCustomReminderOpen, setIsCustomReminderOpen] = useState(false);
@@ -359,14 +364,14 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 select-none animate-in fade-in duration-200"
-      onClick={onClose}
+      className="fixed inset-0 z-[2000] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 motion-reduce:animate-none"
+      onClick={()=>{if(!isSaving&&!conflictToConfirm)onClose();}}
     >
-      <main 
+      <main {...surface}
         role="dialog"
-        aria-modal="true"
+        aria-modal="true" aria-label={event?'Редактировать план':'Новый план'}
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-[520px] md:max-w-3xl max-h-[calc(100dvh-env(safe-area-inset-top,0px))] md:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-t-[28px] md:rounded-3xl shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
+        className="w-full max-w-[520px] md:max-w-3xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-none sm:rounded-2xl pt-[env(safe-area-inset-top,0px)] sm:pt-0 shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
       >
         {/* Mobile Pull Handle */}
         <div className="w-full flex justify-center pt-2 md:hidden shrink-0">
@@ -424,7 +429,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </button>
               <button 
                 type="button"
-                onClick={onClose} 
+                onClick={onClose} disabled={isSaving}
                 aria-label="Закрыть редактор события"
                 className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-[#F5F2EB] dark:bg-white/10 border border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#2C2723] dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               >
@@ -917,7 +922,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         {/* Conflict Confirmation Modal */}
         {conflictToConfirm && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-xs bg-white dark:bg-[#1E1E20] rounded-xl p-4 shadow-xl border border-amber-200 dark:border-amber-800/60 space-y-3">
+            <div {...conflictSurface} role="alertdialog" aria-modal="true" aria-label="Пересечение по времени" className="w-full max-w-xs bg-[var(--terra-surface)] rounded-xl p-4 shadow-xl border border-[var(--terra-border)] space-y-3">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>

@@ -39,6 +39,7 @@ export interface ShoppingListMobileProps {
   onSendToTelegram: (items: ShoppingItem[]) => Promise<boolean>;
   onOpenSettings?: () => void;
   onOpenNotifications?: () => void;
+  beforeContent?: React.ReactNode;
 }
 
 export const AISLES = [
@@ -67,7 +68,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   onMoveToPantry,
   onSendToTelegram,
   onOpenSettings,
-  onOpenNotifications
+  onOpenNotifications,
+  beforeContent
 }) => {
   const { familyId, user } = useAuth();
 
@@ -503,13 +505,14 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
 
   return (
-    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
+    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-4 md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
         title="Список покупок"
         onAdd={handleOpenAdd}
         addTitle="Добавить товар"
         onOpenSettings={onOpenSettings}
+        onOpenNotifications={onOpenNotifications}
         rightExtra={
           <button 
             type="button"
@@ -517,7 +520,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             disabled={isSendingTelegram}
             title="Отправить список в Telegram"
             aria-label="Отправить список в Telegram"
-            className="min-w-[44px] min-h-[44px] rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 text-[var(--terra-primary)] dark:text-emerald-400 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer border border-[#EAE5DB]/60 dark:border-white/5"
+            className="min-w-[44px] min-h-[44px] rounded-xl bg-[var(--terra-soft)] hover:bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center transition-colors terra-press cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
           >
             {isSendingTelegram ? (
               <Loader2 size={18} className="animate-spin" />
@@ -527,6 +530,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           </button>
         }
       />
+      {beforeContent}
       
       {/* Hidden file input for scanner */}
       <input 
@@ -588,7 +592,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col w-full max-w-md mx-auto px-4 pt-3 space-y-3.5">
+      <div className="flex flex-col w-full max-w-3xl mx-auto px-4 pt-3 space-y-4">
         
         {/* Status Counters Strip */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
@@ -1022,17 +1026,17 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        className="relative z-10 bg-white dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] dark:border-white/10 rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item className="relative z-10 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
           <button 
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(item);
             }}
-            aria-label="Отметить как купленное"
+            aria-label={`Отметить как купленное: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[var(--terra-primary)]  flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Check size={14} className="text-transparent" />
@@ -1048,13 +1052,13 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               {isUrgent && (
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[#B45309] dark:text-[#FCD34D] text-[10px] font-bold">
+                <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[var(--terra-offline-text)] text-xs font-semibold">
                   <Zap size={10} className="fill-current" />
                   <span>Срочно</span>
                 </span>
               )}
               {item.note && (
-                <span className="text-[11px] text-[var(--terra-muted)] dark:text-stone-400 truncate max-w-[140px]">
+                <span className="text-xs text-[var(--terra-muted)] break-words [overflow-wrap:anywhere] max-w-full">
                   {item.note}
                 </span>
               )}
@@ -1073,12 +1077,12 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, -1);
             }}
-            aria-label="Уменьшить количество"
+            aria-label="Уменьшить количество" title={`Уменьшить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             -
           </button>
-          <span className="text-xs font-bold text-[var(--terra-ink)] dark:text-white px-1.5 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
+          <span className="text-sm font-semibold text-[var(--terra-ink)] px-2 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 
@@ -1087,7 +1091,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, 1);
             }}
-            aria-label="Увеличить количество"
+            aria-label="Увеличить количество" title={`Увеличить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             +

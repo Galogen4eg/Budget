@@ -1,3 +1,4 @@
+import { FinancialDataState } from './FinancialDataState';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
@@ -16,13 +17,15 @@ interface ServicesHubProps {
   onClearService?: () => void;
   onNavigateHome?: () => void;
   onOpenSettings?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 const ServicesHub: React.FC<ServicesHubProps> = ({ 
   initialService, 
   onClearService, 
   onNavigateHome,
-  onOpenSettings
+  onOpenSettings,
+  onOpenNotifications
 }) => {
   const isValidService = (value: string | null | undefined): value is ServiceType =>
     value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
@@ -33,7 +36,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     financialSettings: settings, 
     debts, setDebts,
     loyaltyCards, setLoyaltyCards,
-    transactions
+    transactions,financialDataStatus,retryFinancialData
   } = useData();
 
   useEffect(() => {
@@ -59,7 +62,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         </svg>
       ),
       component: (
-        <DebtSnowball 
+        financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={onOpenSettings}/>:<DebtSnowball 
           debts={debts} 
           setDebts={setDebts} 
           settings={settings} 
@@ -110,32 +113,33 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
       <div className="md:hidden shrink-0">
         <TerraMobileHeader 
           title="Сервисы" 
-          onOpenSettings={onOpenSettings} 
+          onOpenSettings={onOpenSettings}
+          onOpenNotifications={onOpenNotifications} 
         />
       </div>
 
-      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-6xl mx-auto px-3 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 space-y-4">
+      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-[1280px] mx-auto px-4 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-4 md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
             <h1 className={`hidden md:block ${PAGE_HEADING}`}>Сервисы</h1>
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
-            <div className="grid grid-cols-1 min-[375px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" data-purpose="service-cards-grid">
+            <div className="terra-service-grid grid gap-3 sm:gap-4" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <button
                   type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[#4A7C59]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] group cursor-pointer`}
+                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[var(--terra-primary-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] group cursor-pointer`}
                 >
                   <div>
                     {/* Card Top Bar: Icon and Arrow */}
                     <div className="flex items-start justify-between mb-2 sm:mb-3.5">
                       {/* Icon with Sage/Mint Rounded Container */}
-                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#EBF4EE] dark:bg-[#243628] border border-[#D8E8DE] dark:border-green-800/40 flex items-center justify-center text-[#3B7A57] dark:text-emerald-400  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
+                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[var(--terra-primary-soft)] flex items-center justify-center text-[var(--terra-primary-text)]  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
                         {app.icon}
                       </div>
 
-                      <div className="text-stone-400 dark:text-stone-500 group-hover:text-[#3B7A57] dark:group-hover:text-emerald-400 transition-colors p-0.5 sm:p-1">
+                      <div className="text-[var(--terra-muted)] group-hover:text-[var(--terra-primary-text)] transition-colors p-0.5 sm:p-1">
                         <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 " />
                       </div>
                     </div>
@@ -145,7 +149,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
                       <h2 className="text-sm sm:text-base font-semibold text-[var(--terra-ink)] dark:text-white leading-snug break-words">
                         {app.label}
                       </h2>
-                      <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-relaxed line-clamp-2">
+                      <p className="text-sm text-[var(--terra-muted)] mt-1 leading-relaxed break-words">
                         {app.desc}
                       </p>
                     </div>

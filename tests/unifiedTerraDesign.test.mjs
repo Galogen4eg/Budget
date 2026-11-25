@@ -46,7 +46,8 @@ test('chat and shared mobile header use consistent page hierarchy and controls',
  assert.match(chat,/Создать тему/);
  assert.match(chat,/rounded-none md:rounded-2xl/);
  assert.match(mobileHeader,/PAGE_HEADING/);
- assert.match(mobileHeader,/w-11 h-11/);
+ assert.match(mobileHeader,/\$\{ICON_ACTION\}/);
+ assert.match(token,/ICON_ACTION = '[^']*h-11 w-11/);
 });
 
 test('calendar agenda and desktop view controls use nonshrinking tokens',()=>{

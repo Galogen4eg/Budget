@@ -10,7 +10,10 @@ const budget=read('TerraBudget.tsx');
 const app=readFileSync(new URL('../App.tsx',import.meta.url),'utf8');
 
 test('mobile plans share one vertical scroll container, not two nested scroll panes',()=>{
- assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y pt-\[calc\(64px\+env\(safe-area-inset-top\)\)\] md:pt-0/);
+ assert.match(plans,/overflow-y-auto overscroll-y-contain touch-pan-y/);
+ assert.doesNotMatch(plans,/pt-\[calc\(64px\+/);
+ assert.match(plans,/beforeContent=\{<FamilyAgendaPanel/);
+ assert.ok(plansMobile.indexOf('<TerraMobileHeader')<plansMobile.indexOf('{beforeContent}'));
  assert.match(plans,/flex-none min-w-0/);
  assert.doesNotMatch(plans,/lg:overflow-hidden|md:overflow-hidden/);
  assert.match(plansMobile,/overflow-visible/);
@@ -29,7 +32,8 @@ test('overview chart uses restrained focus handling with a text alternative',()=
  assert.match(overview,/Лимит не задан/);
 });
 test('overview and budget share mobile surface and minimum 44px actions',()=>{
- assert.match(overview,/bg-\[#FAF6F0\]/);
+ assert.match(overview,/bg-\[var\(--terra-canvas\)\]/);
+ assert.match(budget,/bg-\[var\(--terra-canvas\)\]/);
  assert.match(budget,/min-h-\[44px\]/);
  assert.match(budget,/flex-wrap/);
 });

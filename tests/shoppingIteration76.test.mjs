@@ -52,7 +52,10 @@ test('iteration 76: responsive browser gate covers Shopping at the existing six 
  assert.match(src,/shoppingOverflow\.body<=shoppingOverflow\.viewport\+2/);
 });
 
-test('iteration 76: shopping panels sit below fixed mobile Terra navigation',()=>{
+test('iteration 76: shopping panels follow the single mobile header in flow',()=>{
  const wrapper=read('../components/ShoppingList.tsx');
- assert.match(wrapper,/pt-\[calc\(64px\+env\(safe-area-inset-top,0px\)\)\] md:pt-0/);
+ const mobile=read('../components/ShoppingListMobile.tsx');
+ assert.doesNotMatch(wrapper,/pt-\[calc\(64px\+/);
+ assert.match(wrapper,/beforeContent=\{<ShoppingQuickListsPanel/);
+ assert.ok(mobile.indexOf('<TerraMobileHeader')>=0&&mobile.indexOf('{beforeContent}')>mobile.indexOf('<TerraMobileHeader'));
 });

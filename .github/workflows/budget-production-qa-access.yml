@@ -6,6 +6,8 @@ on:
       - 'tests/productionQaAccess.mjs'
       - 'tests/productionTransactionCrud.mjs'
       - 'tests/productionNavigation.mjs'
+      - 'tests/navigationAudit.mjs'
+      - 'tests/productionModulesCrud.mjs'
       - '.github/workflows/budget-production-qa-access.yml'
   workflow_dispatch:
 permissions:
@@ -14,15 +16,28 @@ concurrency:
   group: budget-production-qa
   cancel-in-progress: false
 jobs:
-  read-only-access:
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/production-access-check')
+  validate-scripts:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
+      - name: Validate production QA scripts without connecting to Firebase
+        run: node --check tests/productionQaAccess.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs && node --check tests/navigationAudit.mjs && node --check tests/productionModulesCrud.mjs
+  read-only-access:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Check production QA script syntax
+        run: node --check tests/productionQaAccess.mjs && node --check tests/productionModulesCrud.mjs && node --check tests/productionTransactionCrud.mjs && node --check tests/productionNavigation.mjs && node --check tests/navigationAudit.mjs
       - name: Verify secrets and read-only production access
         id: access
         env:
@@ -42,9 +57,14 @@ jobs:
           QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
         run: node tests/productionTransactionCrud.mjs
       - name: Verify production navigation across all six sections and settings
-        if: always() && steps.access.outcome == 'success' && steps.chromium.outcome == 'success'
         env:
           QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
           QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
           QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
         run: node tests/productionNavigation.mjs
+      - name: Verify additional authenticated modules on actual production
+        env:
+          QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
+          QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
+          QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
+        run: node tests/productionModulesCrud.mjs

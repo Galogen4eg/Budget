@@ -211,19 +211,21 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
         <h3 className={SECTION_HEADING}>Доходы и расходы</h3>
         <p className="mt-1 text-sm text-[var(--terra-muted)]">{monthLabel}</p>
       </div>
-      <div role="group" aria-label="Состав графика" className={FILTER_RAIL}>
+      <div className="terra-chart-toolbar flex flex-wrap items-center justify-between gap-2">
+      <div role="group" aria-label="Состав графика" className={FILTER_RAIL+" terra-chart-rail"}>
         {(['all','expense','income'] as const).map(value=><button type="button" key={value}
           onClick={()=>setChartSeriesFilter(value)} aria-pressed={chartSeriesFilter===value}
           className={FILTER_CHIP+' terra-press '+(chartSeriesFilter===value?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}>
           {value==='all'?'Все':value==='expense'?'Расходы':'Доходы'}
         </button>)}
       </div>
-      <div role="group" aria-label="Группировка аналитики" className={FILTER_RAIL}>
+      <div role="group" aria-label="Группировка аналитики" className={FILTER_RAIL+" terra-chart-rail"}>
         {(['daily','weekly'] as const).map(value=><button type="button" key={value}
           onClick={()=>setChartGranularity(value)} aria-pressed={chartGranularity===value}
           className={FILTER_CHIP+' terra-press '+(chartGranularity===value?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}>
           {value==='daily'?'По дням':'По неделям'}
         </button>)}
+      </div>
       </div>
       <div className="flex flex-wrap gap-4 text-sm text-[var(--terra-muted)]">
         {showExpense&&<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[var(--terra-danger-text)]" aria-hidden="true"/>Расходы</span>}

@@ -470,7 +470,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           {/* KPI & Family Overview Card */}
           <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
-            <div className="flex flex-wrap items-start justify-between gap-2">
+            {isCurrentMonthView&&<div className="flex flex-wrap items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-[var(--terra-muted)] dark:text-gray-400">{isCurrentMonthView ? (personalOnly?'Личный ориентир в день':'Семейный ориентир в день') : 'История бюджета'}</span>
                 <div className="flex flex-wrap items-baseline gap-1.5 mt-0.5">
@@ -488,10 +488,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {!isCurrentMonthView ? 'Архив' : !personalOpeningKnown ? 'Укажите остаток' : 'Нет остатка'}
                 </span>
               )}
-            </div>
+            </div>}
 
             {/* Monthly Budget Progress Bar & Breakdown */}
-            <div className="flex flex-col gap-1.5 pt-3 border-t border-[var(--terra-border)]">
+            <div className={`flex flex-col gap-1.5 ${isCurrentMonthView?'pt-3 border-t border-[var(--terra-border)]':''}`}>
+              {!isCurrentMonthView&&<h2 className="text-sm font-semibold">Итоги выбранного месяца</h2>}
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-medium">
                 <span className="text-[var(--terra-muted)] dark:text-gray-400">
                   {settings.privacyMode ? "Расходы к доходам: •••" : monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
@@ -1009,6 +1010,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </button>
           </div>
 
+          {!isCurrentMonthView&&<button type="button" onClick={()=>onMonthChange(new Date())} className={FILTER_CHIP+' '+FILTER_CHIP_IDLE}>Текущий месяц</button>}
+
           {/* Family Member Filter Pills */}
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 hidden sm:inline">
@@ -1093,9 +1096,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </header>
 
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
-      <section className="terra-budget-metrics grid gap-3">
+      <section className="terra-budget-metrics grid gap-3" data-current-period={isCurrentMonthView}>
         {/* Card 1: Дневной безопасный лимит */}
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
+        {isCurrentMonthView&&<div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center">
               <span className="text-sm font-semibold text-primary-dark dark:text-green-400">
@@ -1124,10 +1127,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {!isCurrentMonthView ? 'Лимит не рассчитывается' : !personalOpeningKnown ? 'Укажите личный начальный остаток' : 'Нет доступного остатка'}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* Current-day metrics do not apply to historical months. */}
-        {isCurrentMonthView ? (
+        {isCurrentMonthView && (
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
@@ -1167,22 +1170,16 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </span>
           </div>
         </div>
-        ) : (
-          <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
-            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">Расходы выбранного месяца</span>
-            <span className="text-2xl font-bold text-graphite dark:text-white tabular-nums">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</span>
-            <p className="text-xs text-graphite-muted dark:text-gray-400">Показатели «сегодня» и «вчера» доступны в текущем месяце</p>
-          </div>
         )}
 
                 {/* Card 3: Итоги месяца */}
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
-              Месячный прогресс бюджета
+              {isCurrentMonthView?'Месячный прогресс бюджета':'Итоги выбранного месяца'}
             </span>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[var(--terra-soft)] dark:bg-white/5 text-graphite dark:text-white">
-              {currentDayNum} из {totalDaysInMonth} дней
+              {isCurrentMonthView?`${currentDayNum} из ${totalDaysInMonth} дней`:'Архив'}
             </span>
           </div>
 

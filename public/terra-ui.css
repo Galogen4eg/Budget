@@ -134,3 +134,9 @@ html.dark {
 .terra-month-totals>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:baseline;padding:8px 0;}
 .terra-month-totals dt{font-size:13px;color:var(--terra-muted);}
 .terra-month-totals dd{margin:0;text-align:right;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+
+/* Archive has only month totals; current-day guidance is not an archive metric. */
+.terra-budget-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1fr);}
+@container (min-width:620px){.terra-budget-metrics[data-current-period="false"] .terra-month-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div{display:block;border-top:0;border-bottom:0;padding:4px 8px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div+div{border-left:1px solid var(--terra-border);}.terra-budget-metrics[data-current-period="false"] .terra-month-totals dd{text-align:left;font-size:20px;margin-top:4px;}}
+@media(min-width:1024px){.terra-menu-settings-grid>section:nth-child(2){grid-column:auto;}}
+@media(max-width:359px){.terra-active-shopping-row{column-gap:4px;}.terra-active-shopping-row .terra-shopping-name{flex-basis:118px;}.terra-active-shopping-row .terra-shopping-stepper{max-width:100%;}.terra-active-shopping-row .terra-shopping-stepper>span{max-width:64px;}}

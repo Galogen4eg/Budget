@@ -1033,10 +1033,10 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        data-terra-shopping-item data-shopping-id={item.id} className="relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item data-shopping-id={item.id} className="terra-active-shopping-row relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
+        <div className="terra-shopping-name flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
           <button 
             type="button"
             onClick={(e) => {
@@ -1076,7 +1076,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 
         {/* Quantity Stepper Pill */}
         <div 
-          className="flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5 shrink-0 max-w-full" 
+          className="terra-shopping-stepper flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5 shrink-0 max-w-full" 
           onClick={(e) => e.stopPropagation()}
         >
           <button 
@@ -1090,7 +1090,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
           >
             -
           </button>
-          <span className="text-sm font-semibold text-[var(--terra-ink)] px-2 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
+          <span className="text-sm font-semibold text-[var(--terra-ink)] px-1.5 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 

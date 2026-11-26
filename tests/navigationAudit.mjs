@@ -101,6 +101,7 @@ async function checkSections(){
    const before=await picker.getAttribute('aria-label');
    action='previous month in picker';await button(p,'Предыдущий месяц').click();
    if(await picker.getAttribute('aria-label')===before)throw new Error('Month did not change');
+   if(await p.getByTestId('family-daily-limit-mobile').filter({visible:true}).count())throw new Error('Archive shows daily guidance');
    action='next month in picker';await button(p,'Следующий месяц').click();
    if(await picker.getAttribute('aria-label')!==before)throw new Error('Month did not return');
    await button(p,'Текущий месяц').click();

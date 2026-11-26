@@ -223,6 +223,14 @@ try{
       // the shared family opening balance, paid bills or savings reserve.
       await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
       const familyLimit=page.locator('[data-testid="family-daily-limit-desktop"]');
+      const currentMonthButton=page.getByRole('button',{name:'Текущий месяц',exact:true}).filter({visible:true});
+      if(await currentMonthButton.count())await currentMonthButton.click();
+      await familyLimit.waitFor({state:'visible'});
+      await page.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+      await familyLimit.waitFor({state:'hidden'});
+      const archiveMetrics=page.locator('.terra-budget-metrics[data-current-period="false"]');
+      assert.equal(await archiveMetrics.locator(':scope > div').count(),1,'Archive must not contain duplicate KPI cards');
+      await currentMonthButton.click();
       await familyLimit.waitFor({state:'visible'});
       const originalFamilyLimit=(await familyLimit.innerText()).trim();
       const memberRail=page.getByRole('group',{name:'Участник бюджета'}).filter({visible:true}).first();

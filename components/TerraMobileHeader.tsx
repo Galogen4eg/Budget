@@ -5,6 +5,7 @@ import { PAGE_HEADING, ICON_ACTION, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY 
 
 interface TerraMobileHeaderProps {
   title: string;
+  headingLabel?: string;
   onAdd?: () => void;
   addTitle?: string;
   onImport?: () => void;
@@ -16,6 +17,7 @@ interface TerraMobileHeaderProps {
 
 export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
   title,
+  headingLabel,
   onAdd,
   addTitle = 'Добавить',
   onImport,
@@ -27,14 +29,14 @@ export const TerraMobileHeader: React.FC<TerraMobileHeaderProps> = ({
   const {notifications=[]}=useData();
   const unread=notifications.filter(n=>!n.isRead).length;
   return (
-    <header data-terra-mobile-header className="sticky top-0 z-30 bg-[var(--terra-canvas)] px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--terra-border)] shrink-0 transition-colors">
+    <header data-terra-mobile-header className="sticky top-0 z-30 bg-[var(--terra-canvas)] px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--terra-border)] shrink-0 transition-colors">
       {/* Section Title without app name with safe wrapping and truncation */}
-      <h1 className={`${PAGE_HEADING} break-words min-w-[76px] flex-1`}>
+      <h1 aria-label={headingLabel} className={`${PAGE_HEADING} terra-mobile-title`}>
         {title}
       </h1>
 
       {/* Action Buttons with correct accessibility tap targets (minimum 44x44px) */}
-      <div className="flex flex-wrap items-center justify-end gap-1.5 max-w-full">
+      <div className="terra-mobile-actions flex flex-wrap items-center justify-end gap-1 max-w-full">
         {rightExtra}
 
         {onImport && (

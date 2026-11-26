@@ -40,6 +40,16 @@ async function inventory(id){
  counts.push({viewport:label,section:id,...result});
  const geometry=await page.evaluate(section=>{const shell=document.querySelector('[data-terra-shell]'),tab=document.querySelector('[data-terra-tabbar]'),p=document.querySelector('[data-tab-panel="'+section+'"]');if(!shell||!p)return null;const shown=el=>!!el?.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';return {overflow:shell.scrollWidth>shell.clientWidth+1,headerCount:[...p.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,mobile:innerWidth<768,overlap:shown(tab)&&p.getBoundingClientRect().bottom>tab.getBoundingClientRect().top+2};},id);
  if(geometry){if(geometry.overflow)throw new Error('Shell horizontal overflow');if(geometry.overlap)throw new Error('Tabbar overlaps content');if(geometry.mobile&&geometry.headerCount!==1)throw new Error('Expected one mobile section header, got '+geometry.headerCount);}
+ if(['shopping','budget','plans'].includes(id)){
+  const ux=await panel(id).evaluate((el,section)=>{
+   const mobile=innerWidth<768,rect=x=>x?.getBoundingClientRect();
+   const find=key=>[...el.querySelectorAll('[data-testid="'+key+'"]')].find(x=>x.getClientRects().length);
+   if(section==='budget'){const suffix=mobile?'mobile':'desktop';const h=find('budget-history-'+suffix),c=find('budget-calendar-'+suffix);return {ok:!!h&&!!c&&Boolean(h.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING),detail:'history before calendar'};}
+   if(section==='shopping'){const library=find('shopping-library'),tools=library?.querySelector('.terra-shopping-tools');const buttons=[...(tools?.children??[])];const input=[...el.querySelectorAll('[aria-label="Быстрое добавление товаров"]')].find(x=>x.getClientRects().length);const search=[...el.querySelectorAll('[aria-label="Поиск по товарам в семейном списке"]')].find(x=>x.getClientRects().length);const sameRow=buttons.length===3&&buttons.every(x=>Math.abs(rect(x).top-rect(buttons[0]).top)<2&&rect(x).height>=44&&rect(x).width>=44);return {ok:sameRow&&(!mobile||!!input&&!!search&&rect(input).top<rect(search).top),detail:'compact tools and quick input before search'};}
+   const modes=[...el.querySelectorAll('.terra-calendar-views')].find(x=>x.getClientRects().length);return {ok:!mobile||!!modes&&[...modes.children].every(x=>Math.abs(rect(x).top-rect(modes.firstElementChild).top)<2&&rect(x).height>=44&&rect(x).width>=44),detail:'calendar modes on one row'};
+  },id);
+  if(!ux.ok)throw new Error('UX composition: '+ux.detail);
+ }
  if(id==='overview'&&includeInventoryDetails){
   const result=await panel(id).evaluate(el=>{
    const mobile=innerWidth<768;

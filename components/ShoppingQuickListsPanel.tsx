@@ -140,19 +140,19 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   });
 
   return (
-    <div data-testid="shopping-library" className={SURFACE_CARD+" min-w-0 space-y-2"}>
-      <div className="flex flex-wrap gap-2">
+    <div data-testid="shopping-library" className="min-w-0 terra-shopping-library space-y-2">
+      <div className="terra-shopping-tools">
         <button type="button" onClick={()=>toggleSection('templates')}
-          aria-expanded={section === 'templates'}
+          aria-label="Быстрые списки" title="Быстрые списки" aria-expanded={section === 'templates'}
           aria-controls="shopping-template-options"
           className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE+" grow"}>
-          <BookMarked size={16}/> Быстрые списки {section === 'templates' && <ChevronUp size={14}/>}
+          <BookMarked size={16} aria-hidden="true"/> Списки {section === 'templates' && <ChevronUp size={14}/>}
         </button>
         <button type="button" onClick={()=>toggleSection('history')}
-          aria-expanded={section === 'history'}
+          aria-label="Повторить покупки" title="Повторить покупки" aria-expanded={section === 'history'}
           aria-controls="shopping-repeat-options"
           className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE+" grow"}>
-          <RotateCcw size={16}/> Повторить покупки {section === 'history' && <ChevronUp size={14}/>}
+          <RotateCcw size={16} aria-hidden="true"/> Повторить {section === 'history' && <ChevronUp size={14}/>}
         </button>
         <button type="button" onClick={()=>toggleSection('pantry')} aria-expanded={section==='pantry'} aria-controls="shopping-pantry-options" className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE+" grow"}><Package size={16}/> Кладовая <span className="tabular-nums">{pantry.length}</span></button>
       </div>

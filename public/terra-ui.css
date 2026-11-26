@@ -97,3 +97,15 @@ html.dark {
  .terra-shell,[data-terra-dialog] {scroll-behavior:auto;}
  .terra-shell :is(.animate-ripple,.terra-menu),[data-terra-dialog] :is(.animate-ripple,.terra-menu){animation:none!important;}
 }
+
+/* UX composition: compact controls and aligned working columns. */
+.terra-mobile-title {flex:1 1 min-content;min-width:0;word-break:normal;overflow-wrap:normal;line-height:1.2;}
+.terra-mobile-actions {flex:0 0 auto;}
+.terra-shopping-tools {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.terra-shopping-tools>button {min-width:0;min-height:44px;height:auto;padding:6px;gap:4px;font-size:12px;line-height:1.2;white-space:normal;}
+.terra-shopping-library {border:1px solid var(--terra-border);border-radius:12px;padding:8px;background:var(--terra-surface);}
+@media(max-width:480px){.terra-shopping-tools>button svg,.terra-calendar-views>button svg{display:none;}.terra-calendar-views>button{min-width:0;white-space:nowrap;padding-inline:2px;}}
+.terra-plans-toolbar {padding:0 2px;}
+[id^="budget-"][id$="-mobile"] {scroll-margin-top:76px;}
+@media(min-width:768px){.terra-desktop-history-list{max-height:420px;overflow-y:auto;overscroll-behavior:contain;}}
+@container (min-width:920px){.terra-shopping-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}

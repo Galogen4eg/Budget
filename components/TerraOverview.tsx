@@ -700,7 +700,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </div>
 
         {/* Mobile Dashboard Cards Stream */}
-        <div className="px-4 space-y-4 pb-2">
+        <div className="px-4 space-y-3 pb-2">
           {/* 1. Hero Balance Card */}
           <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
             <div className="flex items-center justify-between">
@@ -759,6 +759,78 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               />
           </section>
 
+          {/* 6. История операций Card */}
+          <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} space-y-3`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
+                  История операций
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onDrillDown('all')}
+                className="min-h-[44px] px-2 flex items-center gap-0.5 text-sm font-medium text-primary transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span>Все</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="divide-y divide-[var(--terra-border)]">
+              {recentMobileTransactions.length === 0 && (
+                <div className="py-4 text-center space-y-2">
+                  <p className="text-sm text-graphite-muted dark:text-gray-400">Операций пока нет.</p>
+                  <button type="button" onClick={onOpenAddModal} className="text-sm font-semibold text-primary hover:underline">
+                    Добавить первую операцию
+                  </button>
+                </div>
+              )}
+              {recentMobileTransactions.map((tx, idx) => {
+                const isExpense = tx.type === 'expense';
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник', color: '#4A7C59' };
+                const cat = categories.find(c => c.id === tx.category);
+                const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
+                const displayTitle = tx.note || catLabel;
+                const brandKey = getMerchantBrandKey(displayTitle);
+                const txDate = new Date(tx.date);
+                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleString('ru-RU', { month: 'short' })}`;
+
+                return (
+                  <button type="button"
+                    key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
+                    onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[56px] w-full text-left px-1 py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-10 h-10 rounded-full" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-semibold text-graphite dark:text-white truncate">
+                          {displayTitle}
+                        </h4>
+                        <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span>{dateFormatted}</span>
+                          <span className="font-medium" style={{ color: txMember.color }}>
+                            {txMember.name}
+                          </span>
+                          <span>({catLabel})</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right min-w-0 max-w-[46%] shrink-0">
+                      <span className="text-sm font-semibold text-graphite dark:text-white tabular-nums block [overflow-wrap:anywhere]">
+                        {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
           {/* 3. Категории расходов Card */}
           <section className={`${SURFACE_CARD} space-y-3.5`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -925,78 +997,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </section>
           )}
 
-          {/* 6. История операций Card */}
-          <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} space-y-3`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
-                  История операций
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => onDrillDown('all')}
-                className="min-h-[44px] px-2 flex items-center gap-0.5 text-sm font-medium text-primary transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <span>Все</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
 
-            <div className="divide-y divide-[var(--terra-border)]">
-              {recentMobileTransactions.length === 0 && (
-                <div className="py-4 text-center space-y-2">
-                  <p className="text-sm text-graphite-muted dark:text-gray-400">Операций пока нет.</p>
-                  <button type="button" onClick={onOpenAddModal} className="text-sm font-semibold text-primary hover:underline">
-                    Добавить первую операцию
-                  </button>
-                </div>
-              )}
-              {recentMobileTransactions.map((tx, idx) => {
-                const isExpense = tx.type === 'expense';
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник', color: '#4A7C59' };
-                const cat = categories.find(c => c.id === tx.category);
-                const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
-                const displayTitle = tx.note || catLabel;
-                const brandKey = getMerchantBrandKey(displayTitle);
-                const txDate = new Date(tx.date);
-                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleString('ru-RU', { month: 'short' })}`;
-
-                return (
-                  <button type="button"
-                    key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
-                    onClick={() => onEditTransaction(tx)}
-                    aria-label={`Редактировать операцию: ${displayTitle}`}
-                    className="min-h-[56px] w-full text-left px-1 py-2.5 flex items-center justify-between gap-2 hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-10 h-10 rounded-full" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-graphite dark:text-white truncate">
-                          {displayTitle}
-                        </h4>
-                        <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <span>{dateFormatted}</span>
-                          <span className="font-medium" style={{ color: txMember.color }}>
-                            {txMember.name}
-                          </span>
-                          <span>({catLabel})</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right min-w-0 max-w-[46%] shrink-0">
-                      <span className="text-sm font-semibold text-graphite dark:text-white tabular-nums block [overflow-wrap:anywhere]">
-                        {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
         </div>
       </div>
 
@@ -1288,6 +1289,91 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* RIGHT COLUMN: 4 columns */}
           <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
+            {/* Виджет «История операций» (компактный список без пустых разрывов) */}
+            <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
+              <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
+                    История операций
+                  </h3>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => onDrillDown('all')}
+                  className="min-h-[44px] px-2 rounded-lg text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition-colors flex items-center gap-1 font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Все
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+
+              <div className="divide-y divide-[var(--terra-border)] mt-1 flex flex-col justify-start">
+                {recentTransactions.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
+                    Нет операций за выбранный период
+                  </div>
+                ) : (
+                  recentTransactions.map((tx, idx) => {
+                    const txCat = categories.find(c => c.id === tx.category);
+                    const txDate = new Date(tx.date);
+                    const dateFormatted = txDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                    const isTxToday = txDate.toDateString() === now.toDateString();
+                    const txMember = members.find(m => m.id === tx.memberId) || currentMember;
+                    const catLabel = txCat?.label || 'Прочее';
+                    const displayTitle = tx.note || tx.rawNote || catLabel;
+                    const brandKey = getMerchantBrandKey(displayTitle);
+                    const isExpense = tx.type === 'expense';
+
+                    return (
+                      <button type="button"
+                        key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
+                        onClick={() => onEditTransaction(tx)}
+                        aria-label={`Редактировать операцию: ${displayTitle}`}
+                        className={`min-h-[56px] w-full text-left flex items-center justify-between px-1 py-2.5 gap-2 transition-colors group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          isTxToday && isExpense && isOverDailyLimit && idx === 0
+                            ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A]'
+                            : 'hover:bg-[var(--terra-soft)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="shrink-0">
+                            <BrandIcon 
+                              name={displayTitle} 
+                              brandKey={brandKey} 
+                              category={txCat} 
+                              size="md" 
+                              className="rounded-xl"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold text-graphite dark:text-white group-hover:text-primary transition-colors truncate">
+                              {displayTitle}
+                            </h4>
+                            <p className="text-xs text-graphite-muted dark:text-gray-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                              <span>{dateFormatted}</span>
+                              <span className="font-medium" style={{ color: txMember.color }}>
+                                {txMember.name}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right min-w-0 max-w-[46%] shrink-0">
+                          <span className={`text-sm font-semibold tabular-nums [overflow-wrap:anywhere] block transition-colors ${
+                            isExpense 
+                              ? (isTxToday && isOverDailyLimit ? 'text-[#C2410C]' : 'text-graphite dark:text-white group-hover:text-clay') 
+                              : 'text-[#2F673E] dark:text-green-400'
+                          }`}>
+                            {isExpense ? '-' : '+'}{formatAmount(tx.amount)} ₽
+                          </span>
+                          <p className="text-xs text-graphite-muted dark:text-gray-400 break-words">{catLabel}</p>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
             {/* Виджет «Список покупок» */}
             {showShopping && <div className={DASHBOARD_CARD}>
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F0ECE4] dark:border-white/5">
@@ -1461,91 +1547,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
             )}
 
-            {/* Виджет «История операций» (компактный список без пустых разрывов) */}
-            <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
-              <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE4] dark:border-white/5 flex-shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
-                    История операций
-                  </h3>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => onDrillDown('all')}
-                  className="min-h-[44px] px-2 rounded-lg text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition-colors flex items-center gap-1 font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Все
-                  <ChevronRight size={14} />
-                </button>
-              </div>
 
-              <div className="divide-y divide-[var(--terra-border)] mt-1 flex flex-col justify-start">
-                {recentTransactions.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
-                    Нет операций за выбранный период
-                  </div>
-                ) : (
-                  recentTransactions.map((tx, idx) => {
-                    const txCat = categories.find(c => c.id === tx.category);
-                    const txDate = new Date(tx.date);
-                    const dateFormatted = txDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-                    const isTxToday = txDate.toDateString() === now.toDateString();
-                    const txMember = members.find(m => m.id === tx.memberId) || currentMember;
-                    const catLabel = txCat?.label || 'Прочее';
-                    const displayTitle = tx.note || tx.rawNote || catLabel;
-                    const brandKey = getMerchantBrandKey(displayTitle);
-                    const isExpense = tx.type === 'expense';
-
-                    return (
-                      <button type="button"
-                        key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
-                        onClick={() => onEditTransaction(tx)}
-                        aria-label={`Редактировать операцию: ${displayTitle}`}
-                        className={`min-h-[56px] w-full text-left flex items-center justify-between px-1 py-2.5 gap-2 transition-colors group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          isTxToday && isExpense && isOverDailyLimit && idx === 0
-                            ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A]'
-                            : 'hover:bg-[var(--terra-soft)]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="shrink-0">
-                            <BrandIcon 
-                              name={displayTitle} 
-                              brandKey={brandKey} 
-                              category={txCat} 
-                              size="md" 
-                              className="rounded-xl"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-semibold text-graphite dark:text-white group-hover:text-primary transition-colors truncate">
-                              {displayTitle}
-                            </h4>
-                            <p className="text-xs text-graphite-muted dark:text-gray-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
-                              <span>{dateFormatted}</span>
-                              <span className="font-medium" style={{ color: txMember.color }}>
-                                {txMember.name}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right min-w-0 max-w-[46%] shrink-0">
-                          <span className={`text-sm font-semibold tabular-nums [overflow-wrap:anywhere] block transition-colors ${
-                            isExpense 
-                              ? (isTxToday && isOverDailyLimit ? 'text-[#C2410C]' : 'text-graphite dark:text-white group-hover:text-clay') 
-                              : 'text-[#2F673E] dark:text-green-400'
-                          }`}>
-                            {isExpense ? '-' : '+'}{formatAmount(tx.amount)} ₽
-                          </span>
-                          <p className="text-xs text-graphite-muted dark:text-gray-400 break-words">{catLabel}</p>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -48,6 +48,7 @@ import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommit
 import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
+import { captureCompletedSelection, resolveCompletedDeletion } from '../utils/shoppingClearSelection';
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -212,7 +213,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
   const [isPurchasedOpen, setIsPurchasedOpen] = useState(true);
-  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [clearSelection,setClearSelection]=useState<string[]|null>(null);
+  const confirmClearCompleted=clearSelection!==null;
+  const clearPending=useRef(false);
+  useEffect(()=>setClearSelection(null),[searchQuery,filterMemberId]);
   const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Add / Edit Modal State
@@ -460,25 +464,21 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   const handleClearCompleted = async () => {
-    if (!confirmClearCompleted || isClearingCompleted) return;
+    if(clearPending.current)return;
+    const completedIds=resolveCompletedDeletion(clearSelection,completedItems);
+    if(!completedIds){setClearSelection(null);toast.info('Список изменился. Подтвердите удаление заново.');return;}
+    clearPending.current=true;
     setIsClearingCompleted(true);
-    const completedIds = items.filter(i => i.completed).map(i => i.id);
-    if (completedIds.length === 0) {
-      toast.info('Нет купленных товаров для удаления');
-      setIsClearingCompleted(false);
-      setConfirmClearCompleted(false);
-      return;
-    }
 
     try {
       if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', completedIds);
       setItems(prev => prev.filter(i => !completedIds.includes(i.id)));
       toast.success(`Удалено ${completedIds.length} купленных товаров`);
-      setConfirmClearCompleted(false);
+      setClearSelection(null);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    } finally { setIsClearingCompleted(false); }
+    } finally { clearPending.current=false;setIsClearingCompleted(false); }
   };
 
   const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -1128,22 +1128,23 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                   <button type="button"
                     disabled={isClearingCompleted}
+                    aria-label={confirmClearCompleted ? `Подтвердить удаление ${clearSelection?.length ?? 0} купленных товаров` : 'Очистить купленные товары'}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!confirmClearCompleted) setConfirmClearCompleted(true);
+                      if (!confirmClearCompleted) setClearSelection(captureCompletedSelection(completedItems));
                       else void handleClearCompleted();
                     }}
                     className="min-h-[44px] px-3 text-xs text-[#B83230] hover:underline font-semibold flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
                   >
                     <Trash2 size={13} />
-                    <span>{isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}</span>
+                    <span>{isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${clearSelection?.length ?? 0}?` : 'Очистить купленные'}</span>
                   </button>
                 </div>
 
                 {confirmClearCompleted && (
                   <div role="status" className="flex items-center gap-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
-                    Удалить все купленные товары из общего списка?
-                    <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                    Удалить показанные купленные товары из общего списка?
+                    <button type="button" disabled={isClearingCompleted} onClick={() => setClearSelection(null)}
                       className="min-h-[44px] px-3 underline font-semibold">Отмена</button>
                   </div>
                 )}

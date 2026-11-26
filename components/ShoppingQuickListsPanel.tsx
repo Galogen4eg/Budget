@@ -164,7 +164,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {[...templates, ...BUILTIN].map(t => (
               <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-[var(--terra-border)] p-1">
                 <button type="button" disabled={saving} aria-pressed={previewId===t.id} onClick={()=>setPreviewId(t.id)}
-                  className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium dark:text-white disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+                  className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium dark:text-[var(--terra-on-primary)] disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                   <Plus size={13} className="inline mr-1"/>{t.name} · {t.items.length}
                 </button>
                 {!t.id.startsWith('preset-') && (
@@ -177,14 +177,14 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
           {previewTemplate&&<section aria-label="Состав быстрого списка" className="rounded-xl border border-[var(--terra-border)] p-3 space-y-2">
             <h3 className="font-semibold text-sm">{previewTemplate.name}</h3>
             <ul className="divide-y divide-[var(--terra-border)]">{previewTemplate.items.map((product,index)=><li key={index} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span className="min-w-0 break-words">{product.title}</span><span className="tabular-nums">{product.amount} {product.unit}</span></li>)}</ul>
-            <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={()=>void addProducts(previewTemplate.items)} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}>Добавить {previewTemplate.items.length} товаров</button><button type="button" onClick={()=>setPreviewId(null)} disabled={saving} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}>Отмена</button></div>
+            <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={()=>void addProducts(previewTemplate.items)} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}>Добавить в список ({previewTemplate.items.length})</button><button type="button" onClick={()=>setPreviewId(null)} disabled={saving} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}>Отмена</button></div>
           </section>}
           <form onSubmit={e => { e.preventDefault(); void saveTemplate(); }} className="flex gap-2 flex-wrap">
             <input value={templateName} onChange={e=>setTemplateName(e.target.value)}
               maxLength={60} placeholder="Название своего списка" aria-label="Название нового списка"
               className="min-h-[44px] min-w-0 flex-1 rounded-xl bg-[var(--terra-soft)] text-[var(--terra-ink)] border border-[var(--terra-border)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"/>
             <button type="submit" disabled={saving || !templateName.trim() || !items.some(item=>!item.completed&&item.title.trim())}
-              className="min-h-[44px] rounded-xl bg-[var(--terra-primary-solid)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+              className="min-h-[44px] rounded-xl bg-[var(--terra-primary-solid)] px-3 py-2 text-xs font-semibold text-[var(--terra-on-primary)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               {saving ? <Loader2 size={16} className="animate-spin"/> : 'Сохранить текущие'}
             </button>
           </form>
@@ -206,7 +206,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
-                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm dark:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm dark:text-[var(--terra-on-primary)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                 <span className="min-w-0 break-words">
                   <span className="block font-semibold">{p.title} · {p.amount} {p.unit}</span>
                   {lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`) && (

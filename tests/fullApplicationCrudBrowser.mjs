@@ -1,3 +1,4 @@
+import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
@@ -30,6 +31,26 @@ for(const [i,u] of users.entries()){
 await family.collection('config').doc('settings').set({currency:'₽',familyName:'CRUD QA',initialBalance:5000});
 await family.collection('categories').doc('food').set({id:'food',label:'Продукты',color:'#4A7C59',icon:'tag',transactionType:'expense'});
 await rows.doc(original.id).set(original);
+// Keep empty-state CRUD isolated. A separate populated run tests realistic history and layout.
+const populated=process.argv.includes('--populated');
+if(populated){
+ const fixtureMembers=users.map((u,i)=>({id:i?'b':'a',userId:u.uid}));
+ const fixtures=makeFamilyFixtures({now:new Date(date),members:fixtureMembers});
+ // Seed once in the emulator, never in the production database.
+ const batch=db.batch();
+ batch.set(family.collection('config').doc('settings'),fixtureSettings(fixtureMembers),{merge:true});
+ for(const category of fixtureCategories)if(category.id!=='food')batch.create(family.collection('categories').doc(category.id),category);
+ for(const [kind,records] of Object.entries(fixtures)){
+  for(const record of records)batch.create(family.collection(kind).doc(record.id),record);
+ }
+ await batch.commit();
+ for(const [kind,records] of Object.entries(fixtures)){
+  const snapshot=await family.collection(kind).get();
+  assert.equal(snapshot.size,records.length+(kind==='transactions'?1:0),'fixture count '+kind);
+ }
+ console.log('PASS populated family fixture '+JSON.stringify(Object.fromEntries(Object.entries(fixtures).map(([k,v])=>[k,v.length]))));
+}
+
 let server,browser;
 const visible=(locator)=>locator.filter({visible:true}).first();
 const heading=(page,name)=>page.getByRole('heading',{name,exact:true});
@@ -102,6 +123,34 @@ try{
  const b=await openUser(users[1],{width:1440,height:900});
 
 if(process.argv.includes('--navigation')){
+ if(populated){
+  // Edit a known imported transaction while both sessions have hundreds of records.
+  const title='QA импорт в наполненной семье';
+  await edit(b,original.note).click();
+  await nameField(b).fill(title);
+  await save(b,true);
+  const stored=(await rows.doc(original.id).get()).data();
+  assert.equal(stored.note,title);
+  for(const k of ['amount','date','category','memberId','userId','rawNote','type'])assert.equal(stored[k],original[k],k);
+  await edit(a,title).waitFor({state:'visible',timeout:20000});
+  console.log('PASS edit imported operation with populated family, server reread and second user');
+  const legacy=await rows.where('note','==','Старая банковская операция (QA)').get();
+  assert.equal(legacy.size,1);
+  const legacyRef=legacy.docs[0].ref;
+  const legacyBefore=legacy.docs[0].data();
+  await edit(a,legacyBefore.note).click();
+  await nameField(a).fill('QA старая операция изменена');
+  await a.getByRole('textbox',{name:'Сумма операции'}).fill('84.21');
+  await save(a,true);
+  const legacyAfter=(await legacyRef.get()).data();
+  assert.equal(legacyAfter.note,'QA старая операция изменена');
+  assert.equal(Math.round(legacyAfter.amount*100),8421);
+  assert.equal(legacyAfter.memberId,legacyBefore.memberId);
+  assert.equal(legacyAfter.userId,undefined);
+  assert.equal(legacyAfter.date,legacyBefore.date);
+  await edit(b,legacyAfter.note).waitFor({state:'visible',timeout:20000});
+  console.log('PASS legacy transaction edit with missing optional metadata');
+ }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;
  await family.collection('members').doc(users[1].uid).collection('config').doc('settings').set({theme:'dark'},{merge:true});

@@ -1,0 +1,39 @@
+name: Budget populated QA seed
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write synthetic data to the separately configured populated QA family (unchecked = dry run)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: budget-populated-qa
+  cancel-in-progress: false
+jobs:
+  seed:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: node --test tests/realisticFamilyFixtures.test.mjs && node --check tests/seedPopulatedProductionQa.mjs
+      - name: Seed or preview isolated populated family
+        env:
+          QA_FILLED_EMAIL: ${{ secrets.QA_FILLED_EMAIL }}
+          QA_FILLED_PASSWORD: ${{ secrets.QA_FILLED_PASSWORD }}
+          QA_FILLED_FAMILY_ID: ${{ secrets.QA_FILLED_FAMILY_ID }}
+          QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          if [ "$APPLY" = "true" ]; then
+            node tests/seedPopulatedProductionQa.mjs --apply
+          else
+            node tests/seedPopulatedProductionQa.mjs
+          fi

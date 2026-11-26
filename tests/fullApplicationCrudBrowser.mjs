@@ -306,10 +306,32 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  assert.equal(await b.getByTestId('alfa-review-open').count(),0);
  await action.click();
  const dialog=a.getByRole('dialog',{name:'Операции на разбор',exact:true});await dialog.waitFor({state:'visible'});
+ phase='review filters and consistent counts';
+ const filters=dialog.getByRole('group',{name:'Фильтр операций выписки'});
+ const without=filters.getByRole('button',{name:'Без категории 1',exact:true});
+ const all=filters.getByRole('button',{name:'Все 1',exact:true});
+ const search=dialog.getByRole('searchbox',{name:'Поиск по выписке'});
+ for(const control of [without,all,search]){
+  const rect=await control.boundingBox();assert.ok(rect&&rect.height>=44&&rect.width>=44,'Import control target too small');
+ }
+ await without.click();
+ assert.equal(await without.getAttribute('aria-pressed'),'true');
+ assert.equal(await dialog.locator('[data-import-row][data-needs-category="true"]').count(),1);
+ assert.equal(await btn(dialog,'Импортировать все (1)').isDisabled(),true);
+ await search.fill('QA_NO_MATCH_98473201');
+ assert.equal(await dialog.locator('[data-import-row]').count(),0);
+ await dialog.getByText('Операций по выбранным фильтрам не найдено',{exact:true}).waitFor({state:'visible'});
+ await search.fill('');
+ assert.equal(await dialog.locator('[data-import-row]').count(),1);
+ await all.click();
  await btn(dialog,'Выбрать категорию').click();
  await dialog.getByPlaceholder('Поиск категории или подкатегории...').fill('Продукты');
  await btn(dialog,'Продукты').click();
- await btn(dialog,'Импортировать все (1)').click();
+ assert.equal(await dialog.locator('[data-import-row][data-needs-category="false"]').count(),1);
+ assert.equal(await filters.getByRole('button',{name:'Без категории 0',exact:true}).count(),1);
+ assert.equal(await btn(dialog,'Импортировать все (1)').isEnabled(),true);
+ await btn(dialog,'Импортировать все (1)').evaluate(button=>{button.click();button.click();});
+ console.log('PASS TERRA import filter counts, search, category readiness and duplicate click');
  await dialog.waitFor({state:'hidden',timeout:30000});
  const resolved=await currentDoc(rows.doc(item.id),x=>x.exists,'resolved bank transaction');
  assert.equal(resolved.data().amount,23.45);assert.equal(resolved.data().memberId,'a');assert.equal(resolved.data().category,'food');

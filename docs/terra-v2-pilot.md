@@ -11,7 +11,7 @@
 | RC-14 / SCR-02, SCR-06 | needs-fix | TerraOverview.tsx фактически рисует два AreaChart; импортированный OverviewExpenseChart не используется. Мобильный график без оси Y; desktop имеет негативный left margin и градиент. Существующие period data, reference limit, avg/max и drilldown сохранить. Переиспользовать OverviewExpenseChart, нулевая база, столбцы, фиксированная высота, точные значения и кнопки детализации. |
 | RC-14 / SCR-02 | needs-fix | mobileCategories округляет item.amount до рублей после точной агрегации; desktop показывает исходную сумму. Снять только presentation rounding. Семейный баланс не изменяется фильтром истории; сохранить явное объяснение. |
 | RC-21 / SCR-02, SCR-06 | needs-fix | В overview chart/progress geometry видны даже в privacyMode; DrillDownModal скрывает chart и member distribution. Привести отображение к существующему privacy pattern. Не менять persisted setting. |
-| RC-14 / SCR-06 | needs-fix, subsequent | Аналитика реализована в существующем DrillDownModal / DrillDownMobile, не отдельная вкладка. DrillDownAnalyticsChart имеет старые локальные цвета, transition-all, мелкие controls, собственные SVG и округление отдельных покупок; требуется отдельная сверка вычислений до замены графика. В текущем пилоте — унификация toolbar/поверхностей без изменения агрегатов. |
+| RC-14 / SCR-06 | needs-fix, subsequent | Аналитика реализована в существующем DrillDownModal / DrillDownMobile, не отдельная вкладка. DrillDownAnalyticsChart имеет старые локальные цвета, transition-all, мелкие controls, собственные SVG и округление отдельных покупок; требуется отдельная сверка вычислений до замены графика. В текущем пилоте — существующие агрегаты переданы Recharts на ПК, мобильные столбцы сохранены; единые токены/фильтры и значения без hover. Округление в отчёте по магазинам и отдельный расчёт среднего оставить для пакета B с финансовыми тестами. |
 | RC-07,08 / SCR-13 | blocked/implemented | visualViewport, safe-area, dialog hooks уже существуют. Физические iOS/Android, клавиатура и Back остаются отдельным gate. |
 | RC-02/03 / SCR-01,13 | confirmed-existing | App.tsx закрывает финансовые экраны через FinancialDataState, scopes существующие. Не менять в UI-пилоте. |
 | RC-04 / SCR-07 | confirmed-existing | PR #119–121: очередь и XLSX cleanup; не менять parser, storage, notifications. |
@@ -24,3 +24,9 @@
 4. Approval gate: preview screenshots must be reviewed before expanding or merging. Existing financial, build and emulator gates apply.
 
 Unverified: runtime measurements/screenshots at time of writing, actual mobile Safari/Android, full registry mapping, legacy PR conflicts. Do not mark `verified` until evidence is available.
+
+## Изменения кандидата
+
+- Overview: заголовок ПК, более выраженный баланс; доходы/расходы за выбранный период из существующего фильтра, отдельно от семейного баланса. Месяц в потоке, общая диаграмма с нулевой базой, точными значениями, отдельным состоянием privacy и кликом в существующие детали дня. Сумма категории не округляется до рублей.
+- Analytics: desktop grouped bars on existing aggregated data; mobile controls and text values, no new route; actual flow through existing drilldown. No new financial storage or change to calculation algorithms. DayDetailModal uses existing focus/Back hooks, portal and reduced motion preset. Existing legacy styles in non-pilot widgets remain; full privacy audit and payment/limit math are not closed by this change.
+- CI: authenticated populated emulator, screenshots for 390 and 1440 in both themes, exact ledger equality before and after interaction. Existing navigation test suite stays in place. Production QA account and user data not used.

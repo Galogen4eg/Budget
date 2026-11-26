@@ -79,14 +79,14 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   <div className="flex items-center justify-between flex-wrap gap-2">
    <button type="button" onClick={()=>setExpanded(prev=>!prev)} aria-expanded={panelOpen}
       aria-controls="family-agenda-content"
-      className="min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+      className="min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
-    Ближайшие дела <span className="text-xs font-normal text-stone-500">({agenda.length})</span>
+    Ближайшие дела <span className="text-xs font-normal text-[var(--terra-muted)]">({agenda.length})</span>
     <ChevronDown size={16} aria-hidden="true" className={`text-stone-500 transition-transform motion-reduce:transition-none ${expanded?'rotate-180':''}`}/>
    </button>
    <div className="hidden md:flex gap-1.5 flex-wrap">
     <button type="button" aria-label="Создать задачу" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
-      className="min-h-[44px] rounded-xl px-2.5 py-2 bg-[#4A7C59] text-white text-xs font-bold flex items-center gap-1">
+      className="min-h-[44px] rounded-xl px-2.5 py-2 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-bold flex items-center gap-1">
       <Plus size={14}/>Задача
     </button>
     <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} title={pushEnabled?"Фоновые push включены":"Напоминания работают при открытом приложении"}
@@ -116,7 +116,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
         className="overflow-hidden space-y-2">
   <div className="md:hidden flex flex-wrap gap-2">
     <button type="button" aria-label="Создать задачу" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
-      className="min-h-[44px] rounded-xl px-3 bg-[#4A7C59] text-white text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
+      className="min-h-[44px] rounded-xl px-3 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold flex items-center gap-1"><Plus size={16}/>Задача</button>
     <button type="button" onClick={onEnableReminders} aria-pressed={remindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Bell size={16}/>{remindersEnabled?(pushEnabled?'Push: вкл.':'Напоминания: вкл.'):'Напоминания: выкл.'}</button>
     <button type="button" onClick={onToggleTelegramReminders} aria-pressed={telegramRemindersEnabled} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Send size={16}/>{telegramRemindersEnabled?'Telegram: вкл.':'Telegram: выкл.'}</button>
     <button type="button" onClick={exportICS} className="min-h-[44px] rounded-xl px-3 border border-[var(--terra-border)] dark:border-white/20 text-sm dark:text-white flex items-center gap-1"><Download size={16}/>.ics</button>

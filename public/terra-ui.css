@@ -80,3 +80,11 @@ html.dark {
 .terra-boot-error h2{font-size:20px;font-weight:700;}
 .terra-boot-error p{max-width:440px;font-size:14px;color:var(--terra-muted);}
 .terra-boot-error button{min-height:44px;padding:10px 20px;border:0;border-radius:12px;background:var(--terra-primary-solid);color:var(--terra-on-primary);font-weight:600;cursor:pointer;}
+
+/* E: native focus and reduced motion also apply to portals and shared controls. */
+.terra-shell :is(button,a[href],input,select,textarea,[tabindex]):focus-visible {outline:2px solid var(--terra-focus);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){
+ .terra-shell :is(button,a[href]),[data-terra-dialog] :is(button,a[href]) {transition:none!important;}
+ .terra-shell,[data-terra-dialog] {scroll-behavior:auto;}
+ .terra-shell :is(.animate-ripple,.terra-menu),[data-terra-dialog] :is(.animate-ripple,.terra-menu){animation:none!important;}
+}

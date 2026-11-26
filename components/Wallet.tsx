@@ -16,6 +16,7 @@ import { addItem, updateItem, deleteItem } from '../utils/db';
 import { useData } from '../contexts/DataContext';
 import { toast } from 'sonner';
 import { LoyaltyCardMobileModal } from './LoyaltyCardMobileModal';
+import {FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE} from './filterUiTokens';
 
 interface WalletProps {
   cards: LoyaltyCard[];
@@ -490,7 +491,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <button 
               type="button"
               onClick={() => scrollCategories('left')}
-              className="hidden sm:flex w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer mr-1 z-10"
+              className="hidden sm:flex w-11 h-11 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer mr-1 z-10"
               title="Прокрутить влево"
             >
               <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -498,7 +499,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
             <div 
               ref={categoryScrollRef}
-              className="flex items-center gap-1.5 overflow-x-auto py-0.5 scroll-smooth no-scrollbar flex-1 min-w-0 -mx-1 px-1"
+              className="flex items-center gap-1.5 overflow-x-auto py-0.5 motion-safe:scroll-smooth no-scrollbar flex-1 min-w-0 -mx-1 px-1"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {visibleCategories.map(cat => {
@@ -509,11 +510,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                      isActive
-                        ? 'bg-[#4a7c59] text-white shadow-xs'
-                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200 dark:hover:bg-stone-700'
-                    }`}
+                    aria-pressed={isActive}
+                    className={`${FILTER_CHIP} ${isActive?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}
                   >
                     <span>{cat.name}</span>
                     <span className={`text-[10px] ${isActive ? 'opacity-90' : 'text-stone-400'}`}>
@@ -527,7 +525,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <button 
               type="button"
               onClick={() => scrollCategories('right')}
-              className="hidden sm:flex w-7 h-7 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer ml-1 z-10"
+              className="hidden sm:flex w-11 h-11 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10 shadow-2xs items-center justify-center shrink-0 hover:bg-[#4a7c59] hover:text-white transition cursor-pointer ml-1 z-10"
               title="Прокрутить вправо"
             >
               <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -616,7 +614,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               <div 
                 key={card.id}
                 onClick={() => setActiveBarcodeCard(card)}
-                className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br ${gradient} text-white shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between min-h-[175px] sm:min-h-[240px] overflow-hidden cursor-pointer active:scale-[0.985]`}
+                className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br ${gradient} text-white shadow-xs transition-colors duration-150 flex flex-col justify-between min-h-[175px] sm:min-h-[240px] overflow-hidden cursor-pointer motion-safe:active:scale-[0.985]`}
               >
                 {/* Ambient watermark curves */}
                 <div className="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-white/5 pointer-events-none" />
@@ -981,7 +979,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               {/* Section Divider */}
               <div className="flex items-center gap-3 my-0.5">
                 <div className="h-px bg-stone-200 dark:bg-stone-800 flex-1" />
-                <span className="text-[11px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
+                <span className="text-xs font-medium text-[var(--terra-muted)]">
                   или введите вручную
                 </span>
                 <div className="h-px bg-stone-200 dark:bg-stone-800 flex-1" />
@@ -989,7 +987,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               {/* Store Name Field */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1.5">
+                <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1.5">
                   Название магазина / сети
                 </label>
                 <input 
@@ -1005,7 +1003,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               {/* Category & Subtitle Fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1.5">
+                  <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1.5">
                     Категория
                   </label>
                   <select 
@@ -1020,7 +1018,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1.5">
+                  <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1.5">
                     Программа / Тип
                   </label>
                   <input 
@@ -1035,7 +1033,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               {/* Card Number Field */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1.5">
+                <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1.5">
                   Номер карты / штрихкода
                 </label>
                 <div className="relative">
@@ -1053,7 +1051,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               {/* Barcode Format Selector */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1.5">
+                <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1.5">
                   Формат штрихкода
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1101,7 +1099,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               {/* Barcode Live Preview Box */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400">
+                  <label className="text-xs font-medium text-[var(--terra-muted)]">
                     Предпросмотр кода
                   </label>
                   <span className="text-[11px] text-[#4a7c59] dark:text-green-400 font-bold">
@@ -1130,7 +1128,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               {/* Color Swatches Picker (10 colors from Prototype) */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-2">
+                <label className="block text-xs font-medium text-[var(--terra-muted)] mb-2">
                   Цвет карты
                 </label>
                 <div className="grid grid-cols-10 gap-1.5">
@@ -1156,7 +1154,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
 
               {/* Icon Selector (10 Icons from Prototype) */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-2">
+                <label className="block text-xs font-medium text-[var(--terra-muted)] mb-2">
                   Иконка карты
                 </label>
                 <div className="grid grid-cols-10 gap-1.5">
@@ -1185,7 +1183,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               {/* Optional: Cashback & Balance */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1">
+                  <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1">
                     Скидка / Статус
                   </label>
                   <input 
@@ -1198,7 +1196,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 dark:text-stone-400 mb-1">
+                  <label className="block text-xs font-medium text-[var(--terra-muted)] mb-1">
                     Баланс / Заметка
                   </label>
                   <input 

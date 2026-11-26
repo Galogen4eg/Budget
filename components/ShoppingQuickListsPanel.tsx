@@ -165,7 +165,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {[...templates, ...BUILTIN].map(t => (
               <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-[var(--terra-border)] p-1">
                 <button type="button" disabled={saving} aria-pressed={previewId===t.id} onClick={()=>setPreviewId(t.id)}
-                  className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium dark:text-[var(--terra-on-primary)] disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+                  className="min-h-[44px] min-w-0 px-2 py-2 text-xs font-medium text-[var(--terra-ink)] disabled:opacity-50 break-words text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                   <Plus size={13} className="inline mr-1"/>{t.name} · {t.items.length}
                 </button>
                 {!t.id.startsWith('preset-') && (
@@ -207,7 +207,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
-                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm dark:text-[var(--terra-on-primary)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+                className="min-h-[44px] flex justify-between items-center text-left gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm text-[var(--terra-ink)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                 <span className="min-w-0 break-words">
                   <span className="block font-semibold">{p.title} · {p.amount} {p.unit}</span>
                   {lastPurchasedAt.get(`${p.title.trim().toLocaleLowerCase('ru-RU')}|${(p.unit || 'шт').trim().toLowerCase()}`) && (

@@ -31,7 +31,7 @@ export const RippleButton: React.FC<RippleButtonProps> = ({
   const [ripples, setRipples] = useState<Ripple[]>([]);
 
   const handlePointerDown = useCallback((e: MouseEvent<HTMLButtonElement>) => {
-    if (disabled) return;
+    if (disabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height);
     const x = e.clientX - rect.left - size / 2;
@@ -58,7 +58,7 @@ export const RippleButton: React.FC<RippleButtonProps> = ({
       disabled={disabled}
       onClick={onClick}
       onMouseDown={handlePointerDown}
-      className={`relative overflow-hidden cursor-pointer active:scale-95 transition-all duration-150 select-none ${className}`}
+      className={`relative overflow-hidden cursor-pointer terra-press select-none ${className}`}
     >
       <span className="relative z-10 flex items-center justify-center gap-1.5 w-full h-full">
         {children}
@@ -67,7 +67,7 @@ export const RippleButton: React.FC<RippleButtonProps> = ({
         {ripples.map((ripple) => (
           <span
             key={ripple.id}
-            className="absolute rounded-full animate-ripple"
+            className="absolute rounded-full animate-ripple motion-reduce:animate-none motion-reduce:hidden"
             style={{
               left: `${ripple.x}px`,
               top: `${ripple.y}px`,

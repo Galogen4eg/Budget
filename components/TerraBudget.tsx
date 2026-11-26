@@ -810,7 +810,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 </span>
                 {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
                   aria-label="Добавить обязательный платёж"
-                  className="min-h-[44px] px-3 rounded-xl bg-[#4A7C59] text-white text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                   Добавить
                 </button>}
               </div>
@@ -832,7 +832,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     className="flex flex-wrap items-center justify-between gap-2 px-1 py-2.5"
                   >
                     <button type="button" onClick={() => onEditMandatoryExpense?.(exp)} aria-label={`Редактировать обязательный платёж: ${title}`}
-                      className="min-h-[44px] flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                      className="min-h-[44px] flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                       <div className="w-8 h-8 rounded-lg bg-[#C4A66A]/20 text-[#705C30] dark:text-[#C4A66A] flex items-center justify-center shrink-0">
                         {getMandatoryIcon(title)}
                       </div>
@@ -936,7 +936,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <button 
                 type="button"
                 onClick={() => onOpenCategoriesModal ? onOpenCategoriesModal() : setIsCatModalOpen(true)}
-                className="min-h-[44px] py-2.5 px-2 rounded-xl bg-[#4A7C59] text-white hover:bg-[#3B6447] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="min-h-[44px] py-2.5 px-2 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] hover:bg-[var(--terra-primary-hover)] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 title="Создать новую категорию или настроить"
               >
                 <Plus size={15} />
@@ -1623,7 +1623,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
               {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
                 aria-label="Добавить обязательный платёж"
-                className="min-h-[44px] px-3 rounded-xl bg-[#4A7C59] text-white text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                 Добавить
               </button>}
             </div>

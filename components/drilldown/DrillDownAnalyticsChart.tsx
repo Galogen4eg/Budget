@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Store, Search, Building2, ShoppingBag } from 'lucide-react';
 import { Transaction, AppSettings, Category } from '../../types';
+import { SURFACE_CARD,FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE,CHART_TOOLTIP } from '../filterUiTokens';
 
 interface DrillDownAnalyticsChartProps {
   familyTransactions: Transaction[];
@@ -313,11 +314,11 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
   }, [aggregatedChartData, chartSeriesFilter]);
 
   return (
-    <div className="p-5 rounded-2xl bg-white dark:bg-[#242428] border border-[#E4E0D8]/60 dark:border-white/10 shadow-2xs overflow-hidden">
+    <div className={`${SURFACE_CARD} min-w-0 overflow-hidden`}>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
-            Динамика трат {chartGranularity === 'daily' ? 'по дням' : 'по неделям'} <span className="text-xs font-normal text-[#68726B]">({monthLabel})</span>
+            Динамика трат {chartGranularity === 'daily' ? 'по дням' : 'по неделям'} <span className="text-xs font-normal text-[var(--terra-muted)]">({monthLabel})</span>
           </h3>
         </div>
 
@@ -327,12 +328,13 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
             <button
               type="button"
               onClick={() => setChartSeriesFilter(prev => prev === 'expense' ? 'all' : 'expense')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              aria-pressed={chartSeriesFilter==='expense'}
+              className={`min-h-[44px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
                 chartSeriesFilter === 'expense'
                   ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 ring-1 ring-rose-400 font-bold'
                   : chartSeriesFilter === 'all'
                     ? 'hover:bg-black/5 dark:hover:bg-white/5 text-[#2E3230] dark:text-stone-300'
-                    : 'opacity-40 hover:opacity-75 text-[#68726B]'
+                    : 'opacity-40 hover:opacity-75 text-[var(--terra-muted)]'
               }`}
               title="Нажмите, чтобы показать только списания"
             >
@@ -343,12 +345,13 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
             <button
               type="button"
               onClick={() => setChartSeriesFilter(prev => prev === 'income' ? 'all' : 'income')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              aria-pressed={chartSeriesFilter==='income'}
+              className={`min-h-[44px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
                 chartSeriesFilter === 'income'
                   ? 'bg-[#EAF2EC] dark:bg-green-950/60 text-[#4A7C59] dark:text-green-300 ring-1 ring-[#4A7C59] font-bold'
                   : chartSeriesFilter === 'all'
                     ? 'hover:bg-black/5 dark:hover:bg-white/5 text-[#2E3230] dark:text-stone-300'
-                    : 'opacity-40 hover:opacity-75 text-[#68726B]'
+                    : 'opacity-40 hover:opacity-75 text-[var(--terra-muted)]'
               }`}
               title="Нажмите, чтобы показать только пополнения"
             >
@@ -360,7 +363,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
               <button
                 type="button"
                 onClick={() => setChartSeriesFilter('all')}
-                className="text-[11px] text-[#68726B] underline hover:text-[#2E3230] cursor-pointer ml-1"
+                className="text-[11px] text-[var(--terra-muted)] underline hover:text-[#2E3230] cursor-pointer ml-1"
               >
                 Сбросить
               </button>
@@ -372,18 +375,16 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
             <button 
               type="button"
               onClick={() => setChartGranularity('daily')}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                chartGranularity === 'daily' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-2xs' : 'text-[#68726B]'
-              }`}
+              aria-pressed={chartGranularity==='daily'}
+              className={`${FILTER_CHIP} ${chartGranularity==='daily'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}
             >
               По дням
             </button>
             <button 
               type="button"
               onClick={() => setChartGranularity('weekly')}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                chartGranularity === 'weekly' ? 'bg-white dark:bg-[#1C1C1E] text-[#2E3230] dark:text-white shadow-2xs' : 'text-[#68726B]'
-              }`}
+              aria-pressed={chartGranularity==='weekly'}
+              className={`${FILTER_CHIP} ${chartGranularity==='weekly'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}
             >
               По неделям
             </button>
@@ -406,17 +407,17 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
           </defs>
 
           {/* Grid Lines & Dynamic Y-Axis Labels */}
-          <line x1="60" y1="32" x2="920" y2="32" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-          <text x="54" y="36" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.maxVal.toLocaleString('ru-RU')} ₽</text>
+          <line x1="60" y1="32" x2="920" y2="32" stroke="var(--terra-border)" strokeDasharray="3,3" strokeOpacity="0.5" />
+          <text x="54" y="36" fill="var(--terra-muted)" fontSize="11" textAnchor="end">{renderedChartData.maxVal.toLocaleString('ru-RU')} ₽</text>
 
-          <line x1="60" y1="75" x2="920" y2="75" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-          <text x="54" y="79" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.midVal.toLocaleString('ru-RU')} ₽</text>
+          <line x1="60" y1="75" x2="920" y2="75" stroke="var(--terra-border)" strokeDasharray="3,3" strokeOpacity="0.5" />
+          <text x="54" y="79" fill="var(--terra-muted)" fontSize="11" textAnchor="end">{renderedChartData.midVal.toLocaleString('ru-RU')} ₽</text>
 
-          <line x1="60" y1="118" x2="920" y2="118" stroke="#E4E0D8" strokeDasharray="3,3" strokeOpacity="0.5" />
-          <text x="54" y="122" fill="#68726B" fontSize="11" textAnchor="end">{renderedChartData.lowVal.toLocaleString('ru-RU')} ₽</text>
+          <line x1="60" y1="118" x2="920" y2="118" stroke="var(--terra-border)" strokeDasharray="3,3" strokeOpacity="0.5" />
+          <text x="54" y="122" fill="var(--terra-muted)" fontSize="11" textAnchor="end">{renderedChartData.lowVal.toLocaleString('ru-RU')} ₽</text>
 
           <line x1="60" y1="160" x2="920" y2="160" stroke="#68726B" strokeWidth="1" strokeOpacity="0.4" />
-          <text x="54" y="164" fill="#68726B" fontSize="11" textAnchor="end">0</text>
+          <text x="54" y="164" fill="var(--terra-muted)" fontSize="11" textAnchor="end">0</text>
 
           {/* Clipped Trend Path & Bars */}
           <g clipPath="url(#chartPlotArea)">
@@ -424,7 +425,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
               <path 
                 d={renderedChartData.areaD} 
                 fill="url(#areaGradient)"
-                className="transition-all duration-300"
+                
               />
             )}
             
@@ -432,11 +433,11 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
               <path 
                 d={renderedChartData.lineD} 
                 fill="none" 
-                stroke="#4A7C59" 
+                stroke="var(--terra-primary-text)" 
                 strokeWidth="2.5" 
                 strokeLinejoin="round" 
                 strokeLinecap="round" 
-                className="transition-all duration-300"
+                
               />
             )}
 
@@ -476,7 +477,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
                   y1={renderedChartData.topY} 
                   x2={hoveredBar.x} 
                   y2={renderedChartData.bottomY} 
-                  stroke="#4A7C59" 
+                  stroke="var(--terra-primary-text)" 
                   strokeWidth="1.5" 
                   strokeDasharray="3,3" 
                 />
@@ -547,7 +548,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
 
           return (
             <div 
-              className={`absolute pointer-events-none z-50 bg-[#1C1C1E] text-white px-3.5 py-2.5 rounded-xl shadow-2xl border border-white/20 text-xs flex flex-col gap-1 -translate-x-1/2 transition-all duration-75 ${
+              className={`absolute pointer-events-none z-50 ${CHART_TOOLTIP} flex flex-col gap-1 -translate-x-1/2  ${
                 isTopClose ? 'translate-y-3' : '-translate-y-full -translate-y-2'
               }`}
               style={{
@@ -586,14 +587,14 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
               <Store className="w-4 h-4 text-[#4A7C59]" />
               <span>Отчет по категориям с разворотом по контрагентам (Payee)</span>
             </h4>
-            <p className="text-xs text-[#68726B] dark:text-stone-400 mt-0.5">
+            <p className="text-xs text-[var(--terra-muted)] dark:text-stone-400 mt-0.5">
               Детализация расходов по магазинам и получателям платежей за {monthLabel}
             </p>
           </div>
 
           {/* Search Bar for Payee */}
           <div className="relative flex items-center min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 text-[#68726B]" />
+            <Search className="w-3.5 h-3.5 absolute left-3 text-[var(--terra-muted)]" />
             <input 
               type="text"
               value={payeeSearchQuery}
@@ -605,7 +606,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
         </div>
 
         {categoryPayeeGroupedData.length === 0 ? (
-          <div className="p-6 text-center text-xs text-[#68726B] dark:text-stone-400 bg-white dark:bg-[#202225] rounded-2xl border border-[#E4E0D8] dark:border-white/10">
+          <div className="p-6 text-center text-xs text-[var(--terra-muted)] dark:text-stone-400 bg-white dark:bg-[#202225] rounded-2xl border border-[#E4E0D8] dark:border-white/10">
             Нет транзакций с контрагентами за выбранный период
           </div>
         ) : (
@@ -642,7 +643,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
                         </div>
                         <div className="w-32 bg-[#EAE6DE] dark:bg-stone-800 h-1.5 rounded-full overflow-hidden mt-1">
                           <div 
-                            className="h-full rounded-full transition-all" 
+                            className="h-full rounded-full terra-progress" 
                             style={{ width: `${group.percentage}%`, backgroundColor: group.catColor }} 
                           />
                         </div>
@@ -654,11 +655,11 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
                         <span className="text-xs font-bold text-[#2E3230] dark:text-white block tabular-nums">
                           {group.totalSpent.toLocaleString('ru-RU')} ₽
                         </span>
-                        <span className="text-[10px] text-[#68726B] font-medium">
+                        <span className="text-[10px] text-[var(--terra-muted)] font-medium">
                           {group.percentage}% от всех трат
                         </span>
                       </div>
-                      {isExpanded ? <ChevronUp className="w-4 h-4 text-[#68726B]" /> : <ChevronDown className="w-4 h-4 text-[#68726B]" />}
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-[var(--terra-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--terra-muted)]" />}
                     </div>
                   </button>
 
@@ -690,7 +691,7 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
                                     {payee.spent.toLocaleString('ru-RU')} ₽
                                   </span>
                                 </div>
-                                <div className="flex items-center justify-between text-[10px] text-[#68726B] mt-0.5">
+                                <div className="flex items-center justify-between text-[10px] text-[var(--terra-muted)] mt-0.5">
                                   <span>{payee.txCount} {payee.txCount === 1 ? 'операция' : payee.txCount < 5 ? 'операции' : 'операций'}</span>
                                   <span>{payee.percentage}% категории</span>
                                 </div>

@@ -642,7 +642,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           rightExtra={
             <button type="button" onClick={onOpenAIChat}
               aria-label="AI Ассистент" title="AI Ассистент"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               <Sparkles size={18} />
             </button>
           }
@@ -744,7 +744,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'family'}
               className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
-                  ? 'bg-[#4A7C59] text-white'
+                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
@@ -757,7 +757,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'personal'}
               className={`min-h-[44px] py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'personal'
-                  ? 'bg-[#4A7C59] text-white'
+                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >

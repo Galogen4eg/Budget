@@ -64,7 +64,7 @@ export function OverviewExpenseChart({
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
               tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} />
             <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={80}
-              tick={({x,y,payload}: {x:number;y:number;payload:{value:number}})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(payload.value)}</text>} />
+              tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
             {limit > 0 && <ReferenceLine y={limit} stroke="var(--terra-offline-text)" strokeDasharray="4 4" />}
             <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.55}}
               content={({active,payload}) => {

@@ -57,12 +57,25 @@ const emptyHeaderAliases:Record<string,string>={
  'описание':'note','описание операции':'note','номер карты':'card','номер счета':'account','номер счёта':'account',
  'валюта':'currency','mcc код':'mcc','mcc-код':'mcc','mcc':'mcc','категория':'category','категория операции':'category'
 };
+// Actual Alfa web export, observed in two empty workbooks (A1:Q2).
+// The blank N column is intentional; keep the exact order rather than
+// accepting arbitrary extra columns in the generic header recognizer.
+const alfaWebExportHeader=[
+ 'дата операции','дата проводки','название счета','номер счета','название карты','номер карты',
+ 'описание операции','сумма','валюта','статус','категория','mcc код','тип','','комментарий','кэшбэк','тип кэшбэка'
+];
+function matchesAlfaWebExportHeader(row:readonly unknown[]):boolean{
+ if(row.length<alfaWebExportHeader.length||row.some(v=>v!=null&&typeof v!=='string'))return false;
+ const normalized=row.map(v=>String(v??'').trim().toLowerCase().replace(/\s+/g,' '));
+ return alfaWebExportHeader.every((expected,i)=>normalized[i]===expected)&&normalized.slice(alfaWebExportHeader.length).every(v=>v==='');
+}
 export function isVerifiedEmptyAlfaSheets(sheets:readonly (readonly (readonly unknown[])[])[]):boolean{
  let recognized=0;
  for(const sheet of sheets){
   const populated=sheet.filter(row=>!rowIsBlank(row));
   if(!populated.length)continue;
   if(populated.length!==1)return false;
+  if(matchesAlfaWebExportHeader(populated[0])){recognized++;continue;}
   const cells=populated[0].filter(value=>String(value??'').trim()!=='');
   const columns=new Set<string>();
   for(const cell of cells){

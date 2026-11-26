@@ -151,6 +151,42 @@ if(process.argv.includes('--navigation')){
   assert.equal(legacyAfter.date,legacyBefore.date);
   await edit(b,legacyAfter.note).waitFor({state:'visible',timeout:20000});
   console.log('PASS legacy transaction edit with missing optional metadata');
+  // Exercise actual shared category-limit editing on both independent sessions.
+  const limitSettings=family.collection('config').doc('settings');
+  const beforeLimits=(await limitSettings.get()).data().categoryBudgets;
+  const beforeLedger=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+  assert.ok(beforeLimits.food>0,'Expected populated food limit');
+  const planning=page=>visible(page.getByTestId('budget-planning'));
+  const food=page=>planning(page).getByRole('button',{name:'Изменить лимит: Продукты',exact:true});
+  const amount=page=>planning(page).getByRole('textbox',{name:/Лимит в месяц/});
+  const select=page=>planning(page).getByRole('combobox',{name:'Категория',exact:true});
+  const close=page=>planning(page).getByRole('button',{name:'Закрыть',exact:true});
+  const savedLimit=async(page,value)=>{
+   await amount(page).fill(value);
+   await planning(page).getByRole('button',{name:'Сохранить лимит',exact:true}).click();
+   await amount(page).waitFor({state:'hidden',timeout:20000});
+  };
+  await food(b).click();
+  assert.equal(await select(b).inputValue(),'food');
+  assert.equal(Number(await amount(b).inputValue()),beforeLimits.food);
+  const targetIds=await b.locator('[data-testid="budget-planning"] [id]').evaluateAll(nodes=>nodes.map(el=>el.id));
+  assert.equal(new Set(targetIds).size,targetIds.length,'Duplicate planning form IDs');
+  await amount(b).fill('12abc');
+  await planning(b).getByRole('button',{name:'Сохранить лимит',exact:true}).click();
+  await planning(b).getByRole('alert').waitFor({state:'visible'});
+  assert.equal(await amount(b).inputValue(),'12abc');
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,beforeLimits);
+  await savedLimit(b,'12345,67');
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,{...beforeLimits,food:12345.67});
+  await a.waitForFunction(()=>Array.from(document.querySelectorAll('[data-testid="budget-planning"]')).some(el=>el.getClientRects().length&&/12[\s\u00a0\u202f]345,67/.test(el.textContent??'')),null,{timeout:20000});
+  await food(a).click();
+  assert.equal(Number(await amount(a).inputValue()),12345.67);
+  await savedLimit(a,String(beforeLimits.food));
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,beforeLimits);
+  await food(b).click();
+  await close(b).click();
+  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),beforeLedger,'Limit editor changed financial ledger');
+  console.log('PASS TERRA category limit invalid input, exact decimal save, other account update and restored ledger');
  }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;

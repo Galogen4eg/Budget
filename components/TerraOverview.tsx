@@ -16,7 +16,7 @@ import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
 import TerraMobileHeader from './TerraMobileHeader';
-import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, CHART_TOOLTIP, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE } from './filterUiTokens';
+import { FILTER_CHIP_ACTIVE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE, ICON_ACTION } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
@@ -196,6 +196,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const displayMonthSpent = useMemo(() => {
     return sumMoney(currentMonthTransactions.filter(t=>t.type==='expense').map(t=>t.amount));
   }, [currentMonthTransactions]);
+
+  const displayMonthIncome = useMemo(() => sumMoney(currentMonthTransactions.filter(t=>t.type==='income').map(t=>t.amount)),[currentMonthTransactions]);
 
   // Always use the same shared projection as the Budget section.
   const relevantMandatoryExpenses = useMemo(() => settings.mandatoryExpenses || [], [settings.mandatoryExpenses]);
@@ -636,7 +638,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           rightExtra={
             <button type="button" onClick={onOpenAIChat}
               aria-label="AI Ассистент" title="AI Ассистент"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+              className={ICON_ACTION+" "+TOOLBAR_ACTION_IDLE+" terra-press"}>
               <Sparkles size={18} />
             </button>
           }
@@ -720,7 +722,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </p>
             </div>
 
-            <div className="space-y-1.5 pt-1">
+            <div className="pt-3 border-t border-[var(--terra-border)] space-y-2">
+                <p className="text-xs text-[var(--terra-muted)]">{budgetMode==='family'&&!personalOnly?'Семейные':'Личные'} операции · {currentMonthName}</p>
+                <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+                </dl>
+              </div>
+            {totalMonthlyLimit>0&&!settings.privacyMode&&<div className="space-y-1.5 pt-1">
               <div className="flex flex-wrap justify-between items-baseline gap-1.5 text-xs">
                 <span className="text-graphite-muted dark:text-gray-400">{totalMonthlyLimit > 0 ? "Использовано из лимита" : "Расходы за месяц"}</span>
                 <span className="font-semibold text-graphite dark:text-white tabular-nums break-words">
@@ -735,7 +744,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   style={{ width: `${!settings.privacyMode && totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
                 />
               </div>
-            </div>
+            </div>}
           </section>
 
           {/* 2. Динамика расходов Card */}
@@ -997,6 +1006,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
         <div className="terra-overview-layout p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+          <h1 className="font-headline text-2xl font-bold text-[var(--terra-ink)]">Обзор</h1>
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
@@ -1075,7 +1085,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {formatAmount(sharedLedger)} <span className="text-xl font-medium text-[var(--terra-muted)]">₽</span>
               </span>
             </div>
-            <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-graphite-muted dark:text-gray-400">
+            <div className="pt-3 border-t border-[var(--terra-border)] space-y-2">
+                <p className="text-xs text-[var(--terra-muted)]">{budgetMode==='family'&&!personalOnly?'Семейные':'Личные'} операции · {currentMonthName}</p>
+                <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+                </dl>
+              </div>
+            {!settings.privacyMode&&<div className="pt-2 mt-3 border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
                 {lastMonthComparison.isPositive === true ? (
                   <TrendingDown size={14} className="mr-0.5" />
@@ -1085,7 +1102,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {lastMonthComparison.text}
               </span>
               <span className="text-xs">расходы к прошлому месяцу</span>
-            </div>
+            </div>}
           </div>
 
           {/* Card 2: На день */}

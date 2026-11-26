@@ -60,6 +60,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await values.waitFor({state:'visible'});await targetSize(values,label+' chart values');await values.click();
     const point=chart.getByTestId('overview-chart-values').getByRole('button').first();
     await point.waitFor({state:'visible'});await targetSize(point,label+' detail value');
+    await point.click();
+    const dayDialog=page.getByTestId('terra-day-detail');
+    await dayDialog.waitFor({state:'visible'});
+    assert.equal(await dayDialog.getAttribute('aria-modal'),'true');
+    await button(dayDialog,'Закрыть детали дня').focus();
+    await page.keyboard.press('Escape');
+    await dayDialog.waitFor({state:'hidden'});
+    assert.equal(await point.evaluate(el=>document.activeElement===el),true,label+' focus return');
     await values.click();
     await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
     await capture(page,'overview-'+label);

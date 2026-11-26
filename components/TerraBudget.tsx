@@ -14,6 +14,7 @@ import BrandIcon from './BrandIcon';
 import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import TerraMobileHeader from './TerraMobileHeader';
+import BudgetHistoryControls from './BudgetHistoryControls';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
@@ -86,6 +87,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const [historyScope, setHistoryScope] = useState<'day' | 'month'>('day');
   const [historyType, setHistoryType] = useState<'all' | 'expense' | 'income'>('all');
   const [historySearch, setHistorySearch] = useState('');
+  const [historyCategory,setHistoryCategory]=useState<string|null>(null);
 
   // Selected day for interactive calendar detail (defaults to today in current month or 1st)
   const [requestedDay, setSelectedDay] = useState<number>(() => {
@@ -209,8 +211,21 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   // changes the family-wide projected balance or the transaction ledger.
   const visibleHistory = useMemo(() => filterBudgetHistory(
     historyScope === 'day' ? selectedDayTransactions : monthTransactions,
-    historyType, historySearch, categories, members
-  ), [historyScope, historyType, historySearch, selectedDayTransactions, monthTransactions, categories, members]);
+    historyType, historySearch, categories, members,historyCategory
+  ), [historyScope, historyType, historySearch, historyCategory, selectedDayTransactions, monthTransactions, categories, members]);
+  const historyCategoryOptions=useMemo(()=>{
+    const ids=new Set(monthTransactions.map(tx=>tx.category));
+    if(historyCategory!==null)ids.add(historyCategory);
+    return Array.from(ids,id=>{
+      const category=categories.find(c=>c.id===id);
+      const parent=category?.parentId?categories.find(c=>c.id===category.parentId):undefined;
+      const label=category?(parent?parent.label+' / '+category.label:category.label):'Неизвестная категория'+(id?' · '+id:'');
+      return {id,label};
+    }).sort((a,b)=>a.label.localeCompare(b.label,'ru'));
+  },[monthTransactions,categories,historyCategory]);
+  const hasHistoryFilters=Boolean(historySearch.trim()||historyType!=='all'||historyCategory!==null);
+  const historyEmptyText=hasHistoryFilters?'По заданным фильтрам операций нет.':
+    historyScope==='day'?'В выбранный день операций нет. Переключитесь на «Весь месяц».':'В этом месяце операций нет.';
 
   const selectedDayNet = useMemo(() => {
     return monthlyMoneyTotals(selectedDayTransactions).net;
@@ -339,9 +354,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     }
     return list;
   }, [currentMonth, selectedDay]);
-
-  // Display transactions for the selected day card
-  const displayTransactions = selectedDayTransactions;
 
   // Display mandatory expenses
   const displayMandatoryExpenses = mandatoryExpenses;
@@ -744,19 +756,27 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </button>
             </div>
 
+          </section>
+
+          {/* Shared history controls retain day/member context */}
+          <section aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
+            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
+              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
+              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
+              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
             {/* Transactions List */}
             <div className="divide-y divide-[var(--terra-border)] pt-1">
-              {displayTransactions.length===0 && (
+              {visibleHistory.length===0 && (
                 <div className="rounded-xl border border-dashed border-[var(--terra-border)] dark:border-white/10 p-4 text-center text-xs text-[var(--terra-muted)] dark:text-gray-400">
-                  В выбранный день операций нет
+                  {historyEmptyText}
                 </div>
               )}
-              {displayTransactions.map(tx => {
+              {visibleHistory.map(tx => {
                 const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья', color: '#4A7C59' };
                 const isIncome = tx.type === 'income';
                 const cat = categories.find(c => c.id === tx.category);
                 const catLabel = cat?.label || (isIncome ? 'Доход' : 'Расход');
-                const displayTitle = tx.note || catLabel;
+                const displayTitle = tx.note || tx.payee || catLabel;
                 const brandKey = getMerchantBrandKey(displayTitle);
                 const txDate = new Date(tx.date);
                 const timeFormatted = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -764,7 +784,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
                 return (
                   <button type="button"
-                    key={tx.id}
+                    key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type}
                     onClick={() => onEditTransaction(tx)}
                     aria-label={`Редактировать операцию: ${displayTitle}`}
                     className="min-h-[48px] w-full flex items-center justify-between gap-2 px-1 py-2.5 text-left hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -781,15 +801,15 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                           <span className="font-medium" style={{ color: txMember.color }}>
                             {txMember.name}
                           </span>
-                          <span>•</span>
-                          <span>{dateFormatted}, {timeFormatted}</span>
+                          <span>· {cat?.label || 'Неизвестная категория'}</span>
+                          <span>· {dateFormatted}, {timeFormatted}</span>
                         </div>
                       </div>
                     </div>
                     <span className={`text-sm font-semibold tabular-nums shrink-0 min-w-0 max-w-[46%] text-right [overflow-wrap:anywhere] ${
-                      isIncome ? 'text-[var(--terra-primary)] dark:text-green-400' : 'text-[#B83230] dark:text-red-400'
+                      isIncome ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-ink)]'
                     }`}>
-                      {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${tx.amount.toLocaleString('ru-RU')} ₽`}
+                      {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
                     </span>
                   </button>
                 );
@@ -1715,61 +1735,29 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
           <section className={`${SURFACE_CARD} min-w-0 flex flex-col gap-3`}
-            aria-label="История операций бюджета">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
-                История операций
-              </h3>
-              <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">
-                {visibleHistory.length} из {historyScope === 'day' ? selectedDayTransactions.length : monthTransactions.length}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Период истории операций">
-              {(['day','month'] as const).map(scope => (
-                <button key={scope} type="button" onClick={() => setHistoryScope(scope)}
-                  aria-pressed={historyScope===scope}
-                  className={`min-h-[44px] px-3 rounded-xl border text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${historyScope===scope
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] text-graphite dark:text-white border-surface-border'}`}>
-                  {scope==='day' ? `День · ${selectedDay}` : 'Весь месяц'}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input type="search" aria-label="Поиск по истории операций"
-                value={historySearch} onChange={event=>setHistorySearch(event.target.value)}
-                placeholder="Название, категория или участник"
-                className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-surface-border bg-white dark:bg-[var(--terra-soft)] px-3 text-sm text-graphite dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-              <select aria-label="Тип операций в истории" value={historyType}
-                onChange={event=>setHistoryType(event.target.value as 'all' | 'expense' | 'income')}
-                className="min-h-[44px] rounded-xl border border-surface-border bg-white dark:bg-[var(--terra-soft)] px-3 text-sm text-graphite dark:text-white focus-visible:ring-2 focus-visible:ring-primary">
-                <option value="all">Все типы</option>
-                <option value="expense">Расходы</option>
-                <option value="income">Доходы</option>
-              </select>
-            </div>
+            aria-label="История операций бюджета" data-testid="budget-history-desktop">
+            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
+              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
+              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
+              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
             <div className="divide-y divide-[var(--terra-border)]">
               {visibleHistory.length===0 && (
                 <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
-                  {historySearch.trim() || historyType!=='all'
-                    ? 'По заданным фильтрам операций нет.'
-                    : historyScope==='day'
-                      ? 'В выбранный день операций нет. Переключитесь на «Весь месяц».'
-                      : 'В этом месяце операций нет.'}
+                  {historyEmptyText}
                 </p>
               )}
               {visibleHistory.map(tx => {
                 const member=members.find(m=>m.id===tx.memberId);
                 const category=categories.find(cat=>cat.id===tx.category);
-                const title=tx.note || category?.label || 'Операция';
+                const title=tx.note || tx.payee || category?.label || 'Операция';
                 return (
-                  <button type="button" key={tx.id} onClick={() => onEditTransaction(tx)}
+                  <button type="button" key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type} onClick={() => onEditTransaction(tx)}
                     aria-label={`Редактировать операцию: ${title}`}
                     className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[var(--terra-surface)] dark:hover:bg-[var(--terra-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-graphite dark:text-white break-words">{title}</span>
                       <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
-                        {member?.name || 'Семья'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
+                        {member?.name || 'Семья'} · {category?.label || 'Неизвестная категория'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
                       </span>
                     </span>
                     <span className={`shrink-0 min-w-0 max-w-[46%] text-right text-sm font-semibold tabular-nums [overflow-wrap:anywhere] ${tx.type==='income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'}`}>

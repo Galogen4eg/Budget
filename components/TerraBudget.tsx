@@ -475,13 +475,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 <span className="text-xs font-semibold text-[var(--terra-muted)] dark:text-gray-400">{isCurrentMonthView ? (personalOnly?'Личный ориентир в день':'Семейный ориентир в день') : 'История бюджета'}</span>
                 <div className="flex flex-wrap items-baseline gap-1.5 mt-0.5">
                   <span data-testid="family-daily-limit-mobile" className="text-2xl font-headline font-bold text-[var(--terra-ink)] dark:text-white tabular-nums [overflow-wrap:anywhere] min-w-0">
-                    {isCurrentMonthView&&personalOpeningKnown ? (settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`) : '—'}
+                    {!isCurrentMonthView||!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`}
                   </span>
                   <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400 font-medium">/ день</span>
                 </div>
-                <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400 mt-0.5">
-                  {personalOnly?'Доступно лично до зарплаты':'Доступно семье до зарплаты'} ({remainingDays} {remainingDays === 1 ? 'день' : remainingDays < 5 ? 'дня' : 'дней'}): <strong className="text-[var(--terra-ink)] dark:text-white font-semibold">{!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}</strong>
-                </span>
+                {isCurrentMonthView&&personalOpeningKnown&&<span className="text-xs text-[var(--terra-muted)] mt-0.5">
+                  {personalOnly?'Доступно лично до зарплаты':'Доступно семье до зарплаты'} ({remainingDays} дн.): <strong className="text-[var(--terra-ink)] font-semibold">{settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}</strong>
+                </span>}
               </div>
               {(!isCurrentMonthView || !personalOpeningKnown || safeDailyLimit <= 0) && (
                 <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">
@@ -494,7 +494,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <div className="flex flex-col gap-1.5 pt-3 border-t border-[var(--terra-border)]">
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-medium">
                 <span className="text-[var(--terra-muted)] dark:text-gray-400">
-                  {monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
+                  {settings.privacyMode ? "Расходы к доходам: •••" : monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
                 </span>
                 <span className={`font-semibold tabular-nums ${monthBalance < 0 ? "text-[#B83230] dark:text-red-400" : "text-[var(--terra-primary)] dark:text-green-400"}`}>
                   Результат месяца: {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
@@ -503,17 +503,17 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="w-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] h-2.5 rounded-full overflow-hidden flex">
                 <div 
                   className={`${monthIncome > 0 && monthExpense > monthIncome ? "bg-[#B83230]" : "bg-[#4A7C59]"} h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none`}
-                  style={{ width: `${monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
+                  style={{ width: `${!settings.privacyMode && monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
                 />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1 text-xs text-[var(--terra-muted)] dark:text-gray-400">
                 <span className="flex items-center gap-1 font-semibold text-[var(--terra-primary)] dark:text-green-400">
                   <ArrowDown size={13} />
-                  Доходы: {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}
+                  Доходы: {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}
                 </span>
                 <span className="flex items-center gap-1 font-semibold text-[#B83230] dark:text-red-400">
                   <ArrowUp size={13} />
-                  Расходы: {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽`}
+                  Расходы: {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}
                 </span>
               </div>
             </div>
@@ -863,7 +863,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     </button>
                     <div className="flex min-w-0 flex-col items-end gap-1">
                       <span className="text-sm font-semibold tabular-nums [overflow-wrap:anywhere] text-[var(--terra-ink)] dark:text-white">
-                        {settings.privacyMode ? '•••' : `${exp.amount.toLocaleString('ru-RU')} ₽`}
+                        {settings.privacyMode ? '•••' : `${formatBudgetMoney(exp.amount)} ₽`}
                       </span>
                       {!isPaid && paymentState && paymentState.paidAmount > 0 && (
                         <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">
@@ -927,14 +927,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         {settings.privacyMode ? '•••' : `${formatBudgetMoney(cat.sum)} ₽`}
                       </span>
                       <span className="text-[var(--terra-muted)] dark:text-gray-400 text-[11px] font-normal">
-                        ({cat.percent}%)
+                        {!settings.privacyMode&&`(${cat.percent}%)`}
                       </span>
                     </div>
                   </div>
                   <div className="w-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] h-2 rounded-full overflow-hidden">
                     <div 
                       className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-                      style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.color || '#4A7C59' }}
+                      style={{ width: `${settings.privacyMode?0:Math.min(100, cat.percent)}%`, backgroundColor: cat.color || '#4A7C59' }}
                     />
                   </div>
                 </div>
@@ -1106,13 +1106,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="my-2">
             <div className="flex flex-wrap items-baseline gap-1.5">
               <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-semibold font-headline text-primary-dark dark:text-green-400 tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0">
-                {!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`}
+                {!isCurrentMonthView||!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
             </div>
-            <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-              Расчёт: {!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`} доступно ÷ {remainingDays} оставшихся дней
-            </p>
+            {isCurrentMonthView&&personalOpeningKnown&&<p className="text-xs text-[var(--terra-muted)] mt-0.5">
+              Доступно до зарплаты: {settings.privacyMode ? '•••' : `${formatBudgetMoney(availableBalance)} ₽`}
+            </p>}
           </div>
 
           {(!isCurrentMonthView || !personalOpeningKnown || safeDailyLimit <= 0) && (
@@ -1130,18 +1130,18 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
-              todayReserve >= 0 
+              settings.privacyMode ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
                 ? 'bg-emerald-50 text-emerald-800 dark:bg-green-950/40 dark:text-green-400 border border-emerald-200 dark:border-green-800/40' 
                 : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400 border border-red-200'
             }`}>
-              {safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
+              {settings.privacyMode ? 'Суммы скрыты' : safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
             </span>
           </div>
 
           <div className="my-2 space-y-1.5">
             <div className="flex flex-wrap justify-between items-baseline gap-2">
               <div className="text-lg font-bold font-headline text-graphite dark:text-white">
-                {settings.privacyMode ? '•••' : `${todaySpent.toLocaleString('ru-RU')} ₽`}
+                {settings.privacyMode ? '•••' : `${formatBudgetMoney(todaySpent)} ₽`}
               </div>
               <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-primary dark:text-green-400' : 'text-red-500'}`}>
                 {safeDailyLimit <= 0 || settings.privacyMode ? '' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
@@ -1151,7 +1151,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none ${todayReserve >= 0 ? 'bg-primary' : 'bg-red-500'}`}
-                style={{ width: `${safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
+                style={{ width: `${!settings.privacyMode && safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
               />
             </div>
           </div>
@@ -1186,21 +1186,21 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <div className="text-center px-1">
               <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Доходы</span>
               <span className="text-xs lg:text-sm font-semibold font-headline text-primary dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${monthIncome.toLocaleString('ru-RU')} ₽`}
+                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}
               </span>
             </div>
 
             <div className="text-center px-1 border-y lg:border-y-0 lg:border-x border-surface-border/70 dark:border-white/5">
               <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Расходы</span>
               <span className="text-xs lg:text-sm font-semibold font-headline text-[#D95C48] dark:text-red-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽`}
+                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}
               </span>
             </div>
 
             <div className="text-center px-1">
               <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Результат месяца</span>
               <span className="text-xs lg:text-sm font-semibold font-headline text-emerald-700 dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${monthBalance.toLocaleString('ru-RU')} ₽`}
+                {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
               </span>
               <span className="text-xs text-graphite-muted dark:text-gray-400 block">Доходы − расходы</span>
             </div>
@@ -1209,7 +1209,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>
             <span className="font-bold text-graphite dark:text-white">
-              {monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
+              {settings.privacyMode ? "•••" : monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
             </span>
           </div>
         </div>
@@ -1549,7 +1549,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     Категории расходов
                   </h3>
                   <p className="text-xs text-graphite-muted dark:text-gray-400">
-                    {settings.privacyMode ? '•••' : `${monthExpense.toLocaleString('ru-RU')} ₽ израсходовано`}
+                    {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽ израсходовано`}
                   </p>
                 </div>
               </div>
@@ -1581,7 +1581,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         </span>
                         <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-semibold tabular-nums">
                           {settings.privacyMode ? '•••' : `${formatBudgetMoney(cat.sum)} ₽`} 
-                          <span className="text-primary dark:text-green-400 font-bold ml-1">({roundedPct}%)</span>
+                          <span className="text-primary dark:text-green-400 font-bold ml-1">{!settings.privacyMode&&`(${roundedPct}%)`}</span>
                         </span>
                       </div>
                       <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">

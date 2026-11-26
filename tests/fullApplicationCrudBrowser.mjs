@@ -335,6 +335,46 @@ await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/resto
  await currentDoc(saved.ref,x=>!x.exists,'shopping deletion');
  await btn(panel(a,'shopping'),'Редактировать товар: QA молоко изменено').waitFor({state:'hidden'});
 });
+await scenario('SHP Terra filtered clear, template preview and pantry transfer',async()=>{
+ const shopping=family.collection('shopping'),stock=family.collection('pantry');
+ const ledgerBefore=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+ const titles=['QA clear visible','QA keep hidden','QA pantry move'];
+ const ids=['terra-clear-visible','terra-keep-hidden','terra-pantry-move'];
+ await Promise.all(ids.map((id,i)=>shopping.doc(id).set({id,title:titles[i],amount:'2.5',unit:'л',category:'drinks',priority:'medium',memberId:'a',completed:true,completedAt:Date.now()})));
+ await nav(b,'shopping','Покупки');await nav(a,'shopping','Покупки');
+ const p=panel(b,'shopping'),q=panel(a,'shopping');
+ const search=p.getByRole('textbox',{name:'Поиск по товарам в семейном списке'});
+ phase='filtered clear on desktop';await search.fill(titles[0]);
+ await btn(p,'Вернуть в список: '+titles[0]).waitFor({state:'visible'});
+ await btn(p,'Очистить купленные товары').click();
+ await btn(p,'Подтвердить удаление 1 купленных товаров').click();
+ await currentDoc(shopping.doc(ids[0]),snap=>!snap.exists,'filtered row deleted');
+ assert.equal((await shopping.doc(ids[1]).get()).exists,true,'Hidden completed row was deleted');
+ assert.equal((await shopping.doc(ids[2]).get()).exists,true);
+ phase='pantry move on desktop';await search.fill(titles[2]);
+ const move=btn(p,'В кладовку: '+titles[2]);await move.waitFor({state:'visible'});
+ const box=await move.boundingBox();assert.ok(box&&box.width>=44&&box.height>=44);
+ await move.evaluate(button=>{button.click();button.click();});
+ await currentDoc(shopping.doc(ids[2]),snap=>!snap.exists,'moved source removed');
+ const moved=await findOne('pantry','title',titles[2]);assert.equal(moved.data().amount,'2.5');assert.equal(moved.data().unit,'л');
+ phase='other account pantry view';
+ await btn(q,/^Кладовая/,false).click();
+ const stockRow=q.locator('[data-pantry-id="'+moved.id+'"]');await stockRow.waitFor({state:'visible',timeout:20000});assert.match(await stockRow.innerText(),/2\.5 л/);
+ await btn(q,/^Кладовая/,false).click();
+ phase='template preview does not write';
+ const before=JSON.stringify((await shopping.get()).docs.map(doc=>[doc.id,doc.data()]));
+ await btn(p,/Быстрые списки/,false).click();
+ await btn(p,'Продукты на неделю · 4').click();
+ const preview=p.getByRole('region',{name:'Состав быстрого списка'});await preview.waitFor({state:'visible'});
+ assert.equal(await preview.locator('li').count(),4);assert.match(await preview.innerText(),/Молоко/);
+ assert.equal(JSON.stringify((await shopping.get()).docs.map(doc=>[doc.id,doc.data()])),before);
+ await btn(preview,'Отмена').click();await preview.waitFor({state:'hidden'});
+ await btn(p,/Быстрые списки/,false).click();await search.fill('');
+ // Remove only disposable emulator fixtures.
+ await shopping.doc(ids[1]).delete();await moved.ref.delete();
+ assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),ledgerBefore,'Shopping changed the financial ledger');
+ console.log('PASS TERRA shopping filtered clear, exact pantry transfer, other account inventory, template preview and unchanged ledger');
+});
 await scenario('CHAT message and other-account heart reaction',async()=>{
  await nav(b,'chat','Чат');await nav(a,'chat','Чат');
  const p=panel(b,'chat'),q=panel(a,'chat');

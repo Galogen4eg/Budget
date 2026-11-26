@@ -2,16 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-test('dashboard charts share card and tooltip tokens, stable plot geometry and no replayed area animations',()=>{
- const overview=read('components/TerraOverview.tsx');
- const tokens=read('components/filterUiTokens.ts');
+test('dashboard charts share card and tooltip tokens, stable plot geometry and no replayed bar animations',()=>{
+ const overview=read('components/TerraOverview.tsx'),chart=read('components/overview/OverviewExpenseChart.tsx');
+ const tokens=read('components/filterUiTokens.ts'),css=read('public/terra-ui.css');
  assert.match(tokens,/DASHBOARD_CARD = SURFACE_CARD/);
  assert.match(overview,/data-testid="overview-chart-mobile" className=\{.*DASHBOARD_CARD/);
- assert.match(overview,/data-testid="overview-chart-desktop" className=\{DASHBOARD_CARD\}/);
- assert.equal((overview.match(/className=\{\x60\$\{CHART_TOOLTIP\}/g)||[]).length,2);
- assert.equal((overview.match(/dataKey="amount"\s+isAnimationActive=\{false\}/g)||[]).length,2);
- assert.match(overview,/h-\[184px\]/);
- assert.match(overview,/h-\[240px\] lg:h-\[264px\]/);
+ assert.match(overview,/data-testid="overview-chart-desktop" className=\{.*DASHBOARD_CARD/);
+ assert.equal((overview.match(/<OverviewExpenseChart\b/g)||[]).length,2);
+ assert.match(chart,/className=\{CHART_TOOLTIP\}/);
+ assert.match(chart,/<Bar dataKey="amount"[^>]*isAnimationActive=\{false\}/);
+ assert.match(chart,/terra-overview-chart-plot/);
+ assert.match(css,/\.terra-overview-chart-plot\s*\{height:208px;\}/);
+ assert.match(css,/@media\(min-width:768px\)\{\.terra-overview-chart-plot\{height:248px;\}\}/);
+ assert.match(css,/@media\(min-width:1024px\)\{\.terra-overview-chart-plot\{height:264px;\}\}/);
 });
 test('motion respects OS preferences without changing scroll or data',()=>{
  assert.match(read('index.tsx'),/MotionConfig reducedMotion="user"/);

@@ -18,10 +18,12 @@ test('iteration 75: mass deletion requires a separate explicit confirmation on b
   const src=load(path);
   assert.match(src,/confirmClearCompleted/);
   assert.match(src,/isClearingCompleted/);
-  assert.match(src,/Удалить все купленные товары из общего списка/);
-  assert.match(src,/setConfirmClearCompleted\(false\)/);
+  assert.match(src,/Удалить показанные купленные товары из общего списка/);
+  assert.match(src,/setClearSelection\(captureCompletedSelection\(completedItems\)\)/);
+  assert.match(src,/resolveCompletedDeletion\(clearSelection,completedItems\)/);
+  assert.match(src,/setClearSelection\(null\)/);
   assert.match(src,/Отмена/);
-  assert.match(src,/await deleteItemsBatch\(familyId, 'shopping',/);
+  assert.match(src,/await deleteItemsBatch\(familyId, 'shopping', (completedIds|idsToDelete)\)/);
  }
 });
 

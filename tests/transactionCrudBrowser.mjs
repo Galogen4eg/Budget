@@ -160,6 +160,20 @@ try{
   assert.equal((await rows.get()).size,countBefore,'Invalid amount created a record');
  }
  await amount.fill('45,67');
+ // Offline before submit: no request, no persisted mutation, preserve open form.
+ await a.context().setOffline(true);
+ try{
+  await a.waitForFunction(()=>navigator.onLine===false);
+  await form.getByRole('button',{name:'Добавить операцию',exact:true}).click();
+  await form.getByRole('alert').filter({hasText:'Операция не отправлена'}).waitFor({state:'visible'});
+  assert.equal(await amount.inputValue(),'45,67');
+  assert.equal(await nameField(a).inputValue(),'QA новая операция');
+  assert.equal((await rows.get()).size,countBefore,'Offline preflight must not write');
+ }finally{
+  await a.context().setOffline(false);
+ }
+ await a.waitForFunction(()=>navigator.onLine===true);
+ console.log('PASS TERRA offline draft retained and no attempted write');
  // Two programmatic clicks in the same event loop exercise the synchronous guard.
  await form.getByRole('button',{name:'Добавить операцию',exact:true}).evaluate(button=>{button.click();button.click();});
  await form.waitFor({state:'hidden',timeout:20000});

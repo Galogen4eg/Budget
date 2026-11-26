@@ -52,6 +52,8 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES_MAP);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const scope=familyId&&user?.uid?`${familyId}:${user.uid}`:null;
+  const currentScopeRef=useRef(scope);
+  currentScopeRef.current=scope;
   const [openedScope,setOpenedScope]=useState<string|null>(null);
   const [loadedScope,setLoadedScope]=useState<string|null>(null);
   const [loadError,setLoadError]=useState(false);
@@ -163,6 +165,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
     };
     try {
       await addItem(familyId, 'chat', newMsg);
+      if(currentScopeRef.current!==scope)return;
       triggerHaptic('medium');
       followChat.current=true;
       setInputText(prev => prev.trim() === text ? '' : prev);
@@ -173,7 +176,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       } : t));
     } catch (err) {
       console.error('Failed to send chat message:', err);
-      toast.error('Сообщение не отправлено. Повторите попытку.');
+      if(currentScopeRef.current===scope)toast.error('Сообщение не отправлено. Повторите попытку.');
     } finally {
       sendingRef.current=false;setIsSendingMessage(false);
     }
@@ -250,7 +253,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 key={t.id}
                 type="button"
                 onClick={() => handleSelectTopic(t.id)}
-                className={`w-full p-3 rounded-2xl text-left flex items-start gap-3 transition-all cursor-pointer ${
+                className={`w-full p-3 rounded-2xl text-left flex items-start gap-3 transition-colors cursor-pointer ${
                   isActive 
                     ? 'bg-surface dark:bg-[var(--terra-soft)] border border-primary/40 shadow-sm' 
                     : 'hover:bg-surface-container/60 dark:hover:bg-white/5 border border-transparent'
@@ -565,7 +568,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       {/* EXPENSE DETAILS MODAL SHEET */}
       {isReceiptModalOpen && selectedReceipt && (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-end justify-center p-0 transition-opacity">
-          <div className="w-full max-w-md !bg-white dark:!bg-[var(--terra-surface)] rounded-t-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-6 duration-200 border-t border-stone-200 dark:border-white/10 relative z-10">
+          <div className="w-full max-w-md !bg-white dark:!bg-[var(--terra-surface)] rounded-t-3xl p-5 shadow-2xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-6 duration-200 motion-reduce:animate-none border-t border-stone-200 dark:border-white/10 relative z-10">
             <div className="w-12 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600 mx-auto"></div>
             
             <div className="flex items-center justify-between">

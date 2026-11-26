@@ -57,7 +57,10 @@ test('iteration 70: desktop day operations and month history have keyboard acces
   const labels=src.match(/aria-label=\{.?Редактировать операцию:/g)||[];
   assert.ok(labels.length>=3,'day card, desktop history and mobile day cards should each be accessible');
   assert.ok(src.includes('min-h-[48px] w-full text-left flex items-center justify-between'));
-  assert.ok(src.includes('aria-label="Поиск по истории операций"'));
+  const controls=read('../components/BudgetHistoryControls.tsx');
+  assert.equal((src.match(/<BudgetHistoryControls\b/g)||[]).length,2);
+  assert.ok(controls.includes('aria-label="Поиск по истории операций"'));
+  assert.ok(controls.includes('min-h-[44px]'));
 });
 
 test('iteration 70: privacy mode hides the two mobile calendar money badges',()=>{
@@ -71,7 +74,8 @@ test('iteration 70: guarded full import and duplicates are retained',()=>{
   const modal=read('../components/ImportModal.tsx');
   const app=read('../App.tsx');
   const duplicates=read('../components/DuplicatesModal.tsx');
-  assert.ok(modal.includes('splitImportReview(selected, categories).needsReview.length'));
+  assert.ok(modal.includes('selected.some(needsCategory)'));
+  assert.ok(modal.includes('!isEligibleForImport(item,categories)||!isCategoryForType(item.category,categories,item.type)'));
   assert.ok(app.includes('assertImportBatchReady(itemsToImport, categories, importMemberId)'));
   assert.ok(duplicates.includes('Снять выбор'));
 });

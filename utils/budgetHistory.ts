@@ -4,20 +4,22 @@ export type HistoryTransactionType='all'|'income'|'expense';
 
 /** Filter visible history without mutating the shared financial ledger. */
 export function filterBudgetHistory<T extends Pick<Transaction,
-  'id'|'date'|'type'|'note'|'rawNote'|'category'|'memberId'>>(
+  'id'|'date'|'type'|'note'|'rawNote'|'payee'|'category'|'memberId'>>(
   source:readonly T[],
   type:HistoryTransactionType,
   query:string,
   categories:readonly Pick<Category,'id'|'label'>[],
-  members:readonly Pick<FamilyMember,'id'|'name'>[]
+  members:readonly Pick<FamilyMember,'id'|'name'>[],
+  categoryId:string|null=null
 ):T[]{
   const needle=query.trim().toLocaleLowerCase('ru-RU');
   const categoryNames=new Map(categories.map(item=>[item.id,item.label]));
   const memberNames=new Map(members.map(item=>[item.id,item.name]));
   return source.filter(tx=>{
     if(type!=='all' && tx.type!==type)return false;
+    if(categoryId!==null && tx.category!==categoryId)return false;
     if(!needle)return true;
-    return [tx.note,tx.rawNote,categoryNames.get(tx.category),memberNames.get(tx.memberId)]
+    return [tx.note,tx.rawNote,tx.payee,categoryNames.get(tx.category),memberNames.get(tx.memberId)]
       .some(part=>part?.toLocaleLowerCase('ru-RU').includes(needle));
   }).sort((left,right)=>{
     const a=new Date(left.date).getTime(), b=new Date(right.date).getTime();

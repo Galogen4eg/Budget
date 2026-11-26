@@ -23,7 +23,7 @@ import { diffSettings, personalTransactions } from '../utils/budgetConsistency';
 import { ledgerBalance, sumMoney } from '../utils/budgetFinancialMath';
 import { planDebtExpenseLink } from '../utils/debtEdit';
 import { initialWorkspaceRead, updateWorkspaceRead, workspaceStatus, type WorkspaceCollection, type WorkspaceStatus } from '../utils/workspaceReadState';
-import { initialFinancialRead, updateFinancialRead, financialReadStatus, type FinancialCollection, type FinancialReadStatus } from '../utils/financialReadState';
+import { initialFinancialRead, updateFinancialRead, financialReadStatus, financialSnapshotStatus, type FinancialCollection, type FinancialReadStatus } from '../utils/financialReadState';
 
 // Default Settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -321,7 +321,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const receive=(kind:FinancialCollection,apply:(items:any[])=>void)=>(items:any[],metadata:{fromCache:boolean;hasPendingWrites:boolean})=>{
       if(!active)return;
       apply(items);
-      setFinancialRead(previous=>updateFinancialRead(previous,scope,kind,metadata.fromCache?'stale':'ready'));
+      setFinancialRead(previous=>updateFinancialRead(previous,scope,kind,financialSnapshotStatus(metadata)));
       if(kind==='transactions')setTransactionsReady(!metadata.fromCache&&!metadata.hasPendingWrites);
     };
     const fail=(kind:FinancialCollection)=>(error:Error)=>{

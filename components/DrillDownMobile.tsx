@@ -1,3 +1,4 @@
+import { DASHBOARD_CARD, FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
 import { chartBarPercent } from '../utils/analyticsPresentation';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 import { useModalSurface } from '../hooks/useDialogFocus';
@@ -621,40 +622,32 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
             </div>
 
             {/* Chart Section */}
-            {privacyMode?<p role="status" className="p-4 rounded-xl bg-[var(--terra-surface)] text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<div data-testid="drilldown-chart" className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 flex flex-col space-y-3">
+            {privacyMode?<p role="status" className="p-4 rounded-xl bg-[var(--terra-surface)] text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<div data-testid="drilldown-chart" className={DASHBOARD_CARD+" flex flex-col space-y-3"}>
               {/* Header & Toggle */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
-                    Динамика трат
+                    Доходы и расходы
                   </h3>
                   <p className="text-[11px] text-[#4A4E4A] dark:text-stone-400 font-medium">
-                    Списания и возвраты
+                    По выбранному периоду
                   </p>
                 </div>
 
-                <div className="flex items-center p-1 bg-[#EAE6DE] dark:bg-white/10 rounded-lg gap-1">
+                <div role="group" aria-label="Группировка аналитики" className={FILTER_RAIL}>
                   <button 
                     type="button"
-                    onClick={() => setChartGranularity('daily')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                      chartGranularity === 'daily'
-                        ? 'bg-white dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 shadow-2xs'
-                        : 'text-[#4A4E4A] dark:text-stone-400 hover:text-[#2E3230]'
-                    }`}
+                    onClick={() => setChartGranularity('daily')} aria-pressed={chartGranularity==='daily'}
+                    className={FILTER_CHIP+' terra-press '+(chartGranularity==='daily'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}
                   >
                     По дням
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setChartGranularity('weekly')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                      chartGranularity === 'weekly'
-                        ? 'bg-white dark:bg-[#252528] text-[#4A7C59] dark:text-green-400 shadow-2xs'
-                        : 'text-[#4A4E4A] dark:text-stone-400 hover:text-[#2E3230]'
-                    }`}
+                    onClick={() => setChartGranularity('weekly')} aria-pressed={chartGranularity==='weekly'}
+                    className={FILTER_CHIP+' terra-press '+(chartGranularity==='weekly'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}
                   >
-                    Недели
+                    По неделям
                   </button>
                 </div>
               </div>
@@ -662,12 +655,12 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               {/* Legend */}
               <div className="flex items-center gap-4 text-xs font-medium pt-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#B83230]" />
-                  <span className="text-[#4A4E4A] dark:text-stone-300">Списания</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--terra-danger-text)]" />
+                  <span className="text-[#4A4E4A] dark:text-stone-300">Расходы</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4A7C59]" />
-                  <span className="text-[#4A4E4A] dark:text-stone-300">Пополнения</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--terra-primary-solid)]" />
+                  <span className="text-[#4A4E4A] dark:text-stone-300">Доходы</span>
                 </div>
               </div>
 
@@ -705,6 +698,8 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   })}
                 </div>
               </div>
+
+              <details className="border-t border-[var(--terra-border)]"><summary className="min-h-[44px] flex items-center text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer">Значения графика</summary><div className="max-h-64 overflow-y-auto divide-y divide-[var(--terra-border)]">{mobileBars.map(bar=><div key={bar.id} className="flex flex-wrap gap-2 justify-between py-2 text-sm tabular-nums"><span>{bar.label}</span><span className="text-[var(--terra-danger-text)]">−{formatAmount(bar.expense)} ₽</span><span className="text-[var(--terra-primary-text)]">+{formatAmount(bar.income)} ₽</span></div>)}</div></details>
 
               {peakInfo&&<div className="bg-[#EAE6DE] dark:bg-white/5 rounded-xl p-2.5 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">

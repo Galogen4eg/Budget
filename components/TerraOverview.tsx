@@ -6,10 +6,6 @@ import {
   HelpCircle, ShieldAlert, ChevronDown, ShoppingCart,
   Star, Smartphone, Utensils, Store, Tag, Gift, Activity, Car, CreditCard
 } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  CartesianGrid, ReferenceLine 
-} from 'recharts';
 import { Transaction, AppSettings, Category, FamilyMember, ShoppingItem, MandatoryExpense, FamilyEvent } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +16,7 @@ import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
 import TerraMobileHeader from './TerraMobileHeader';
-import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, CHART_TOOLTIP, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE } from './filterUiTokens';
+import { FILTER_CHIP_ACTIVE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE, ICON_ACTION } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
@@ -200,6 +196,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const displayMonthSpent = useMemo(() => {
     return sumMoney(currentMonthTransactions.filter(t=>t.type==='expense').map(t=>t.amount));
   }, [currentMonthTransactions]);
+
+  const displayMonthIncome = useMemo(() => sumMoney(currentMonthTransactions.filter(t=>t.type==='income').map(t=>t.amount)),[currentMonthTransactions]);
 
   // Always use the same shared projection as the Budget section.
   const relevantMandatoryExpenses = useMemo(() => settings.mandatoryExpenses || [], [settings.mandatoryExpenses]);
@@ -588,7 +586,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         const iconName = cat?.icon || item.icon || 'ShoppingBasket';
         return {
           ...item,
-          amount: Math.round(item.amount),
+          amount: item.amount,
           barColor: color,
           bg: `${color}1A`,
           color: color,
@@ -601,8 +599,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [categoryBreakdown, categories]);
 
   // Display only actual chart points: artificial fallback dates mislead the user.
-  const mobileChartData = dynamicsData.points;
-  const hasChartExpenses = dynamicsData.points.some(point => point.amount > 0);
 
   // Future / upcoming events for the rest of current week
   const upcomingWeekEvents = useMemo(() => {
@@ -642,97 +638,33 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           rightExtra={
             <button type="button" onClick={onOpenAIChat}
               aria-label="AI Ассистент" title="AI Ассистент"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+              className={ICON_ACTION+" "+TOOLBAR_ACTION_IDLE+" terra-press"}>
               <Sparkles size={18} />
             </button>
           }
         />
-        <div className="px-4 pt-3">
-          <div className="relative min-w-0">
-            <button
-              type="button"
-              onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-              aria-label={`Выбрать месяц: ${currentMonthName}`}
-              aria-expanded={isMonthPickerOpen}
-              className="max-w-full min-h-[44px] px-3 sm:px-4 py-2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#EAE6DD] dark:bg-[#252528] text-graphite dark:text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:bg-[#E2DDD3] active:scale-95 transition cursor-pointer"
-            >
-              <span className="block truncate">{currentMonthName}</span>
-              <ChevronDown size={14} className="text-graphite-muted dark:text-gray-400" />
-            </button>
-            {isMonthPickerOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setIsMonthPickerOpen(false)} 
-                />
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-[min(17rem,calc(100vw-2rem))] bg-white dark:bg-[#252528] border border-surface-border dark:border-white/10 rounded-2xl shadow-xl p-2.5 z-50 min-w-[210px] space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <button
-                      type="button"
-                      onClick={() => handleStepMonth(-1)}
-                      className="p-1.5 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-graphite dark:text-gray-200 transition active:scale-95 cursor-pointer"
-                      title="Предыдущий месяц"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <span className="text-xs font-bold font-headline text-graphite dark:text-white capitalize">
-                      {currentMonthName}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleStepMonth(1)}
-                      className="p-1.5 hover:bg-[#F5F1EA] dark:hover:bg-white/5 rounded-lg text-graphite dark:text-gray-200 transition active:scale-95 cursor-pointer"
-                      title="Следующий месяц"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-
-                  {/* List of recent months to quickly select */}
-                  <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar border-t border-b border-surface-border/60 dark:border-white/5 py-1">
-                    {monthOptions.map((item) => {
-                      const isSelected = item.date.getMonth() === activeMonth.getMonth() && item.date.getFullYear() === activeMonth.getFullYear();
-                      const isCurrent = item.date.getMonth() === realToday.getMonth() && item.date.getFullYear() === realToday.getFullYear();
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => {
-                            handleMonthChange(item.date);
-                            setIsMonthPickerOpen(false);
-                          }}
-                          className={`w-full text-xs font-semibold py-1.5 px-2.5 rounded-xl transition flex items-center justify-between text-left cursor-pointer ${
-                            isSelected 
-                              ? 'bg-primary text-white font-bold' 
-                              : 'text-graphite dark:text-gray-300 hover:bg-[#F5F1EA] dark:hover:bg-white/5'
-                          }`}
-                        >
-                          <span className="capitalize">{item.label}</span>
-                          {isCurrent && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary font-bold'}`}>
-                              тек.
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Jump to current month button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleMonthChange(new Date());
-                      setIsMonthPickerOpen(false);
-                    }}
-                    className="w-full text-xs font-bold py-1.5 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Текущий месяц</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        <div className="px-4 pt-3" data-testid="overview-month-selector">
+          <button type="button" onClick={()=>setIsMonthPickerOpen(open=>!open)}
+            aria-label={`Выбрать месяц: ${currentMonthName}`} aria-expanded={isMonthPickerOpen} aria-controls="overview-month-controls-mobile"
+            className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' max-w-full terra-press'}>
+            <span className="truncate">{currentMonthName}</span><ChevronDown size={16} aria-hidden="true"/>
+          </button>
+          {isMonthPickerOpen && <div id="overview-month-controls-mobile" role="group" aria-label="Доступные месяцы" className={SURFACE_CARD+' mt-2 space-y-2'}>
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={()=>handleStepMonth(-1)} aria-label="Предыдущий месяц" className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}><ChevronLeft size={18}/></button>
+              <span className="min-w-0 text-center text-sm font-semibold text-[var(--terra-ink)]">{currentMonthName}</span>
+              <button type="button" onClick={()=>handleStepMonth(1)} aria-label="Следующий месяц" className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}><ChevronRight size={18}/></button>
+            </div>
+            <div className="max-h-48 overflow-y-auto overscroll-y-contain">
+              {monthOptions.map(item=>{
+                const isSelected=item.date.getMonth()===activeMonth.getMonth()&&item.date.getFullYear()===activeMonth.getFullYear();
+                return <button key={item.key} type="button" aria-pressed={isSelected}
+                  onClick={()=>{handleMonthChange(item.date);setIsMonthPickerOpen(false);}}
+                  className={TOOLBAR_ACTION+' w-full justify-start '+(isSelected?FILTER_CHIP_ACTIVE:TOOLBAR_ACTION_IDLE)}>{item.label}</button>;
+              })}
+            </div>
+            <button type="button" onClick={()=>{handleMonthChange(new Date());setIsMonthPickerOpen(false);}} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' w-full'}>Текущий месяц</button>
+          </div>}
         </div>
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
@@ -744,7 +676,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'family'}
               className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'family'
-                  ? 'bg-[#4A7C59] text-white'
+                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
@@ -757,7 +689,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'personal'}
               className={`min-h-[44px] py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
                 budgetMode === 'personal'
-                  ? 'bg-[#4A7C59] text-white'
+                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
@@ -775,6 +707,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <span className="text-sm font-semibold text-[var(--terra-muted)]">
                 {personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}
               </span>
+              <button type="button" aria-label={settings.privacyMode?'Показать суммы':'Скрыть суммы'} aria-pressed={settings.privacyMode===true}
+                onClick={()=>updateSettings({privacyMode:!settings.privacyMode})} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' terra-press'}>
+                {settings.privacyMode?<EyeOff size={18}/>:<Eye size={18}/>}
+              </button>
             </div>
 
             <div>
@@ -786,7 +722,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </p>
             </div>
 
-            <div className="space-y-1.5 pt-1">
+            <div className="pt-3 border-t border-[var(--terra-border)] space-y-2">
+                <p className="text-xs text-[var(--terra-muted)]">{budgetMode==='family'&&!personalOnly?'Семейные':'Личные'} операции · {currentMonthName}</p>
+                <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+                </dl>
+              </div>
+            {totalMonthlyLimit>0&&!settings.privacyMode&&<div className="space-y-1.5 pt-1">
               <div className="flex flex-wrap justify-between items-baseline gap-1.5 text-xs">
                 <span className="text-graphite-muted dark:text-gray-400">{totalMonthlyLimit > 0 ? "Использовано из лимита" : "Расходы за месяц"}</span>
                 <span className="font-semibold text-graphite dark:text-white tabular-nums break-words">
@@ -798,123 +741,22 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden" aria-hidden="true">
                 <div 
                   className="h-full rounded-full bg-[#4A7C59] terra-progress"
-                  style={{ width: `${totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
+                  style={{ width: `${!settings.privacyMode && totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
                 />
               </div>
-            </div>
+            </div>}
           </section>
 
           {/* 2. Динамика расходов Card */}
           <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className={SECTION_HEADING}>
-                  Динамика расходов
-                </h3>
-                <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-                  {currentMonthName}, {budgetMode === 'family' ? 'семейные траты' : 'личные траты'}
-                </p>
-              </div>
-
-              {/* Filter tabs: День / Неделя / Месяц */}
-              <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL}>
-                {(['day', 'week', 'month'] as const).map(scale => {
-                  const labels: Record<string, string> = { day: 'День', week: 'Неделя', month: 'Месяц' };
-                  const isCurrent = chartScale === scale;
-                  return (
-                    <button
-                      key={scale}
-                      type="button"
-                      onClick={() => setChartScale(scale)}
-                      aria-pressed={isCurrent}
-                      className={`${FILTER_CHIP} cursor-pointer ${
-                        isCurrent
-                          ? FILTER_CHIP_ACTIVE
-                          : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
-                      }`}
-                    >
-                      {labels[scale]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Metrics Legend */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-graphite dark:text-gray-300 tabular-nums">
-              <span className="inline-flex items-center gap-1">
-                <span className="text-graphite-muted dark:text-gray-400">Средний:</span>
-                <span className="font-bold font-headline text-primary dark:text-green-400">{formatAmount(dynamicsData.avg ?? 0)} ₽</span>
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="text-graphite-muted dark:text-gray-400">Максимум:</span>
-                <span className="font-bold font-headline text-[#7D5A44] dark:text-amber-400">{formatAmount(dynamicsData.max ?? 0)} ₽</span>
-              </span>
-            </div>
-
-            {/* Area Chart with Tooltip on Peak */}
-            <div role="img" aria-label={settings.privacyMode ? 'График расходов: суммы скрыты' : `График расходов: средний ${formatAmount(dynamicsData.avg ?? 0)} ₽, максимум ${formatAmount(dynamicsData.max ?? 0)} ₽`} className="h-[184px] w-full relative min-w-0 overflow-hidden rounded-lg">
-              {hasChartExpenses ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart accessibilityLayer={false} data={mobileChartData} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="mobileWaveGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.10} />
-                      <stop offset="95%" stopColor="#4A7C59" stopOpacity={0.01} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--terra-border)" />
-                  <XAxis 
-                    dataKey="label" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    minTickGap={16}
-                    tick={{ fontSize: 11, fill: 'var(--terra-muted)' }} 
-                  />
-                  {dynamicsData.limit > 0 && <ReferenceLine y={dynamicsData.limit} stroke="#C48C3B" strokeDasharray="4 4" />}
-                  <Tooltip 
-                    cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
-                    wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
-                    isAnimationActive={false}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const val = payload[0].value;
-                        const dataPoint = payload[0].payload;
-                        const fullDate = dataPoint?.fullLabel || dataPoint?.fullDate || (dataPoint?.label ? `${dataPoint.label} ${activeMonth.toLocaleString('ru-RU', { month: 'long' })}` : '');
-                        return (
-                          <div className={`${CHART_TOOLTIP} flex flex-wrap items-center gap-1.5`}>
-                            <span className="text-graphite-muted dark:text-gray-300">{fullDate}:</span>
-                            <span className="text-primary dark:text-green-400 font-semibold tabular-nums">{settings.privacyMode ? '•••' : formatBudgetMoney(typeof val === 'number' ? val : Number(val) || 0)} {settings.privacyMode ? '' : '₽'}</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }} 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="amount" 
-                    isAnimationActive={false}
-                    stroke="var(--terra-primary-text)" 
-                    strokeWidth={2.6} 
-                    fill="url(#mobileWaveGradient)" 
-                    dot={false}
-                    activeDot={{ r: 5, fill: '#4A7C59', stroke: '#FFFFFF', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-              ) : (
-                <div role="status" className="h-full flex items-center justify-center px-4 text-center text-xs text-graphite-muted dark:text-gray-400">
-                  За выбранный период расходов нет
-                </div>
-              )}
-            </div>
-
-            {/* Footer Insight */}
-            <div className="border-t border-[#EAE5DB] dark:border-white/10 pt-3 flex flex-wrap items-center gap-2.5 text-xs text-graphite dark:text-gray-300">
-              <span className="flex-1 min-w-[120px]">{dynamicsData.limit > 0 ? dynamicsData.complianceText : "Лимит не задан."}</span>
-              <button type="button" onClick={()=>onNavigateTab('budget')} className="min-h-[44px] text-primary dark:text-green-400 font-semibold focus-visible:ring-2 focus-visible:ring-primary rounded-lg">К бюджету <ChevronRight size={14} className="inline"/></button>
-            </div>
+              <OverviewExpenseChart
+                mobile scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
+                subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
+                limit={dynamicsData.limit} limitLabel={dynamicsData.limitLabel} complianceText={dynamicsData.complianceText}
+                privacyMode={settings.privacyMode===true} formatAmount={formatAmount}
+                onPointSelect={point=>{if(chartScale==='month')handleMonthChange(new Date(point.dateObj));else setSelectedDayDetailDate(new Date(point.dateObj));}}
+                onOpenBudget={()=>onNavigateTab('budget')}
+              />
           </section>
 
           {/* 3. Категории расходов Card */}
@@ -974,7 +816,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         {cat.icon}
                       </span>
                       <span className="text-sm font-medium text-graphite dark:text-white truncate">{cat.name}</span>
-                      <span className="text-xs text-graphite-muted dark:text-gray-400 shrink-0">{cat.percent}%</span>
+                      <span className="text-xs text-graphite-muted dark:text-gray-400 shrink-0">{settings.privacyMode?'•••':`${cat.percent}%`}</span>
                     </div>
                     <span className="text-sm font-semibold text-graphite dark:text-white tabular-nums min-w-0 max-w-[46%] text-right [overflow-wrap:anywhere]">
                       {formatAmount(cat.amount)} ₽
@@ -983,7 +825,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <div className="h-1.5 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
                     <div 
                       className="h-full rounded-full terra-progress"
-                      style={{ width: `${Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
+                      style={{ width: `${settings.privacyMode?0:Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
                     />
                   </div>
                 </button>
@@ -1164,6 +1006,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
         <div className="terra-overview-layout p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+          <h1 className="font-headline text-2xl font-bold text-[var(--terra-ink)]">Обзор</h1>
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
@@ -1233,7 +1076,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center text-primary font-semibold text-sm">
+              <div className="flex items-center text-[var(--terra-muted)] font-semibold text-sm">
                 <span>{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</span>
               </div>
             </div>
@@ -1242,7 +1085,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {formatAmount(sharedLedger)} <span className="text-xl font-medium text-[var(--terra-muted)]">₽</span>
               </span>
             </div>
-            <div className="pt-2 border-t border-[#F2EFEB] dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-graphite-muted dark:text-gray-400">
+            <div className="pt-3 border-t border-[var(--terra-border)] space-y-2">
+                <p className="text-xs text-[var(--terra-muted)]">{budgetMode==='family'&&!personalOnly?'Семейные':'Личные'} операции · {currentMonthName}</p>
+                <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+                </dl>
+              </div>
+            {!settings.privacyMode&&<div className="pt-2 mt-3 border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
                 {lastMonthComparison.isPositive === true ? (
                   <TrendingDown size={14} className="mr-0.5" />
@@ -1252,7 +1102,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 {lastMonthComparison.text}
               </span>
               <span className="text-xs">расходы к прошлому месяцу</span>
-            </div>
+            </div>}
           </div>
 
           {/* Card 2: На день */}
@@ -1287,7 +1137,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full terra-progress ${isOverDailyLimit ? 'bg-[#EA580C]' : 'bg-primary'}`}
-                  style={{ width: `${Math.min(100, dailyUsagePercent)}%` }}
+                  style={{ width: `${settings.privacyMode?0:Math.min(100, dailyUsagePercent)}%` }}
                 ></div>
               </div>
             </div>
@@ -1318,7 +1168,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-clay h-full rounded-full terra-progress" 
-                  style={{ width: `${Math.min(100, dailyUsagePercent)}%` }}
+                  style={{ width: `${settings.privacyMode?0:Math.min(100, dailyUsagePercent)}%` }}
                 ></div>
               </div>
             </div>
@@ -1354,179 +1204,15 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* LEFT COLUMN: 8 columns */}
           <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Блок «Динамика расходов» */}
-            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD}>
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--terra-border)]">
-                <div className="flex items-center gap-3">
-
-                  <div>
-                    <h3 className={SECTION_HEADING}>Динамика расходов</h3>
-                    <span className="text-xs text-graphite-muted dark:text-gray-400">{dynamicsData.subtitle}</span>
-                  </div>
-                </div>
-
-                {/* Controls: AVG / MAX & Day-Week-Month Filter */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--terra-ink)] tabular-nums">
-                    <span className="text-xs text-[var(--terra-muted)]">Средний</span>
-                    <span className="font-mono">{formatAmount(dynamicsData.avg)} ₽</span>
-                  </span>
-
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold tabular-nums ${
-                    chartScale === 'day' && isOverDailyLimit 
-                      ? 'text-[var(--terra-danger-text)]' 
-                      : 'text-[var(--terra-ink)]'
-                  }`}>
-                    <span className="text-xs font-semibold tabular-nums">
-                      {chartScale === 'day' && isOverDailyLimit ? 'Максимум сегодня' : 'Максимум'}
-                    </span>
-                    <span className="font-mono font-bold">
-                      {formatAmount(dynamicsData.max)} ₽
-                    </span>
-                  </span>
-
-                  <div role="group" aria-label="Период динамики расходов на ПК" className={`${FILTER_RAIL} sm:w-auto` }>
-                    {(['day', 'week', 'month'] as const).map(scale => (
-                      <button
-                        key={scale}
-                        type="button"
-                        onClick={() => setChartScale(scale)}
-                        aria-pressed={chartScale === scale}
-                        className={`min-h-[44px] shrink-0 ${FILTER_CHIP} cursor-pointer ${
-                          chartScale === scale
-                            ? FILTER_CHIP_ACTIVE
-                            : FILTER_CHIP_IDLE
-                        }`}
-                      >
-                        {scale === 'day' ? 'День' : scale === 'week' ? 'Неделя' : 'Месяц'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Chart Area */}
-              <div className="relative py-3 flex flex-col justify-end overflow-hidden min-w-0">
-                <div className="w-full h-[240px] lg:h-[264px] min-w-0">
-                  {hasChartExpenses ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart 
-                      data={dynamicsData.points} 
-                      margin={{ top: 15, right: 10, left: -15, bottom: 0 }}
-                      onClick={(e: any) => {
-                        const payloadData = e?.activePayload?.[0]?.payload;
-                        if (!payloadData?.dateObj) return;
-                        if (chartScale === 'month') {
-                          handleMonthChange(new Date(payloadData.dateObj));
-                        } else {
-                          setSelectedDayDetailDate(new Date(payloadData.dateObj));
-                        }
-                      }}
-                      className="cursor-pointer terra-chart-interactive"
-                    >
-                      <defs>
-                        <linearGradient id="terraGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59'} stopOpacity={0.10} />
-                          <stop offset="100%" stopColor="#4A7C59" stopOpacity={0.01} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--terra-border)" />
-                      <XAxis 
-                        dataKey="label" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} 
-                        dy={6}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 12, fill: 'var(--terra-muted)' }}
-                        tickFormatter={(val) => settings.privacyMode ? '•••' : `${val >= 1000 ? `${(val/1000).toFixed(0)}к` : val} ₽`}
-                      />
-                      {dynamicsData.limit > 0 && (
-                        <ReferenceLine 
-                          y={dynamicsData.limit} 
-                          stroke={isOverDailyLimit && chartScale === 'day' ? '#EA580C' : '#F97316'} 
-                          strokeDasharray="4 4" 
-                          label={{ 
-                            value: settings.privacyMode ? 'Лимит скрыт' : dynamicsData.limitLabel, 
-                            position: 'insideTopRight', 
-                            fill: 'var(--terra-offline-text)',
-                            fontSize: 11,
-                            fontWeight: '600'
-                          }} 
-                        />
-                      )}
-                      <Tooltip 
-                        cursor={{ stroke: '#4A7C59', strokeWidth: 1.5, strokeDasharray: '3 3' }}
-                        wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
-                        isAnimationActive={false}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            const val = payload[0].value;
-                            const hasOverlimit = dynamicsData.limit > 0 && data.amount > dynamicsData.limit;
-                            return (
-                              <div className={`${CHART_TOOLTIP} flex flex-col gap-1.5 z-50`}>
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full bg-[#4ADE80] shrink-0"></span>
-                                  <span className="text-xs font-mono font-bold">
-                                    {data.fullLabel || `${data.label} ${activeMonth.toLocaleString('ru-RU', { month: 'long' })}`}: {formatAmount(typeof val === 'number' ? val : data.amount)} ₽
-                                  </span>
-                                </div>
-                                {dynamicsData.limit > 0 && (
-                                  <div className="text-xs text-graphite-muted dark:text-gray-300 flex flex-wrap items-center justify-between gap-2 border-t border-[#EAE5DB] dark:border-white/10 pt-1">
-                                    <span>План лимита: {formatAmount(dynamicsData.limit)} ₽</span>
-                                    {hasOverlimit ? (
-                                      <span className="text-red-700 dark:text-red-400 font-bold">+{formatAmount(data.amount - dynamicsData.limit)} ₽</span>
-                                    ) : (
-                                      <span className="text-primary dark:text-green-400 font-semibold">В норме</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="amount" 
-                    isAnimationActive={false}
-                        stroke={isOverDailyLimit && chartScale === 'day' ? 'var(--terra-danger-text)' : 'var(--terra-primary-text)'} 
-                        strokeWidth={2.8} 
-                        fill="url(#terraGradient)" 
-                        dot={false}
-                        activeDot={{ 
-                          r: 6, 
-                          fill: isOverDailyLimit && chartScale === 'day' ? '#C2410C' : '#4A7C59', 
-                          stroke: '#FFFFFF', 
-                          strokeWidth: 2 
-                        }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  ) : (
-                    <div role="status" className="h-full flex items-center justify-center text-center text-sm text-graphite-muted dark:text-gray-400">
-                      За выбранный период расходов нет
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Footer summary */}
-              <div className="pt-3 border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
-                <span>{dynamicsData.complianceText}</span>
-                <button 
-                  type="button"
-                  onClick={() => onNavigateTab('budget')}
-                  className="min-h-[44px] text-[var(--terra-primary-text)] font-semibold transition-colors flex items-center gap-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg"
-                >
-                  Подробный отчет →
-                </button>
-              </div>
+            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' space-y-4'}>
+              <OverviewExpenseChart
+                scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
+                subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
+                limit={dynamicsData.limit} limitLabel={dynamicsData.limitLabel} complianceText={dynamicsData.complianceText}
+                privacyMode={settings.privacyMode===true} formatAmount={formatAmount}
+                onPointSelect={point=>{if(chartScale==='month')handleMonthChange(new Date(point.dateObj));else setSelectedDayDetailDate(new Date(point.dateObj));}}
+                onOpenBudget={()=>onNavigateTab('budget')}
+              />
             </div>
 
             {/* Сетка «Категории расходов» (4 карточки, растянута до нижней границы) */}
@@ -1582,7 +1268,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <div className="flex items-center justify-between text-xs gap-2">
                       <span className="font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">{cat.name}</span>
                       <span className="text-xs font-semibold tabular-nums text-[var(--terra-ink)] flex-shrink-0">
-                        {cat.percent}%
+                        {settings.privacyMode?'•••':`${cat.percent}%`}
                       </span>
                     </div>
                     <p className="text-base font-bold font-headline text-graphite dark:text-white mt-3 [overflow-wrap:anywhere]">
@@ -1591,7 +1277,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <div className="w-full bg-[#EAE5DC] dark:bg-black/40 h-1.5 rounded-full mt-2.5 overflow-hidden">
                       <div 
                         className="h-full rounded-full terra-progress" 
-                        style={{ width: `${cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
+                        style={{ width: `${settings.privacyMode?0:cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
                       />
                     </div>
                   </button>

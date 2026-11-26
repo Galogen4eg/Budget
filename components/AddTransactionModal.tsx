@@ -1,7 +1,8 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { TOOLBAR_ACTION, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 import { 
   ChevronLeft, X, Calendar, FileText, Repeat, ChevronRight, Check, Trash2, 
   Sparkles, Link as LinkIcon, Plus, Send, Search, RotateCcw, ShieldCheck
@@ -17,10 +18,11 @@ import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { isCategoryForType } from '../utils/categoryCatalog';
-import { transactionSaveError } from '../utils/transactionSaveError';
+import { transactionSaveError, type TransactionSavePhase } from '../utils/transactionSaveError';
 
 interface AddTransactionModalProps {
   onClose: () => void;
+  previewMode?: boolean;
   onSubmit: (tx: Omit<Transaction, 'id'>) => Promise<void>;
   settings: AppSettings;
   members: FamilyMember[];
@@ -77,11 +79,11 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
+  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Lock body scroll with scrollbar compensation when modal is open
   useBodyScrollLock();
-  useModalBackHandler(true, onClose);
+  const reducedMotion=Boolean(useReducedMotion());
 
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'assignee' | 'monthly_binding'>('main');
@@ -135,10 +137,15 @@ export default function AddTransactionModal({
   const [notifyTelegram, setNotifyTelegram] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const mutationPending=useRef(false);
+  const savedMutation=useRef(false);
+  const [saveConfirmed,setSaveConfirmed]=useState(false);
+  const requestClose=()=>{if(!mutationPending.current)onClose();};
+  useModalBackHandler(true,requestClose);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
-  const surface=useModalSurface(()=>{if(!isSubmitting)onClose();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
+  const surface=useModalSurface(requestClose,{initialSelector:'[aria-label="Закрыть модальное окно"]'});
 
   // Dynamic Input Width for Amount
   const initialAmount = initialTransaction ? initialTransaction.amount.toString() : '';
@@ -184,13 +191,9 @@ export default function AddTransactionModal({
     }
   }, [amount]);
 
-  const formatAmountInput = (val: string) => {
-    return val.replace(/[^0-9.,\s+\-*/()]/g, '');
-  };
-
+  // Keep the original text so a malformed pasted amount is never silently altered.
   const handleSave = async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    if (mutationPending.current || savedMutation.current || isConfirmingDelete) return;
     setValidationError(null);
     if (!members.some(m => m.id === memberId)) {
       setValidationError('Выберите участника семьи, для которого сохраняется операция.');
@@ -205,12 +208,19 @@ export default function AddTransactionModal({
     let finalAmount=hasMathOperators ? evaluateMathExpression(amount) : Number(normalizedAmount);
     if (finalAmount === null || !normalizedAmount || !Number.isFinite(finalAmount) ||
         finalAmount <= 0 || !Number.isSafeInteger(Math.round(finalAmount*100)) ||
-        (!hasMathOperators && Math.abs(finalAmount*100-Math.round(finalAmount*100))>0.000001)) {
+        (!hasMathOperators && (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(normalizedAmount) || Math.abs(finalAmount*100-Math.round(finalAmount*100))>0.000001))) {
       setValidationError('Введите положительную сумму с точностью до копейки или корректное выражение.');
       setIsSubmitting(false);
       return;
     }
     finalAmount=Math.round(finalAmount*100)/100;
+    if(!previewMode&&typeof navigator!=='undefined'&&!navigator.onLine){
+      setValidationError('Нет соединения. Операция не отправлена. Восстановите сеть, не закрывая форму.');
+      return;
+    }
+    mutationPending.current=true;
+    setIsSubmitting(true);
+    let phase:TransactionSavePhase='prepare';
 
     try {
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
@@ -280,12 +290,16 @@ export default function AddTransactionModal({
         pattern: cleanKeyword.trim().toUpperCase()
       } : null;
 
+      phase='submit';
       await onSubmit(txData);
+      phase='after-submit';
+      savedMutation.current=true;
+      setSaveConfirmed(true);
       // A failed transaction must not create a learned merchant rule.
       if (learnedRule) onLearnRule(learnedRule);
 
       // Optional Telegram notification
-      if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
+      if (!previewMode && notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
         const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
         const formattedAmount = finalAmount.toLocaleString('ru-RU');
         const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
@@ -306,23 +320,29 @@ export default function AddTransactionModal({
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);
-      setValidationError(transactionSaveError(err));
+      setValidationError(previewMode&&phase==='after-submit'?'Изменение предпросмотра выполнено. Закройте форму.':transactionSaveError(err,phase));
+      mutationPending.current=false;
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteAction = async () => {
-    if (!initialTransaction || !onDelete) return;
+    if (mutationPending.current || savedMutation.current || !initialTransaction || !onDelete) return;
     if (!isConfirmingDelete) {
       setIsConfirmingDelete(true);
       return;
     }
+    mutationPending.current=true;
+    setIsSubmitting(true);
+    setValidationError(null);
     try {
       await onDelete(initialTransaction.id);
       onClose();
     } catch (error) {
       console.error('Delete transaction error:', error);
       setValidationError('Не удалось удалить операцию. Повторите попытку.');
+      mutationPending.current=false;
+      setIsSubmitting(false);
       setIsConfirmingDelete(false);
     }
   };
@@ -334,17 +354,17 @@ export default function AddTransactionModal({
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }} 
-        transition={{ duration: 0.18 }}
-        onClick={()=>{if(!isSubmitting)onClose();}} 
-        className="absolute inset-0 bg-[#2E3230]/65 backdrop-blur-xs" 
+        transition={{ duration: reducedMotion?0:0.18 }}
+        onClick={requestClose} 
+        className="absolute inset-0 bg-black/45" 
       />
       
       {/* 2-Column Modal Dialog Container */}
-      <motion.div {...surface} role="dialog" aria-modal="true" aria-label={initialTransaction ? 'Редактирование операции' : 'Новая операция'}
-        initial={{ opacity: 0, y: 8 }}
+      <motion.div {...surface} role="dialog" aria-modal="true" aria-busy={isSubmitting} aria-label={initialTransaction ? 'Редактирование операции' : 'Новая операция'}
+        initial={reducedMotion?false:{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
+        transition={{ duration: reducedMotion?0:0.18, ease: 'easeOut' }}
         className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)]"
         onClick={e => e.stopPropagation()}
       >
@@ -364,7 +384,7 @@ export default function AddTransactionModal({
 
                 <button 
                   type="button"
-                  onClick={onClose} 
+                  onClick={requestClose} disabled={isSubmitting} 
                   className="w-11 h-11 shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#F5F1EA] hover:bg-[#EAE6DE] dark:bg-[#2C2C2E] dark:hover:bg-[#3A3A3C] text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white flex items-center justify-center transition border border-surface-border/60 dark:border-white/5 active:scale-95 cursor-pointer"
                   aria-label="Закрыть модальное окно"
                 >
@@ -381,9 +401,10 @@ export default function AddTransactionModal({
               )}
 
               {/* Modal Body */}
-              <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[#FAF9F6] dark:bg-[#141416] no-scrollbar">
+              <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[var(--terra-canvas)] no-scrollbar" onClickCapture={e=>{if(mutationPending.current){e.preventDefault();e.stopPropagation();}}}>
                 
                 {/* Top Row: Segmented Toggle & Sum Card */}
+                <fieldset disabled={isSubmitting||saveConfirmed} className="min-w-0 border-0 p-0 space-y-3 sm:space-y-3.5">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                   {/* Segmented Toggle */}
                   <div className="md:col-span-5 p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1 border border-surface-border/60 dark:border-white/5">
@@ -393,12 +414,12 @@ export default function AddTransactionModal({
                       aria-pressed={type === 'expense'}
                       className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'expense' 
-                          ? 'bg-[#D95C48] text-white shadow-sm' 
+                          ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
                       }`}
                     >
                       <span className="w-3.5 h-3.5 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">−</span>
-                      <span className="tracking-wider uppercase font-headline">РАСХОД</span>
+                      <span className="font-headline text-sm">Расход</span>
                     </button>
                     <button 
                       type="button"
@@ -406,12 +427,12 @@ export default function AddTransactionModal({
                       aria-pressed={type === 'income'}
                       className={`flex-1 min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-bold text-xs shadow-xs transition active:scale-95 whitespace-nowrap cursor-pointer ${
                         type === 'income' 
-                          ? 'bg-primary text-white shadow-sm' 
+                          ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]' 
                           : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/10'
                       }`}
                     >
                       <span className="w-3.5 h-3.5 rounded-full bg-white/20 flex items-center justify-center text-[10px] leading-none">+</span>
-                      <span className="tracking-wider uppercase font-headline">ДОХОД</span>
+                      <span className="font-headline text-sm">Доход</span>
                     </button>
                   </div>
 
@@ -419,7 +440,7 @@ export default function AddTransactionModal({
                   <div className="md:col-span-7 bg-[var(--terra-surface)] px-4 py-2 rounded-2xl border border-surface-border dark:border-white/10 shadow-sm flex flex-col justify-between gap-1.5 min-h-[50px]">
                     <div className="flex items-center justify-between gap-2 sm:gap-3">
                       <div className="min-w-0 flex-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block mb-0.5 truncate">
+                        <span className="text-sm font-medium text-[var(--terra-muted)] block mb-1">
                           {type === 'expense' ? 'Сумма расхода' : 'Сумма дохода'}
                         </span>
                         <div className="flex items-baseline gap-1.5 min-w-0 max-w-full overflow-hidden">
@@ -428,8 +449,8 @@ export default function AddTransactionModal({
                             inputMode="decimal"
                             aria-label="Сумма операции"
                             value={amount}
-                            onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-                            onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            onChange={(e) => setAmount(e.target.value)}
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: reducedMotion?'auto':'smooth', block: 'center' })}
                             placeholder="0"
                             style={{ 
                               width: `${Math.max(inputWidth, 60)}px`,
@@ -479,11 +500,7 @@ export default function AddTransactionModal({
                         })()}
                       </div>
 
-                      <div className="shrink-0">
-                        <span className="text-[11px] sm:text-xs font-bold text-emerald-800 dark:text-green-400 bg-emerald-50 dark:bg-green-950/40 border border-emerald-200 dark:border-green-800/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl flex items-center shadow-xs whitespace-nowrap">
-                          <span>В лимите дня</span>
-                        </span>
-                      </div>
+
                     </div>
 
                     {/* Quick Sum Modifier Chips for Mobile */}
@@ -494,9 +511,13 @@ export default function AddTransactionModal({
                           key={addVal}
                           type="button"
                           onClick={() => {
-                            const numericInput=Number(amount.replace(/\s/g, '').replace(',', '.'));
-                            const evaluated=evaluateMathExpression(amount);
-                            const currentNum=Number.isFinite(numericInput) ? numericInput : (evaluated ?? 0);
+                            const normalized=amount.replace(/\s/g,'').replace(',', '.');
+                            const expression=/[+*/]/.test(normalized)||/-(?!^)/.test(normalized);
+                            const currentNum=normalized?(expression?evaluateMathExpression(amount):/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(normalized)?Number(normalized):null):0;
+                            if(currentNum===null||!Number.isFinite(currentNum)||!Number.isSafeInteger(Math.round((currentNum+addVal)*100))){
+                              setValidationError('Сначала исправьте сумму.');
+                              return;
+                            }
                             setAmount(String(Math.round((currentNum+addVal)*100)/100));
                             triggerHaptic('light');
                           }}
@@ -512,7 +533,7 @@ export default function AddTransactionModal({
                             setAmount('');
                             triggerHaptic('light');
                           }}
-                          className="px-2 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition shrink-0 cursor-pointer"
+                          className="min-h-[44px] px-2 py-1 text-xs font-semibold text-[var(--terra-danger-text)] hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition shrink-0 cursor-pointer"
                         >
                           Сброс
                         </button>
@@ -685,8 +706,8 @@ export default function AddTransactionModal({
                               в категории {parentOfSelected.label}
                             </div>
                           ) : (
-                            <div className="text-[9px] font-bold text-primary dark:text-green-400 tracking-wider uppercase mt-0.5">
-                              Нажмите, чтобы изменить
+                            <div className="text-xs text-[var(--terra-muted)] mt-0.5">
+                              Категория
                             </div>
                           )}
                         </div>
@@ -796,6 +817,7 @@ export default function AddTransactionModal({
                   </div>
                 </div>
 
+                </fieldset>
               </div>
 
               {/* Bottom Actions Footer */}
@@ -806,8 +828,8 @@ export default function AddTransactionModal({
                     !isConfirmingDelete ? (
                       <button 
                         type="button"
-                        onClick={() => setIsConfirmingDelete(true)}
-                        className="px-3.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
+                        onClick={() => setIsConfirmingDelete(true)} disabled={isSubmitting||saveConfirmed}
+                        className="min-h-[44px] px-3.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
                       >
                         <Trash2 size={14} />
                         <span>Удалить операцию</span>
@@ -816,16 +838,16 @@ export default function AddTransactionModal({
                       <div className="flex items-center gap-2 animate-in fade-in">
                         <button 
                           type="button"
-                          onClick={handleDeleteAction}
-                          className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                          onClick={handleDeleteAction} disabled={isSubmitting||saveConfirmed}
+                          className="min-h-[44px] px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                         >
                           <Trash2 size={14} />
                           <span>Подтвердить удаление</span>
                         </button>
                         <button 
                           type="button"
-                          onClick={() => setIsConfirmingDelete(false)}
-                          className="px-2.5 py-1.5 text-xs text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-lg transition cursor-pointer"
+                          onClick={() => setIsConfirmingDelete(false)} disabled={isSubmitting}
+                          className="min-h-[44px] px-2.5 py-1.5 text-xs text-graphite-muted hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-lg transition cursor-pointer"
                         >
                           Отмена
                         </button>
@@ -838,7 +860,7 @@ export default function AddTransactionModal({
                 <div className="flex items-center justify-end gap-2 ml-auto min-w-0 flex-wrap">
                   <button 
                     type="button"
-                    onClick={onClose}
+                    onClick={requestClose} disabled={isSubmitting}
                     className="min-h-[44px] px-3.5 py-2 text-xs font-semibold text-graphite-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:text-graphite dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
                   >
                     Отмена
@@ -847,13 +869,13 @@ export default function AddTransactionModal({
                   <button 
                     type="button"
                     onClick={handleSave}
-                    disabled={isSubmitting}
-                    className="min-h-[44px] px-4 py-2 text-xs font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6649] active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    disabled={isSubmitting||saveConfirmed||isConfirmingDelete}
+                    className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY+' terra-press'}
                   >
                     {isSubmitting ? (
                       <>
                         <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                        <span>Сохранение...</span>
+                        <span>{isConfirmingDelete?'Удаление…':'Сохранение…'}</span>
                       </>
                     ) : (
                       <>

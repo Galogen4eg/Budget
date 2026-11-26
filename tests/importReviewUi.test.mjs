@@ -16,7 +16,8 @@ test('bank transaction owner cannot be reassigned in review UI',()=>{
 });
 test('rules are learned only after parent reports a committed import',()=>{
  assert.match(modal,/const committed = await onConfirm\(cleanItems\)/);
- assert.match(modal,/if \(!committed\) return/);
+ assert.match(modal,/if \(!committed\) \{setImportError\([^\n]+\);return;\}/);
+ assert.ok(modal.indexOf('if (!committed)')<modal.indexOf('const rules = onlyReady'));
  assert.match(app,/return false;/);
  assert.match(app,/return true;/);
 });
@@ -33,12 +34,12 @@ test('invalid amounts, dates and owner mismatch are rejected before saving',()=>
 });
 
 test('iteration 67: full bank import is blocked until all categories are reviewed',()=>{
- assert.match(modal,/!onlyReady && splitImportReview\(selected, categories\)\.needsReview\.length/);
- assert.match(modal,/disabled=\{isConfirmingImport \|\| items\.length === 0 \|\| unassignedCount > 0\}/);
+ assert.match(modal,/!onlyReady && selected.some\(needsCategory\)/);
+ assert.match(modal,/disabled=\{isConfirmingImport \|\| items\.length === 0 \|\| unassignedCount > 0 \|\| savingsChoiceCount>0\}/);
  assert.match(app,/assertImportBatchReady\(itemsToImport, categories, importMemberId\)/);
 });
 test('iteration 67: closing bank preview is disabled during persistent save',()=>{
- assert.match(modal,/if \(!isConfirmingImport\) onCancel\(\)/);
+ assert.match(modal,/if\(!importPending.current\)onCancel\(\)/);
  assert.match(modal,/disabled=\{isConfirmingImport\}/);
  assert.match(modal,/Сохранение…/);
 });

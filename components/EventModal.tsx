@@ -81,6 +81,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   }, [members]);
 
   const [isSaving, setIsSaving] = useState(false);
+  const savePending = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState(event?.title || prefill?.title || '');
   const [desc, setDesc] = useState(event?.description || '');
@@ -110,7 +111,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
   const [conflictToConfirm, setConflictToConfirm] = useState<{ eventData: FamilyEvent; conflictingEvent: FamilyEvent } | null>(null);
   useBodyScrollLock();
-  const surface=useModalSurface<HTMLElement>(()=>{if(!isSaving)onClose();},{initialSelector:'[aria-label="Закрыть редактор события"]'});
+  const surface=useModalSurface<HTMLElement>(()=>{if(!savePending.current)onClose();},{initialSelector:'[aria-label="Закрыть редактор события"]'});
   const conflictSurface=useModalSurface(()=>setConflictToConfirm(null),{enabled:!!conflictToConfirm});
 
   // Custom reminder state
@@ -279,7 +280,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   };
 
   const persistEvent = async (data: FamilyEvent) => {
-    if (isSaving) return;
+    if (savePending.current) return;
+      savePending.current=true;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -289,6 +291,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       console.error('Event save failed:', error);
       setSaveError('Не удалось сохранить событие. Проверьте подключение и повторите попытку.');
     } finally {
+      savePending.current=false;
       setIsSaving(false);
     }
   };
@@ -365,13 +368,13 @@ export const EventModal: React.FC<EventModalProps> = ({
   return createPortal(
     <div 
       className="fixed inset-0 z-[2000] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 motion-reduce:animate-none"
-      onClick={()=>{if(!isSaving&&!conflictToConfirm)onClose();}}
+      onClick={()=>{if(!savePending.current&&!conflictToConfirm)onClose();}}
     >
       <main {...surface}
         role="dialog"
         aria-modal="true" aria-label={event?'Редактировать план':'Новый план'}
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-[520px] md:max-w-3xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-none sm:rounded-2xl pt-[env(safe-area-inset-top,0px)] sm:pt-0 shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 text-[#2C2723] dark:text-gray-100 overflow-hidden"
+        className="w-full max-w-[520px] md:max-w-3xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-none sm:rounded-2xl pt-[env(safe-area-inset-top,0px)] sm:pt-0 shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 motion-reduce:animate-none text-[#2C2723] dark:text-gray-100 overflow-hidden"
       >
         {/* Mobile Pull Handle */}
         <div className="w-full flex justify-center pt-2 md:hidden shrink-0">
@@ -429,7 +432,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </button>
               <button 
                 type="button"
-                onClick={onClose} disabled={isSaving}
+                onClick={()=>{if(!savePending.current)onClose();}} disabled={isSaving}
                 aria-label="Закрыть редактор события"
                 className="w-11 h-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] bg-[#F5F2EB] dark:bg-white/10 border border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#2C2723] dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               >
@@ -868,7 +871,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                     type="button"
                     disabled={isSaving}
                     onClick={async () => {
-                      if (isSaving) return;
+                      if (savePending.current) return;
+      savePending.current=true;
                       setIsSaving(true);
                       setSaveError(null);
                       try {
@@ -878,7 +882,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                         console.error('Event delete failed:', error);
                         setSaveError('Не удалось удалить событие. Повторите попытку.');
                       } finally {
-                        setIsSaving(false);
+                        savePending.current=false;
+      setIsSaving(false);
                       }
                     }}
                     className="min-h-[44px] px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"

@@ -491,7 +491,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   onClick={() => setSelectedDate(new Date(dayDate))}
                   className={`flex flex-col items-center justify-between py-2.5 px-0.5 rounded-2xl transition-colors cursor-pointer relative  ${
                     isSelected
-                      ? 'bg-[#4A7C59] text-white shadow-sm transform scale-[1.03]'
+                      ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-sm transform scale-[1.03]'
                       : 'bg-[var(--terra-soft)] dark:bg-white/5 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 text-[var(--terra-ink)] dark:text-gray-200'
                   }`}
                 >
@@ -624,7 +624,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               aria-pressed={listTab === 'upcoming'}
               className={`min-h-[44px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
                 listTab === 'upcoming'
-                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs'
+                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[var(--terra-primary-text)] shadow-xs'
                   : 'text-[var(--terra-muted)] dark:text-gray-400'
               }`}
             >
@@ -647,7 +647,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           <button
             type="button"
             onClick={() => onOpenEvent(null, { date: formatDateKey(new Date()) })}
-            className="min-w-[44px] min-h-[44px] rounded-xl bg-[#4A7C59] text-white flex items-center justify-center shadow-xs  transition cursor-pointer"
+            className="min-w-[44px] min-h-[44px] rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] flex items-center justify-center shadow-xs  transition cursor-pointer"
             title="Новое событие"
           >
             <Plus size={16} />
@@ -725,7 +725,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenEvent(null, { date: formatDateKey(new Date()) })}
-                  className="mt-3 px-4 py-2 rounded-xl bg-[#4A7C59] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer  transition"
+                  className="mt-3 px-4 py-2 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer  transition"
                 >
                   <Plus size={14} />
                   <span>Запланировать событие</span>
@@ -744,7 +744,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       {/* 1. UNIFIED MOBILE HEADER */}
       <TerraMobileHeader
         title="Планы"
-        onAdd={() => onOpenEvent(null)}
+        onAdd={() => onOpenEvent(null, { date: selectedDateStr })}
         addTitle="Добавить событие"
         onOpenSettings={onOpenSettings}
         onOpenNotifications={onOpenNotifications}

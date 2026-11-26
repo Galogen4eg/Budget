@@ -31,8 +31,10 @@ test('plans and both budget modes use same filter rail and chips',()=>{
  assert.match(budget,/aria-pressed=\{selectedMember ===/);
 });
 test('overview chart periods do not shrink individual labels',()=>{
- assert.match(overview,/FILTER_CHIP/);
- assert.match(overview,/FILTER_RAIL/);
+ const chart=read('overview/OverviewExpenseChart.tsx');
+ assert.match(overview,/<OverviewExpenseChart/);
+ assert.match(chart,/FILTER_CHIP/);
+ assert.match(chart,/FILTER_RAIL/);
 });
 test('shopping presets and sections use shared visual language',()=>{
  assert.match(shopping,/FILTER_CHIP/);

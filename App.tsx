@@ -52,6 +52,7 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { confirmAlfaFile } from './utils/alfaFileConfirmation';
 import { isAlfaOperationDuplicate } from './utils/alfaDuplicates';
 import { planAlfaReview, assertAlfaReviewResult, type AlfaReviewEntry } from './utils/alfaReviewPlan';
 import { subscribeAlfaReview, stageAlfaReview, verifyAlfaReview, removeSavedAlfaReview, readAlfaReviewCount } from './utils/alfaReviewStore';
@@ -1383,7 +1384,14 @@ export default function App() {
                 preview={importPreview} report={importReport} reviewMode={alfaReviewOpen}
                 onCancel={() => {setImportPreview(null);setAlfaReviewOpen(false);}} 
                 onConfirm={async (finalItems) => {
+                  const originalFile=importFileRef.current;
+                  const originalDigest=importFileDigestRef.current;
+                  const importScope=tabScope;
+                  const importUid=user?.uid;
+                  const scopeStillCurrent=()=>Boolean(importUid)&&alfaScopeRef.current===importScope&&auth.currentUser?.uid===importUid;
+                  const fileStillCurrent=()=>scopeStillCurrent()&&importFileRef.current===originalFile&&importFileDigestRef.current===originalDigest;
                   try {
+                    if(!scopeStillCurrent())return false;
                     const itemsToImport = finalItems || importPreview;
                     if (!itemsToImport || itemsToImport.length === 0) {
                       setImportPreview(null);
@@ -1437,10 +1445,12 @@ export default function App() {
                       created.push(...ordinary);
                     }
                     for (const row of savingsRows) {
+                      if(!scopeStillCurrent())return false;
                       const goal=goals.find(g=>g.id===row.linkedGoalId&&g.memberId===importMemberId);
                       if(!goal)throw new Error('Накопительная цель недоступна. Повторите проверку выписки.');
                       if(await addImportedSavingsItemIdempotent(familyId,row,goal))created.push(row);
                     }
+                    if(!scopeStillCurrent())return false;
                     const totalImportedSavings=created.reduce((sum,t)=>sum+savingsContributionKopecks(t),0)/100;
                     // A cleanup failure never rolls back or repeats a successful financial write.
                     const queuedIds=new Set(alfaReviewEntries.map(entry=>entry.id));
@@ -1449,6 +1459,7 @@ export default function App() {
                       try{await removeSavedAlfaReview(familyId,user.uid,importMemberId,resolved);}
                       catch{toast.warning('Операции сохранены; не удалось обновить очередь разбора.');}
                     }
+                    if(!scopeStillCurrent())return false;
                     setAlfaReviewOpen(false);setImportPreview(null);
                     setTransactions(prev=>[...created.filter(t=>!prev.some(ex=>ex.id===t.id)),...prev]);
                     if (created.length === 0) toast.info('Все операции уже сохранены');
@@ -1460,29 +1471,32 @@ export default function App() {
                     // Never acknowledge deletion until every operation in the
                     // original XLSX exists on the Firestore server. The preview
                     // can omit legacy duplicates, so checking only prepared is unsafe.
-                    if (familyId && importFileDigestRef.current && importFileRef.current) {
-                      const memberId = importMemberId;
-                      const allRows = await parseAlfaStatement(
-                        importFileRef.current, settings.alfaMapping, memberId,
-                        learnedRules, categories, []
+                    if (originalFile && originalDigest) {
+                      const confirmation=await confirmAlfaFile(
+                        originalDigest,
+                        async()=> (await parseAlfaStatement(
+                          originalFile, settings.alfaMapping, importMemberId,
+                          learnedRules, categories, []
+                        )).map(row=>row.id),
+                        ids=>areAlfaItemsSavedOnServer(familyId,ids),
+                        fileStillCurrent
                       );
-                      const allSaved = await areAlfaItemsSavedOnServer(familyId, allRows.map(row => row.id));
-                      if (allSaved) {
-                        window.dispatchEvent(new CustomEvent('budget:import-committed', {
-                          detail: {
-                            count: created.length,
-                            requested: allRows.length,
-                            fileSha256: importFileDigestRef.current
-                          }
-                        }));
-                      } else {
-                        toast.warning('Операции сохранены, но не вся выписка подтверждена на сервере. XLSX оставлен для проверки.');
+                      // Never emit an acknowledgment for an obsolete file or account.
+                      if(fileStillCurrent()){
+                        if(confirmation.status==='confirmed'){
+                          window.dispatchEvent(new CustomEvent('budget:import-committed',{
+                            detail:{count:created.length,requested:confirmation.requested,fileSha256:confirmation.fileSha256}
+                          }));
+                        }else if(confirmation.status==='incomplete'||confirmation.status==='unverified'){
+                          toast.warning('Операции сохранены, но не вся выписка подтверждена на сервере. XLSX оставлен для проверки.');
+                        }
                       }
                     }
+                    if(!scopeStillCurrent())return false;
                     return true;
                   } catch (err: any) {
                     console.error("Import error:", err);
-                    toast.error("Ошибка сохранения: " + (err.message || String(err)));
+                    toast.error("Сохранение не подтверждено. Проверьте историю операций перед повтором.");
                     return false;
                   }
                 }}

@@ -9,7 +9,8 @@ const widget=readFileSync(new URL('../components/ShoppingWidget.tsx',import.meta
 test('quick lists panel keeps shopping items accessible on narrow viewports',()=>{
  assert.match(quick,/max-h-\[min\(32dvh,16rem\)\]/);
  assert.match(quick,/overflow-y-auto/);
- assert.match(quick,/grid grid-cols-2/);
+ assert.match(quick,/grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3/);
+ assert.match(quick,/break-words/);
 });
 test('quick template and repeat actions have usable tap targets and visible keyboard focus',()=>{
  assert.match(quick,/min-h-\[44px\]/);
@@ -34,5 +35,7 @@ test('mobile shopping owns a bounded scroll viewport; outer pull-to-refresh cann
  assert.match(list,/className="flex-1 min-h-0 flex flex-col overflow-hidden"/);
  assert.match(mobile,/data-testid="shopping-scroll-container" className="flex-1 min-h-0[^"]*overflow-y-auto[^"]*touch-pan-y/);
  assert.doesNotMatch(app,/onTouchMove=\{handleTouchMove\}|setPullY\(/);
- assert.match(mobile,/drag="x"/);
+ assert.match(mobile,/drag=\{reducedMotion\?false:"x"\}/);
+ assert.match(mobile,/Boolean\(useReducedMotion\(\)\)/);
+ assert.match(mobile,/aria-label=\{\x60Вернуть в список:/);
 });

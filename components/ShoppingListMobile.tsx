@@ -1,5 +1,6 @@
+import ShoppingPantryTransferButton from './ShoppingPantryTransferButton';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   Plus, Trash2, Check, X, ScanLine, ShoppingBag, 
   Loader2, Edit2, ChevronLeft, Mic, BrainCircuit, 
@@ -28,6 +29,7 @@ import {
 } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
+import { captureCompletedSelection, resolveCompletedDeletion } from '../utils/shoppingClearSelection';
 
 export interface ShoppingListMobileProps {
   items: ShoppingItem[];
@@ -102,7 +104,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   // Collapsible Completed section
   const [isCompletedOpen, setIsCompletedOpen] = useState(true);
-  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [clearSelection,setClearSelection]=useState<string[]|null>(null);
+  const confirmClearCompleted=clearSelection!==null;
+  const clearPending=useRef(false);
+  useEffect(()=>setClearSelection(null),[searchQuery]);
   const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Frequent items state
@@ -320,17 +325,19 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleClearCompleted = async () => {
-    if (!confirmClearCompleted || isClearingCompleted || completedItems.length === 0) return;
+    if (clearPending.current) return;
+    const idsToDelete=resolveCompletedDeletion(clearSelection,completedItems);
+    if(!idsToDelete){setClearSelection(null);toast.info('Список изменился. Подтвердите удаление заново.');return;}
+    clearPending.current=true;
     setIsClearingCompleted(true);
-    const idsToDelete = completedItems.map(i => i.id);
     try {
       if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', idsToDelete);
       setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
-      setConfirmClearCompleted(false);
+      setClearSelection(null);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    } finally { setIsClearingCompleted(false); }
+    } finally { clearPending.current=false;setIsClearingCompleted(false); }
   };
 
   const handleTelegramSend = async () => {
@@ -530,7 +537,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           </button>
         }
       />
-      {beforeContent}
       
       {/* Hidden file input for scanner */}
       <input 
@@ -615,7 +621,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск товаров"
             aria-label="Поиск по товарам в семейном списке"
-            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
           />
           {searchQuery ? (
             <button 
@@ -654,7 +660,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               type="submit"
               disabled={!quickAddText.trim() || isSubmittingQuick}
               aria-label="Добавить товары в общий список"
-              className="min-w-[44px] min-h-[44px] rounded-xl bg-primary hover:bg-primary-dark text-white flex items-center justify-center shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40 cursor-pointer"
+              className="min-w-[44px] min-h-[44px] rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] flex items-center justify-center shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-40 cursor-pointer"
             >
               <Plus size={20} strokeWidth={2.5} />
             </button>
@@ -670,6 +676,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             </div>
           )}
         </div>
+
+        {beforeContent}
 
         {/* 4. Categorized Product Lists */}
         {activeItems.length === 0 && (
@@ -699,7 +707,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 </div>
 
                 {/* Items in Category */}
-                <div className="space-y-2">
+                <div className="rounded-2xl border border-[var(--terra-border)] bg-[var(--terra-surface)] divide-y divide-[var(--terra-border)] overflow-hidden">
                   {aisleItems.map((item, itemIdx) => {
                     const isUrgent = item.priority === 'high';
 
@@ -708,6 +716,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                         key={item.id ? `mob-item-${item.id}` : `mob-item-idx-${aisle.id}-${itemIdx}`}
                         item={item}
                         isUrgent={isUrgent}
+                        memberName={members.find(member=>member.id===item.memberId)?.name}
                         onToggle={handleToggle}
                         onOpenEdit={handleOpenEdit}
                         onAdjustAmount={handleAdjustAmount}
@@ -728,7 +737,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 aria-expanded={isCompletedOpen}
                 aria-controls="mobile-completed-shopping-items"
                 onClick={() => setIsCompletedOpen(!isCompletedOpen)}
-                className="min-h-[44px] flex items-center gap-1.5 cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="min-h-[44px] flex items-center gap-1.5 cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >
                 <div className="w-5 h-5 rounded-full bg-[#E8F5E9] dark:bg-[#1C3B24] text-[#2E7D32] dark:text-[#8ECF9E] flex items-center justify-center text-xs">
                   <Check size={12} strokeWidth={3} />
@@ -743,18 +752,18 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
               <button type="button"
                 disabled={isClearingCompleted}
-                aria-label={confirmClearCompleted ? `Подтвердить удаление ${completedItems.length} купленных товаров` : 'Очистить купленные товары'}
-                onClick={() => { if (!confirmClearCompleted) setConfirmClearCompleted(true); else void handleClearCompleted(); }}
+                aria-label={confirmClearCompleted ? `Подтвердить удаление ${clearSelection?.length ?? 0} купленных товаров` : 'Очистить купленные товары'}
+                onClick={() => { if (!confirmClearCompleted) setClearSelection(captureCompletedSelection(completedItems)); else void handleClearCompleted(); }}
                 className="min-h-[44px] px-2 text-xs font-semibold text-[#C62828] hover:underline cursor-pointer disabled:opacity-50"
               >
-                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}
+                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${clearSelection?.length ?? 0}?` : 'Очистить купленные'}
               </button>
             </div>
 
             {confirmClearCompleted && (
               <div role="status" className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
-                Удалить все купленные товары из общего списка?
-                <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                Удалить показанные купленные товары из общего списка?
+                <button type="button" disabled={isClearingCompleted} onClick={() => setClearSelection(null)}
                   className="ml-3 min-h-[44px] px-3 font-semibold underline">Отмена</button>
               </div>
             )}
@@ -972,6 +981,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 interface SwipeableShoppingItemProps {
   item: ShoppingItem;
   isUrgent: boolean;
+  memberName?:string;
   onToggle: (item: ShoppingItem) => void;
   onOpenEdit: (item: ShoppingItem) => void;
   onAdjustAmount: (item: ShoppingItem, delta: number) => void;
@@ -980,14 +990,16 @@ interface SwipeableShoppingItemProps {
 const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
   item,
   isUrgent,
+  memberName,
   onToggle,
   onOpenEdit,
   onAdjustAmount
 }) => {
   const [dragOffset, setDragOffset] = useState(0);
+  const reducedMotion=Boolean(useReducedMotion());
 
   return (
-    <div className="relative overflow-hidden rounded-2xl select-none touch-pan-y">
+    <div className="relative overflow-hidden select-none touch-pan-y">
       {/* Background layer revealed on drag */}
       <div 
         className={`absolute inset-0 rounded-2xl flex items-center justify-between px-4 transition-colors duration-150 ${
@@ -1008,7 +1020,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 
       {/* Draggable Card */}
       <motion.article 
-        drag="x"
+        drag={reducedMotion?false:"x"}
         dragDirectionLock={true}
         dragMomentum={false}
         dragConstraints={{ left: 0, right: 0 }}
@@ -1026,7 +1038,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        data-terra-shopping-item className="relative z-10 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item data-shopping-id={item.id} className="relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
         <div className="flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
@@ -1037,7 +1049,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onToggle(item);
             }}
             aria-label={`Отметить как купленное: ${item.title}`}
-            className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[var(--terra-primary)]  flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-w-[44px] min-h-[44px] rounded-lg border-2 border-[#D6CFC1] dark:border-stone-600 bg-white dark:bg-transparent hover:border-[var(--terra-primary)]  flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             <Check size={14} className="text-transparent" />
           </button>
@@ -1046,7 +1058,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             <button type="button"
               onClick={(e) => { e.stopPropagation(); onOpenEdit(item); }}
               aria-label={`Редактировать товар: ${item.title}`}
-              className="min-h-[44px] w-full text-left text-sm font-semibold text-[var(--terra-ink)] dark:text-white break-words leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              className="min-h-[44px] w-full text-left text-sm font-semibold text-[var(--terra-ink)] dark:text-white break-words leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               {item.title}
             </button>
             
@@ -1057,6 +1069,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
                   <span>Срочно</span>
                 </span>
               )}
+              {memberName&&<span className="text-xs text-[var(--terra-muted)] break-words">{memberName}</span>}
               {item.note && (
                 <span className="text-xs text-[var(--terra-muted)] break-words [overflow-wrap:anywhere] max-w-full">
                   {item.note}
@@ -1078,7 +1091,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, -1);
             }}
             aria-label="Уменьшить количество" title={`Уменьшить количество: ${item.title}`}
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             -
           </button>
@@ -1092,7 +1105,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, 1);
             }}
             aria-label="Увеличить количество" title={`Увеличить количество: ${item.title}`}
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             +
           </button>
@@ -1116,6 +1129,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
   onDelete
 }) => {
   const [dragOffset, setDragOffset] = useState(0);
+  const reducedMotion=Boolean(useReducedMotion());
 
   return (
     <div className="relative overflow-hidden rounded-xl select-none touch-pan-y">
@@ -1137,7 +1151,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
       </div>
 
       <motion.div
-        drag="x"
+        drag={reducedMotion?false:"x"}
         dragDirectionLock={true}
         dragMomentum={false}
         dragConstraints={{ left: 0, right: 0 }}
@@ -1159,7 +1173,7 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
             }
           }}
           aria-label={`Вернуть в список: ${item.title}`}
-          className="min-h-[44px] flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer py-1 px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="min-h-[44px] flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer py-1 px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
         >
           <div className="w-5 h-5 rounded-full bg-[#4A7C59] text-white flex items-center justify-center shrink-0">
             <Check size={12} strokeWidth={3} />
@@ -1170,22 +1184,12 @@ const SwipeableCompletedItem: React.FC<SwipeableCompletedItemProps> = ({
         </button>
 
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button 
-            type="button"
-            onClick={() => {
-              void onMoveToPantry(item).catch(error => {
-                toast.error(error instanceof Error ? error.message : 'Не удалось переместить товар в кладовую');
-              });
-            }}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary text-[var(--terra-muted)] hover:text-[var(--terra-primary)] transition cursor-pointer"
-            title="В кладовку" aria-label={`В кладовку: ${item.title}`}
-          >
-            <ArrowRight size={14} />
-          </button>
+          <ShoppingPantryTransferButton item={item} onMoveToPantry={onMoveToPantry}/>
+
           <button 
             type="button"
             onClick={() => onDelete(item.id)}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary text-[var(--terra-muted)] hover:text-[#C62828] transition cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-[var(--terra-muted)] hover:text-[#C62828] transition cursor-pointer"
             title="Удалить" aria-label={`Удалить товар: ${item.title}`}
           >
             <X size={15} />

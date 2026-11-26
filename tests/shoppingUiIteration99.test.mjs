@@ -29,7 +29,10 @@ test('quick lists and repeat purchases retain shared actions and bounded panel s
  assert.match(source,/aria-expanded=\{section === 'templates'\}/);
  assert.match(source,/aria-expanded=\{section === 'history'\}/);
  assert.match(source,/max-h-\[min\(32dvh,16rem\)\] overflow-y-auto overscroll-contain/);
- for(const action of ['addProducts(t.items)','addProducts(recent)','addProducts([p])','saveTemplate()','removeTemplate(t.id)'])assert.ok(source.includes(action),action);
+ for(const action of ['addProducts(previewTemplate.items)','addProducts(recent)','addProducts([p])','saveTemplate()','removeTemplate(t.id)'])assert.ok(source.includes(action),action);
+ assert.match(source,/onClick=\{\(\)=>setPreviewId\(t.id\)\}/);
+ assert.match(source,/aria-label="Состав быстрого списка"/);
+ assert.doesNotMatch(source,/addProducts\(t.items\)/);
  assert.match(source,/saveShoppingMerge\(familyId, changes.itemsToUpdateInDb, changes.itemsToAddInDb\)/);
  assert.match(source,/min-h-\[44px\] min-w-0 flex-1 rounded-xl/);
 });

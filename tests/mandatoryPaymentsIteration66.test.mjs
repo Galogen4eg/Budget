@@ -113,7 +113,9 @@ test('iteration 66: acknowledgment in debt service is not fabricated transaction
 test('iteration 66: required amount must be a safe positive ruble-and-kopeck sum',()=>{
   const modal=readFileSync(new URL('../components/MandatoryExpenseModal.tsx',import.meta.url),'utf8');
   assert.match(modal,/Number\.isSafeInteger\(Math\.round\(parsedAmount \* 100\)\)/);
-  assert.match(modal,/step="0\.01"/);
+  assert.match(modal,/type="text" inputMode="decimal"/);
+  assert.match(modal,/normalizedAmount/);
+  assert.match(modal,/Math\.abs\(parsedAmount \* 100 - Math\.round\(parsedAmount \* 100\)\)/);
   assert.match(modal,/onClick=\{\(\) => \{ if \(!isSaving\) onClose\(\); \}\}/);
 });
 

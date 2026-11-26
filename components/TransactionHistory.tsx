@@ -5,7 +5,7 @@ import { Search, X, History, ChevronRight, ArrowDownCircle, ArrowUpCircle, Layou
 import BudgetMobile from './BudgetMobile';
 import BudgetDesktop from './BudgetDesktop';
 import { useClickAway } from 'react-use';
-import { RippleButton } from './RippleButton';
+import { FILTER_RAIL,FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 import { useAuth } from '../contexts/AuthContext';
 import { updateItem } from '../utils/db';
 import { isSavingsTransfer } from '../utils/savingsSync';
@@ -215,19 +215,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
                    aria-expanded={isFilterMenuOpen}
                    aria-label={`Период: ${PERIOD_LABELS[periodFilter]}`}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 min-h-[44px] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-[10px] font-mono font-bold uppercase tracking-wider transition-all border ${
-                    isFilterMenuOpen || periodFilter !== 'context' 
-                      ? 'bg-[#1C1C1E] dark:bg-white text-white dark:text-black border-transparent shadow-sm' 
-                      : 'bg-white dark:bg-[#1C1C1E] text-graphite dark:text-gray-200 border-surface-border dark:border-white/10 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E]'
-                  }`}
+                  className={`${TOOLBAR_ACTION} ${isFilterMenuOpen || periodFilter!=='context'?TOOLBAR_ACTION_PRIMARY:TOOLBAR_ACTION_IDLE}`}
               >
-                  <Calendar size={13} className="text-primary dark:text-green-400" />
+                  <Calendar size={16} aria-hidden="true" />
                   <span>{PERIOD_LABELS[periodFilter]}</span>
-                  <ChevronDown size={13} className={`transition-transform duration-200 ${isFilterMenuOpen ? 'rotate-180' : ''}`}/>
+                  <ChevronDown size={13} className={`transition-transform duration-150 motion-reduce:transition-none ${isFilterMenuOpen ? 'rotate-180' : ''}`}/>
               </button>
 
               {isFilterMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-[min(18rem,calc(100vw-2rem))] max-h-[min(65dvh,28rem)] overflow-y-auto bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xl border border-surface-border dark:border-white/10 p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute top-full left-0 mt-2 w-[min(18rem,calc(100vw-2rem))] max-h-[min(65dvh,28rem)] overflow-y-auto bg-[var(--terra-surface)] rounded-2xl shadow-lg border border-[var(--terra-border)] p-2 z-50 flex flex-col gap-1 terra-menu">
                       {(Object.keys(PERIOD_LABELS) as PeriodFilter[]).map((key) => {
                           if (key === 'context' && !selectedDate && !currentMonth) return null;
                           return (
@@ -249,7 +245,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                                           setIsFilterMenuOpen(false);
                                       }
                                   }}
-                                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left transition-colors ${
+                                  aria-pressed={periodFilter===key}
+                                  className={`min-h-[44px] flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                                     periodFilter === key 
                                       ? 'bg-primary/10 text-primary dark:text-green-400 font-bold' 
                                       : 'text-graphite dark:text-white hover:bg-[#FAF8F5] dark:hover:bg-white/5'
@@ -263,7 +260,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                       
                       {periodFilter === 'custom' && (
                           <div className="p-3 bg-[#FAF8F5] dark:bg-[#2C2C2E] rounded-xl mt-2 border border-surface-border dark:border-white/5 space-y-2">
-                              <span className="text-[10px] font-mono font-bold text-gray-400 uppercase">Диапазон дат</span>
+                              <span className="text-xs font-medium text-[var(--terra-muted)]">Диапазон дат</span>
                               <div className="flex gap-2">
                                   <div className="flex-1">
                                       <input 
@@ -303,40 +300,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
           <div className="h-5 w-px bg-surface-border dark:bg-white/10 mx-0.5" />
 
-          {/* Type Filters (ВСЕ, РАСХОД, ДОХОД) */}
-          <div role="group" aria-label="Тип операций" className="flex max-w-full bg-[#F2EFEB] dark:bg-[#2C2C2E] p-1 rounded-xl">
-              <RippleButton 
-                  onClick={() => setTypeFilter('all')}
-                  className={`px-3.5 py-1.5 rounded-lg text-[10px] font-headline font-bold uppercase transition-all ${
-                    typeFilter === 'all' 
-                      ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-graphite dark:text-white' 
-                      : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
-                  }`}
-              >
-                  Все
-              </RippleButton>
-              <RippleButton 
-                  onClick={() => setTypeFilter('expense')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-headline font-bold uppercase transition-all flex items-center gap-1.5 ${
-                    typeFilter === 'expense' 
-                      ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-[#E05252] dark:text-red-400' 
-                      : 'text-graphite-muted dark:text-gray-400 hover:text-[#E05252]'
-                  }`}
-              >
-                  <ArrowUpCircle size={13} className="text-[#E05252]" />
-                  <span>Расход</span>
-              </RippleButton>
-              <RippleButton 
-                  onClick={() => setTypeFilter('income')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-headline font-bold uppercase transition-all flex items-center gap-1.5 ${
-                    typeFilter === 'income' 
-                      ? 'bg-white dark:bg-[#1C1C1E] shadow-sm text-[#4A7C59] dark:text-green-400' 
-                      : 'text-graphite-muted dark:text-gray-400 hover:text-[#4A7C59]'
-                  }`}
-              >
-                  <ArrowDownCircle size={13} className="text-[#4A7C59] dark:text-green-400" />
-                  <span>Доход</span>
-              </RippleButton>
+          <div role="group" aria-label="Тип операций" className={FILTER_RAIL}>
+            {(['all','expense','income'] as const).map(type=>(
+              <button key={type} type="button" aria-pressed={typeFilter===type} onClick={()=>setTypeFilter(type)}
+                className={`${FILTER_CHIP} ${typeFilter===type?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}>
+                {type==='expense'?<ArrowUpCircle size={15} aria-hidden="true"/>:type==='income'?<ArrowDownCircle size={15} aria-hidden="true"/>:null}
+                {type==='all'?'Все':type==='expense'?'Расход':'Доход'}
+              </button>
+            ))}
           </div>
       </div>
   );
@@ -346,12 +317,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           {/* Доход (Green card) */}
           <div className="bg-[#EAF2EC] dark:bg-[#4A7C59]/15 rounded-2xl p-2.5 sm:p-3.5 border border-[#D5E6D8] dark:border-[#4A7C59]/25 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <ArrowDownCircle size={14} className="text-[#4A7C59] dark:text-green-400 shrink-0" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#4A7C59] dark:text-green-400 truncate">
+                  <ArrowDownCircle size={14} className="text-[var(--terra-primary-text)] shrink-0" />
+                  <span className="text-xs font-medium text-[var(--terra-primary-text)] truncate">
                     Доход
                   </span>
               </div>
-              <span className="text-sm sm:text-base md:text-xl font-headline font-bold tabular-nums text-[#4A7C59] dark:text-green-400 truncate block">
+              <span className="text-sm sm:text-base md:text-xl font-headline font-bold tabular-nums text-[var(--terra-primary-text)] truncate block">
                   {settings.privacyMode ? '•••' : `+${formatBudgetMoney(stats.income)}`}
               </span>
           </div>
@@ -359,12 +330,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           {/* Расход (Red card) */}
           <div className="bg-[#FDF2F2] dark:bg-red-950/20 rounded-2xl p-2.5 sm:p-3.5 border border-[#FADCDD] dark:border-red-900/25 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <ArrowUpCircle size={14} className="text-[#E05252] dark:text-red-400 shrink-0" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E05252] dark:text-red-400 truncate">
+                  <ArrowUpCircle size={14} className="text-[var(--terra-danger-text)] shrink-0" />
+                  <span className="text-xs font-medium text-[var(--terra-danger-text)] truncate">
                     Расход
                   </span>
               </div>
-              <span className="text-sm sm:text-base md:text-xl font-headline font-bold tabular-nums text-[#E05252] dark:text-red-400 truncate block">
+              <span className="text-sm sm:text-base md:text-xl font-headline font-bold tabular-nums text-[var(--terra-danger-text)] truncate block">
                   {settings.privacyMode ? '•••' : `-${formatBudgetMoney(stats.expense)}`}
               </span>
           </div>
@@ -372,12 +343,12 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           {/* Итого (Neutral card) */}
           <div className="col-span-2 sm:col-span-1 bg-white dark:bg-[#252528] rounded-2xl p-3 sm:p-3.5 border border-surface-border dark:border-white/5 shadow-sm min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 truncate">
+                  <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 truncate">
                     Итого
                   </span>
               </div>
               <span className={`text-base sm:text-base md:text-xl font-headline font-bold tabular-nums truncate block ${
-                stats.net > 0 ? 'text-[#4A7C59] dark:text-green-400' : stats.net < 0 ? 'text-[#E05252] dark:text-red-400' : 'text-graphite dark:text-white'
+                stats.net > 0 ? 'text-[var(--terra-primary-text)]' : stats.net < 0 ? 'text-[var(--terra-danger-text)]' : 'text-graphite dark:text-white'
               }`}>
                   {settings.privacyMode ? '•••' : `${stats.net > 0 ? '+' : ''}${formatBudgetMoney(stats.net)}`}
               </span>
@@ -437,7 +408,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                       />
                       <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
                       {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-1 top-1 flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-1 top-1 flex items-center justify-center w-11 h-11 rounded-xl text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-primary transition-colors">
                               <X size={16} />
                           </button>
                       )}
@@ -453,7 +424,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               {/* Main List */}
               <div className={`flex-1 min-w-0 ${!hideTitle ? 'overflow-y-auto custom-scrollbar' : ''}`}>
                   {transactions.length === 0 ? (
-                    <div className="text-center py-10 text-gray-300 dark:text-gray-600 font-bold text-xs uppercase tracking-widest">Нет операций</div>
+                    <div className="text-center py-10 text-[var(--terra-muted)] font-medium text-sm">Нет операций</div>
                   ) : searchedTransactions.length === 0 ? (
                     <div className="text-center py-12 text-gray-400 font-bold text-sm">Ничего не найдено</div>
                   ) : (
@@ -496,7 +467,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                       />
                       <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
                       {searchQuery && (
-                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-1 top-1 flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                          <button onClick={() => setSearchQuery('')} aria-label="Очистить поиск" className="absolute right-1 top-1 flex items-center justify-center w-11 h-11 rounded-xl text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-primary transition-colors">
                               <X size={16} />
                           </button>
                       )}
@@ -512,7 +483,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               {/* Mobile List */}
               <div className="flex-1 min-h-0">
                   {transactions.length === 0 ? (
-                    <div className="text-center py-10 text-gray-300 dark:text-gray-600 font-bold text-xs uppercase tracking-widest">Нет операций</div>
+                    <div className="text-center py-10 text-[var(--terra-muted)] font-medium text-sm">Нет операций</div>
                   ) : searchedTransactions.length === 0 ? (
                     <div className="text-center py-12 text-gray-400 font-bold text-sm">Ничего не найдено</div>
                   ) : (

@@ -559,7 +559,14 @@ export default function App() {
           const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
           const fileSha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
           if((window as any).__budgetAlfaReviewRun!==true||reviewRequest?.fileSha256!==fileSha256||reviewRequest?.scope!==scope)throw new Error('ALFA_REVIEW_FILE_MISMATCH');
-          const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport);
+          const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport,reviewRequest.acceptEmpty===true);
+          if(allRows.length===0){
+            assertScope();
+            const result={fileSha256,requested:0,created:0,existing:0,queued:0,unverified:0,emptyVerified:true as const};
+            assertAlfaReviewResult(result,fileSha256);
+            window.dispatchEvent(new CustomEvent('budget:import-review-result',{detail:result}));
+            return;
+          }
           const plan=planAlfaReview(allRows,categories,memberId);
           assertScope();
           // Preserve legacy duplicate detection. Do not turn approximate matches into

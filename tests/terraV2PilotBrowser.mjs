@@ -15,6 +15,17 @@ async function capture(page,name){
 async function noOverflow(locator,label){
  assert.ok(await locator.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+' horizontal overflow');
 }
+async function axisFits(locator,label){
+ await locator.locator('.recharts-yAxis .recharts-cartesian-axis-tick-value').first().waitFor({state:'visible'});
+ const bounds=await locator.evaluate(plot=>{
+  const svg=plot.querySelector('svg.recharts-surface');
+  const box=svg.getBoundingClientRect();
+  const ticks=Array.from(svg.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick-value'));
+  return {count:ticks.length,clipped:ticks.map(tick=>({text:tick.textContent,rect:tick.getBoundingClientRect().toJSON()})).filter(tick=>tick.rect.left<box.left-.5||tick.rect.right>box.right+.5||tick.rect.top<box.top-.5||tick.rect.bottom>box.bottom+.5)};
+ });
+ assert.ok(bounds.count>=2,label+' missing Y-axis ticks');
+ assert.deepEqual(bounds.clipped,[],label+' clipped Y-axis labels');
+}
 export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Pilot requires isolated emulator');
  await mkdir(out,{recursive:true});
@@ -43,6 +54,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await tab.getAttribute('aria-pressed'),'true');
      assert.ok(Math.abs((await plot.boundingBox()).height-beforeHeight)<=1,label+' chart height changed');
     }
+    await axisFits(plot,label+' overview');
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await button(periods,'День').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
     await page.emulateMedia({reducedMotion:'no-preference'});
@@ -85,6 +97,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await tab.getAttribute('aria-pressed'),'true');
     }
     await noOverflow(dialog,label+' analytics dialog');
+    if(!mobile)await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
     await capture(page,'analytics-'+label);
     await dialog.getByTestId('drilldown-chart').scrollIntoViewIfNeeded();
     await capture(page,'analytics-chart-'+label);

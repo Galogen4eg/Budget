@@ -32,7 +32,11 @@ test('overview chart uses restrained focus handling with a text alternative',()=
  assert.match(chart,/onClick=\{\(\) => onPointSelect\(point\)\}/);
  assert.match(chart,/График скрыт в режиме приватности/);
  assert.doesNotMatch(overview,/complianceRate \|\| 87/);
- assert.match(overview,/Лимит не задан/);
+ assert.match(overview,/Лимит на день не задан/);
+ assert.match(overview,/Месячный лимит не задан/);
+ assert.match(overview,/Семейный лимит не применяется к личному графику/);
+ assert.equal((overview.match(/complianceText=\{dynamicsData\.complianceText\}/g)||[]).length,2);
+ assert.match(chart,/!privacyMode && <span[^>]*>\{complianceText\}<\/span>/);
 });
 test('overview and budget share mobile surface and minimum 44px actions',()=>{
  assert.match(overview,/bg-\[var\(--terra-canvas\)\]/);

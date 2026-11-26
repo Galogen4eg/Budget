@@ -25,6 +25,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Verify QA fixture generation and safety invariants
+        run: node --test tests/realisticFamilyFixtures.test.mjs tests/qaSeedSafety.test.mjs && node --check tests/seedPopulatedProductionQa.mjs && node --check tests/productionModulesCrud.mjs
       - name: Install project dependencies
         run: npm install --prefer-offline --no-audit --no-fund
       - name: Bundle actual Firestore persistence functions for Node

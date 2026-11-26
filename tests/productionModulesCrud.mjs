@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
 import * as XLSX from 'xlsx';
+import {assertQaFixtureBaseline,assertUnchangedQaFixtureBaseline,assertUnmarkedBillsPreserved} from './fixtures/qaSeedSafety.mjs';
 
 // Real production, but strictly limited to the explicitly configured QA family.
 const origin='https://budget-omega-jade.vercel.app';
@@ -43,6 +44,8 @@ async function guard(){
 const marker='QA '+randomUUID().replace(/-/g,'').replace(/[0-9]/g,n=>String.fromCharCode(103+Number(n)));
 const original=marker+' запись',renamed=marker+' изменено';
 const failures=[],blocked=[],completed=[];
+let seededFamily=false;
+const baselines=new Map();
 const collections=new Set(['events','shopping','loyalty','debts','chat','transactions']);
 let page,phase,apiError='none';
 const panel=id=>page.locator('[data-tab-panel="'+id+'"]');
@@ -59,9 +62,9 @@ function idOf(doc,collection){
  check(doc.name==='projects/'+project+'/databases/(default)/documents/families/'+familyId+'/'+collection+'/'+id,'Unexpected document path');
  return id;
 }
-async function query(collection,key,value){
+async function query(collection,key,value,full=false){
  check(collections.has(collection),'Unexpected collection');
- const data=await request(familyDoc()+':runQuery',{method:'POST',body:{structuredQuery:{from:[{collectionId:collection}],...(key?{where:{fieldFilter:{field:{fieldPath:key},op:'EQUAL',value:{stringValue:value}}}}:{limit:2})}}});
+ const data=await request(familyDoc()+':runQuery',{method:'POST',body:{structuredQuery:{from:[{collectionId:collection}],...(key?{where:{fieldFilter:{field:{fieldPath:key},op:'EQUAL',value:{stringValue:value}}}}:{limit:full?51:2})}}});
  check(Array.isArray(data)&&!data.some(x=>x.error),'Unexpected query response');return data.flatMap(x=>x.document?[x.document]:[]);
 }
 async function poll(fn,label){
@@ -80,6 +83,18 @@ async function absent(collection,doc){
 }
 async function empty(collection){
  if((await query(collection)).length)throw new Blocked('Nonempty QA collection: '+collection);
+}
+async function fixtureBaseline(collection){
+ const records=await query(collection,undefined,undefined,true);
+ if(records.length>50)throw new Blocked('Unexpected oversized QA collection');
+ try{assertQaFixtureBaseline(records,seededFamily);}catch{throw new Blocked('Unexpected unmarked QA data: '+collection);}
+ baselines.set(collection,records);
+}
+async function verifyBaselines(){
+ for(const [collection,records] of baselines){
+  const after=await query(collection,undefined,undefined,true);
+  assertUnchangedQaFixtureBaseline(records,after,seededFamily);
+ }
 }
 class Blocked extends Error{}
 async function cleanupMarked(collection,key,values){
@@ -127,12 +142,12 @@ async function nav(id,name){
 }
 async function mutation(action){await guard();apiError='none';await action();}
 async function run(name,fn,cleanup){
- phase='preflight';apiError='none';let passed=false,skip=false;
+ phase='preflight';apiError='none';baselines.clear();let passed=false,skip=false;
  try{await guard();await reset();await fn();passed=true;}
  catch(e){if(e instanceof Blocked){blocked.push({name,phase});skip=true;console.log('BLOCKED LIVE '+name+' at '+phase+' (safety prerequisite)');}else{failures.push({name,phase});const msg=String(e?.message??'');const kind=e?.name==='TimeoutError'?'timeout':msg.startsWith('Firestore HTTP ')?msg.match(/^Firestore HTTP \d{3} [A-Z0-9_]+/)?.[0]??'Firestore HTTP failure':msg.startsWith('Server verification failed:')?'server assertion failed':'assertion/action';const action=msg.match(/locator\.(click|fill|waitFor|selectOption|getAttribute|innerText)/)?.[1]??'unknown';console.log('FAIL LIVE '+name+' at '+phase+' ('+kind+'; action '+action+'; intercepted '+/intercepts pointer events/.test(msg)+'; Firebase '+apiError+')');}}
  finally{
   // Close the active page to stop delayed/retried writes before fallback cleanup.
-  if(!skip&&cleanup){try{await page.close();await cleanup();await loginBrowser();}catch{failures.push({name,phase:'cleanup'});console.error('FAIL LIVE '+name+' cleanup; halted to protect QA data');throw new Error('Cleanup failed');}}
+  if(!skip&&cleanup){try{await page.close();await cleanup();await verifyBaselines();await loginBrowser();}catch{failures.push({name,phase:'cleanup'});console.error('FAIL LIVE '+name+' cleanup; halted to protect QA data');throw new Error('Cleanup failed');}}
  }
  if(passed){completed.push(name);console.log('PASS LIVE '+name);}
 }
@@ -170,9 +185,9 @@ async function restoreBills(){
  if(!billBaseline)return;
  const current=await request(sharedSettings());
  const found=markedBill(current);
- check(found.length<=1&&bills(current).length===found.length,'Cleanup refused unrelated obligations');
+ check(found.length<=1,'Cleanup refused duplicate marked obligation');
  if(found.length){const item=found[0];check(!item.linkedDebtId?.stringValue&&(!billID||item.id?.stringValue===billID),'Cleanup refused linked or unexpected obligation');billID=item.id?.stringValue;}
- check(paidIds(current).every(id=>id===billID),'Cleanup refused unrelated paid history');
+ assertUnmarkedBillsPreserved(billBaseline,settingSnapshot(current,billFields),billID);
  if(!equal(settingSnapshot(current,billFields),billBaseline))await patchOnly(sharedSettings(),current,billFields,billBaseline);
  console.log('PASS LIVE restored original mandatory-payment fields');
 }
@@ -210,7 +225,7 @@ async function verifyUnlinkedQaDebt(doc){
  check((await query('transactions','linkedDebtId',id)).length===0,'Cleanup refused linked transactions');
 }
 async function recoverPriorQaDebt(){
- await guard();const records=await query('debts');if(!records.length)return;
+ await guard();if(seededFamily)return;const records=await query('debts');if(!records.length)return;
  // Match the exact prior test's time window, immutable fixture and absence of references.
  const start=Date.parse('2026-11-25T14:03:04Z'),end=Date.parse('2026-11-25T14:03:11Z');
  const matching=records.filter(d=>{
@@ -246,12 +261,15 @@ try{
  const response=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+encodeURIComponent(apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true}),signal:AbortSignal.timeout(25000)});
  const auth=await response.json();check(response.ok&&auth.idToken&&auth.localId,'Production auth failed');
  token=auth.idToken;uid=auth.localId;await guard();
+ const seedMarker=await request(familyDoc('projects','qa-fixture-v1-project-1'),{allowMissing:true});
+ seededFamily=Boolean(seedMarker&&scalar(seedMarker,'id')==='qa-fixture-v1-project-1');
+ console.log('QA dataset mode: '+(seededFamily?'populated':'empty'));
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  await loginBrowser();console.log('PASS LIVE production isolated account authenticated');
  await inspectDebtResidue();
  await recoverPriorQaDebt();
  await run('PLN-event-CRUD',async()=>{
-  await empty('events');await nav('plans','Планы');await btn(panel('plans'),'День').click();
+  await fixtureBaseline('events');await nav('plans','Планы');await btn(panel('plans'),'День').click();
   phase='open new event';await btn(panel('plans'),'Добавить событие').click();
   const d=eventDialog();await d.locator('#event-title-input').fill(original);
   const calendarDate=d.locator('input[type=date]');check(await calendarDate.count()===1,'Expected one calendar date field');await calendarDate.fill(new Date().toISOString().slice(0,10));
@@ -265,7 +283,7 @@ try{
   phase='delete event';await eventOpen(renamed);await btn(eventDialog(),'Удалить событие').click();await mutation(()=>btn(eventDialog(),'Да, удалить').click());await eventDialog().waitFor({state:'hidden'});await absent('events',doc);
  },()=>cleanupMarked('events','title',[original,renamed]));
  await run('SHP-shopping-CRUD',async()=>{
-  await empty('shopping');await nav('shopping','Покупки');
+  await fixtureBaseline('shopping');await nav('shopping','Покупки');
   phase='quick add';await panel('shopping').getByRole('textbox',{name:'Быстрое добавление товаров'}).fill(original);
   await mutation(()=>btn(panel('shopping'),'Добавить товары в общий список').click());
   const doc=await created('shopping','title',original);check(Number(scalar(doc,'amount'))===1,'Initial quantity mismatch');
@@ -278,24 +296,24 @@ try{
   phase='delete product';await mutation(()=>btn(panel('shopping'),'Удалить товар: '+renamed).click());await absent('shopping',doc);
  },()=>cleanupMarked('shopping','title',[original,renamed]));
  await run('CHAT-send-search-reload',async()=>{
-  await nav('chat','Чат');phase='send message';await panel('chat').getByPlaceholder('Сообщение семье...').fill(original);
+  await fixtureBaseline('chat');await nav('chat','Чат');phase='send message';await panel('chat').getByPlaceholder('Сообщение семье...').fill(original);
   await mutation(()=>btn(panel('chat'),'Отправить сообщение').click());const doc=await created('chat','text',original);check(scalar(doc,'userId')===uid,'Message owner mismatch');
   phase='reload mobile message';await reset(390);await nav('chat','Чат');await visible(panel('chat').getByText(original,{exact:true})).first().waitFor({state:'visible'});
   phase='search';await btn(panel('chat'),'Поиск').click();await panel('chat').getByPlaceholder('Поиск по сообщениям...').fill(original);await visible(panel('chat').getByText(original,{exact:true})).first().waitFor({state:'visible'});
   // No UI individual-message deletion exists; cleanup uses exact marked document, not Delete chat.
  },()=>cleanupMarked('chat','text',[original]));
  await run('SVC-wallet-CRUD',async()=>{
-  await empty('loyalty');await nav('services','Сервисы');await btn(panel('services'),/^Карты лояльности/,false).click();
+  await fixtureBaseline('loyalty');await nav('services','Сервисы');await btn(panel('services'),/^Карты лояльности/,false).click();
   phase='add card';await btn(panel('services'),'Добавить карту').click();await page.getByPlaceholder('Магазин (Лента, Перекрёсток, FixPrice...)').fill(original);await page.getByPlaceholder('7789 2034 5519...').fill('1234567890');
   await mutation(()=>btn(page,'Добавить в кошелёк').click());const doc=await created('loyalty','name',original);check(scalar(doc,'number')==='1234567890','Card number mismatch');
   phase='edit card';await visible(panel('services').getByRole('heading',{name:original,exact:true})).first().waitFor({state:'visible'});
-  await (await unique(visible(panel('services').getByTitle('Редактировать',{exact:true})))).click();
+  await (await unique(visible(panel('services').getByRole('heading',{name:original,exact:true}).locator('xpath=ancestor::div[.//button[@title="Редактировать"]][1]').getByTitle('Редактировать',{exact:true})))).click();
   await page.getByPlaceholder('Магазин (Лента, Перекрёсток, FixPrice...)').fill(renamed);await mutation(()=>btn(page,'Сохранить карту').click());await same('loyalty',doc,x=>scalar(x,'name')===renamed&&scalar(x,'number')==='1234567890','card rename');
   phase='reload mobile';await reset(390);await nav('services','Сервисы');await btn(panel('services'),/^Карты лояльности/,false).click();await visible(panel('services').getByRole('heading',{name:renamed,exact:true})).first().waitFor({state:'visible'});
-  phase='delete card';await (await unique(visible(panel('services').getByTitle('Удалить карту',{exact:true})))).click();const h=page.getByRole('heading',{name:'Удалить карту?',exact:true});await h.waitFor({state:'visible'});await mutation(()=>btn(h.locator('xpath=../..'),'Удалить').click());await absent('loyalty',doc);
+  phase='delete card';await (await unique(visible(panel('services').getByRole('heading',{name:renamed,exact:true}).locator('xpath=ancestor::div[.//button[@title="Удалить карту"]][1]').getByTitle('Удалить карту',{exact:true})))).click();const h=page.getByRole('heading',{name:'Удалить карту?',exact:true});await h.waitFor({state:'visible'});await mutation(()=>btn(h.locator('xpath=../..'),'Удалить').click());await absent('loyalty',doc);
  },()=>cleanupMarked('loyalty','name',[original,renamed]));
  await run('SVC-debt-CRUD',async()=>{
-  await empty('debts');await nav('services','Сервисы');await btn(panel('services'),/^Долги/,false).click();
+  await fixtureBaseline('debts');await nav('services','Сервисы');await btn(panel('services'),/^Долги/,false).click();
   phase='create debt';await btn(panel('services'),'Добавить долг').click();
   await page.locator('input[name="title"]').fill(original);
   const future=new Date();future.setUTCFullYear(future.getUTCFullYear()+1);const due=new Date();due.setUTCDate(due.getUTCDate()+7);
@@ -342,7 +360,8 @@ try{
  await run('BUD-mandatory-payment-CRUD',async()=>{
   const family=await request(familyDoc());if(scalar(family,'budgetPolicy')==='personal')throw new Blocked('Personal budget config requires distinct test');
   const initial=await request(sharedSettings());
-  if(bills(initial).length||paidIds(initial).length)throw new Blocked('Existing mandatory payments');
+  if((bills(initial).length||paidIds(initial).length)&&!seededFamily)throw new Blocked('Existing mandatory payments');
+  if(seededFamily&&(!bills(initial).every(x=>x.id?.stringValue?.startsWith('qa-fixture-v1-bill-'))||!paidIds(initial).every(id=>id.startsWith('qa-fixture-v1-bill-'))))throw new Blocked('Unexpected obligations in seeded QA family');
   billBaseline=settingSnapshot(initial,billFields);
   await nav('budget','Бюджет');
   phase='new mandatory payment';await btn(panel('budget'),'Добавить обязательный платёж').click();
@@ -388,7 +407,7 @@ try{
   await mutation(()=>privacy().click());await poll(async()=>bool(await request(personalSettings()),'privacyMode')===initialPrivacy,'privacy restore');
  },restorePersonal);
 
- await run('SHP-quick-list-save-reapply-delete',async()=>{
+ if(!seededFamily)await run('SHP-quick-list-save-reapply-delete',async()=>{
   await empty('shopping');const before=await request(library(),{allowMissing:true});
   if(array(before,'templates').length>=25)throw new Blocked('Template limit');
   quickAttempted=true;
@@ -411,6 +430,7 @@ try{
   phase='remove reapplied product';await btn(p,/Быстрые списки/,false).click();await btn(p,'Редактировать товар: '+original).click();
   await mutation(()=>visible(page.getByTitle('Удалить',{exact:true})).first().click());await absent('shopping',reapplied);
  },cleanupQuick);
+ else console.log('NOT COVERED LIVE quick-list full replay on populated family; use isolated emulator scenario');
  await run('BUD-import-preview-cancel',async()=>{
   const raw=original+' выписка';
   const day=new Date();const date=[String(day.getUTCDate()).padStart(2,'0'),String(day.getUTCMonth()+1).padStart(2,'0'),day.getUTCFullYear()].join('.');
@@ -426,7 +446,7 @@ try{
   phase='cancel import';await btn(dialog,'Отмена').click();await dialog.waitFor({state:'hidden'});
   check((await query('transactions','rawNote',raw)).length===0,'Cancel unexpectedly persisted transaction');
  });
- console.log('LIVE MODULE SUMMARY '+JSON.stringify({completed,failures,blocked,notCovered:['second production account and reactions','goals and category/rule CRUD','bank import and duplicates','quick-list/pantry persistence','external integrations','all nested controls']}));
+ console.log('LIVE MODULE SUMMARY '+JSON.stringify({completed,failures,blocked,notCovered:[...(seededFamily?['quick-list full replay on populated production family']:[]),'second production account and reactions','goals and category/rule CRUD','bank import and duplicates','quick-list/pantry persistence','external integrations','all nested controls']}));
  if(failures.length||blocked.length)process.exitCode=1;
 }catch{console.error('FAIL LIVE suite setup or safety/cleanup guard');process.exitCode=1;}
 finally{await browser?.close();}

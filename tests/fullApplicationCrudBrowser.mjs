@@ -238,6 +238,40 @@ await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/resto
  await currentDoc(saved.ref,x=>!x.exists,'shopping deletion');
  await btn(panel(a,'shopping'),'Редактировать товар: QA молоко изменено').waitFor({state:'hidden'});
 });
+await scenario('SHP quick-list save, reuse and delete in an isolated empty list',async()=>{
+ await nav(b,'shopping','Покупки');const p=panel(b,'shopping');
+ const product='QA чай для шаблона',template='QA быстрый список';
+ const library=family.collection('config').doc('shoppingLists');
+ assert.equal((await family.collection('shopping').get()).size,0,'Quick-list isolation required');
+ phase='create source product';
+ await p.getByRole('textbox',{name:'Быстрое добавление товаров'}).fill(product);
+ await btn(p,'Добавить товары в общий список').click();
+ const doc=await findOne('shopping','title',product);
+ phase='save template';
+ await btn(p,/Быстрые списки/,false).click();
+ const options=p.locator('#shopping-template-options');
+ await options.getByRole('textbox',{name:'Название нового списка'}).fill(template);
+ await btn(options,'Сохранить текущие').click();
+ const saved=await currentDoc(library,x=>x.data()?.templates?.some(t=>t.name===template),'template saved');
+ const items=saved.data().templates.find(t=>t.name===template).items;
+ assert.equal(items.length,1);assert.equal(items[0].title,product);
+ phase='delete source';await btn(p,/Быстрые списки/,false).click();
+ await btn(p,'Удалить товар: '+product).click();
+ await currentDoc(doc.ref,x=>!x.exists,'source removed');
+ phase='reuse from mobile';await reset(a);await nav(a,'shopping','Покупки');
+ const q=panel(a,'shopping');await btn(q,/Быстрые списки/,false).click();
+ const mobileOptions=q.locator('#shopping-template-options');
+ await btn(mobileOptions,template+' · 1').click();
+ const reused=await findOne('shopping','title',product);
+ assert.equal(Number(reused.data().amount),1);
+ phase='remove template';
+ await btn(mobileOptions,'Удалить шаблон '+template).click();
+ await currentDoc(library,x=>!x.data()?.templates?.some(t=>t.name===template),'template removed');
+ await btn(q,/Быстрые списки/,false).click();
+ await btn(q,'Редактировать товар: '+product).click();
+ await visible(a.getByTitle('Удалить',{exact:true})).click();
+ await currentDoc(reused.ref,x=>!x.exists,'replayed item removed');
+});
 await scenario('CHAT message and other-account heart reaction',async()=>{
  await nav(b,'chat','Чат');await nav(a,'chat','Чат');
  const p=panel(b,'chat'),q=panel(a,'chat');
@@ -418,7 +452,7 @@ await scenario('SVC-debt linked obligation create, edit, unlink and conflict rej
  await b.getByRole('heading',{name:'Удалить долг?'}).waitFor({state:'visible'});
  await btn(b,'Удалить').click();await currentDoc(saved.ref,x=>!x.exists,'linked debt delete after unlink');
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:10,passed:10-failures.length}));
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:11,passed:11-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

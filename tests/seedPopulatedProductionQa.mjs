@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
+import {qaSeedCredentials,assertEmptySeedCollection} from './fixtures/qaSeedSafety.mjs';
 
-// Explicit, persistent populated QA account. Never use the empty-state QA account.
+// Reuse the explicitly configured, isolated production QA account. No second account.
 // The workflow supplies secrets only on reviewed main, not on pull requests.
 const env=process.env;
 const apply=process.argv.includes('--apply');
-const login=env.QA_FILLED_EMAIL?.trim().toLowerCase();
-const password=env.QA_FILLED_PASSWORD;
-const fid=env.QA_FILLED_FAMILY_ID?.trim();
-const emptyFid=env.QA_FAMILY_ID?.trim();
+
 const check=(ok,label)=>{if(!ok)throw new Error(label);};
 const safeCode=v=>typeof v==='string'&&/^[A-Z_0-9]{1,80}$/.test(v)?v:'UNKNOWN';
 const prefix='qa-fixture-v1-';
@@ -35,7 +33,7 @@ function canonical(v){
  return v;
 }
 try{
- check(login&&password&&fid&&emptyFid&&fid!==emptyFid,'Missing isolated populated QA configuration or same family as empty QA');
+ const {login,password,fid}=qaSeedCredentials(env);
  const src=readFileSync(new URL('../firebase.ts',import.meta.url),'utf8');
  const config=key=>src.match(new RegExp('\\b'+key+'\\s*:\\s*"([^"]+)"'))?.[1];
  const project=config('projectId'),apiKey=config('apiKey');
@@ -70,6 +68,8 @@ try{
   phase='preflight';
   const member=[{id:uid,userId:uid}];
   const records=makeFamilyFixtures({members:member});
+  // Refuse to seed over any existing records. Canonical category documents are the only exception.
+  for(const kind of Object.keys(records))assertEmptySeedCollection(await request(url('families',fid,kind)+'?pageSize=1'));
   const settings=await request(url('families',fid,'config','settings'));
   // Never replace existing obligations or custom budget limits.
   const fields=settings.fields??{};
@@ -78,7 +78,8 @@ try{
   check(Object.keys(fields.categoryBudgets?.mapValue?.fields??{}).length===0,'Existing category budgets; refusing to overwrite');
   const target=Number(fields.targetMonthlyBudget?.integerValue??fields.targetMonthlyBudget?.doubleValue??0);
   check(target===0,'Existing monthly budget; refusing to overwrite');
-  check(!fields.autoSendEventsToTelegram?.booleanValue,'Disable external event delivery in the QA family');
+  const privateSettings=await request(url('families',fid,'members',uid,'config','settings'),{missing:true});
+  for(const config of [fields,privateSettings?.fields??{}])check(!config.autoSendEventsToTelegram?.booleanValue&&!config.telegramBotToken?.stringValue&&!config.pushEnabled?.booleanValue&&!config.fcmToken?.stringValue,'Disable external integrations in QA before seeding');
   check(settings.updateTime,'Settings revision missing');
   const writes=[],expected=[];
   const add=(kind,r)=>{

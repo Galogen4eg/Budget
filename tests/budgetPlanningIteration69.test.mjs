@@ -55,7 +55,9 @@ test('iteration 69: family forecast is shown even while filtering a member',()=>
 test('iteration 69: category limit panel has an accessible form and saving state',()=>{
  const source=readFileSync(new URL('../components/BudgetPlanningPanel.tsx',import.meta.url),'utf8');
  assert.match(source,/parseCategoryBudgetInput\(amount\)/);
- assert.match(source,/aria-controls="budget-category-limit-form"/);
+ assert.match(source,/aria-controls=\{formId\}/);
+ assert.match(source,/id=\{formId\}/);
+ assert.match(source,/useId\(\)/);
  assert.match(source,/disabled=\{saving\}/);
  assert.match(source,/cat\.parentId \?/);
 });

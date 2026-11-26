@@ -18,10 +18,11 @@ import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
 import { isCategoryForType } from '../utils/categoryCatalog';
-import { transactionSaveError } from '../utils/transactionSaveError';
+import { transactionSaveError, type TransactionSavePhase } from '../utils/transactionSaveError';
 
 interface AddTransactionModalProps {
   onClose: () => void;
+  previewMode?: boolean;
   onSubmit: (tx: Omit<Transaction, 'id'>) => Promise<void>;
   settings: AppSettings;
   members: FamilyMember[];
@@ -78,7 +79,7 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
+  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Lock body scroll with scrollbar compensation when modal is open
   useBodyScrollLock();
@@ -137,6 +138,8 @@ export default function AddTransactionModal({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const mutationPending=useRef(false);
+  const savedMutation=useRef(false);
+  const [saveConfirmed,setSaveConfirmed]=useState(false);
   const requestClose=()=>{if(!mutationPending.current)onClose();};
   useModalBackHandler(true,requestClose);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -190,7 +193,7 @@ export default function AddTransactionModal({
 
   // Keep the original text so a malformed pasted amount is never silently altered.
   const handleSave = async () => {
-    if (mutationPending.current || isConfirmingDelete) return;
+    if (mutationPending.current || savedMutation.current || isConfirmingDelete) return;
     setValidationError(null);
     if (!members.some(m => m.id === memberId)) {
       setValidationError('Выберите участника семьи, для которого сохраняется операция.');
@@ -213,6 +216,7 @@ export default function AddTransactionModal({
     finalAmount=Math.round(finalAmount*100)/100;
     mutationPending.current=true;
     setIsSubmitting(true);
+    let phase:TransactionSavePhase='prepare';
 
     try {
       let finalDisplayName = renamedTitle.trim() || note.trim() || selectedCategory.label;
@@ -282,12 +286,16 @@ export default function AddTransactionModal({
         pattern: cleanKeyword.trim().toUpperCase()
       } : null;
 
+      phase='submit';
       await onSubmit(txData);
+      phase='after-submit';
+      savedMutation.current=true;
+      setSaveConfirmed(true);
       // A failed transaction must not create a learned merchant rule.
       if (learnedRule) onLearnRule(learnedRule);
 
       // Optional Telegram notification
-      if (notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
+      if (!previewMode && notifyTelegram && settings.telegramBotToken && settings.telegramChatId) {
         const typeLabel = type === 'expense' ? 'Расход' : 'Доход';
         const formattedAmount = finalAmount.toLocaleString('ru-RU');
         const telegramText = `💸 *${typeLabel}*: ${formattedAmount} ${settings.currency || '₽'}\n📁 *Категория*: ${selectedCategory.label}\n👤 *Исполнитель*: ${selectedMember.name}\n📝 *Название*: ${finalDisplayName}${note.trim() ? `\n💬 *Заметка*: ${note.trim()}` : ''}`;
@@ -308,14 +316,14 @@ export default function AddTransactionModal({
       onClose();
     } catch (err) {
       console.error("Save transaction error:", err);
-      setValidationError(transactionSaveError(err));
+      setValidationError(previewMode&&phase==='after-submit'?'Изменение предпросмотра выполнено. Закройте форму.':transactionSaveError(err,phase));
       mutationPending.current=false;
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteAction = async () => {
-    if (mutationPending.current || !initialTransaction || !onDelete) return;
+    if (mutationPending.current || savedMutation.current || !initialTransaction || !onDelete) return;
     if (!isConfirmingDelete) {
       setIsConfirmingDelete(true);
       return;
@@ -392,7 +400,7 @@ export default function AddTransactionModal({
               <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[var(--terra-canvas)] no-scrollbar" onClickCapture={e=>{if(mutationPending.current){e.preventDefault();e.stopPropagation();}}}>
                 
                 {/* Top Row: Segmented Toggle & Sum Card */}
-                <fieldset disabled={isSubmitting} className="min-w-0 border-0 p-0 space-y-3 sm:space-y-3.5">
+                <fieldset disabled={isSubmitting||saveConfirmed} className="min-w-0 border-0 p-0 space-y-3 sm:space-y-3.5">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                   {/* Segmented Toggle */}
                   <div className="md:col-span-5 p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1 border border-surface-border/60 dark:border-white/5">
@@ -816,7 +824,7 @@ export default function AddTransactionModal({
                     !isConfirmingDelete ? (
                       <button 
                         type="button"
-                        onClick={() => setIsConfirmingDelete(true)} disabled={isSubmitting}
+                        onClick={() => setIsConfirmingDelete(true)} disabled={isSubmitting||saveConfirmed}
                         className="min-h-[44px] px-3.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
                       >
                         <Trash2 size={14} />
@@ -826,7 +834,7 @@ export default function AddTransactionModal({
                       <div className="flex items-center gap-2 animate-in fade-in">
                         <button 
                           type="button"
-                          onClick={handleDeleteAction} disabled={isSubmitting}
+                          onClick={handleDeleteAction} disabled={isSubmitting||saveConfirmed}
                           className="min-h-[44px] px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                         >
                           <Trash2 size={14} />
@@ -857,7 +865,7 @@ export default function AddTransactionModal({
                   <button 
                     type="button"
                     onClick={handleSave}
-                    disabled={isSubmitting||isConfirmingDelete}
+                    disabled={isSubmitting||saveConfirmed||isConfirmingDelete}
                     className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY+' terra-press'}
                   >
                     {isSubmitting ? (

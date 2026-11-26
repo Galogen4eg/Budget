@@ -11,7 +11,8 @@ import {
 import { Transaction, AppSettings, LearnedRule, Category, FamilyMember, SavingsGoal } from '../types';
 import { getIconById } from '../constants';
 import { useClickAway } from 'react-use';
-import { RippleButton } from './RippleButton';
+import { FILTER_RAIL,FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY,ICON_ACTION } from './filterUiTokens';
+import { formatBudgetMoney, monthlyMoneyTotals } from '../utils/budgetFinancialMath';
 import AddTransactionModal from './AddTransactionModal';
 import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
 import { CategoryPickerAccordion } from './CategoryPickerAccordion';
@@ -19,7 +20,7 @@ import { extractCleanRuleKeyword, analyzeTransaction, matchMerchantBrand } from 
 import { toast } from 'sonner';
 import { countCategoryUsage } from '../utils/categoryPopularity';
 import { isCategoryForType } from '../utils/categoryCatalog';
-import { splitImportReview, assertImportSavingsReady } from '../utils/importSafety';
+import { isEligibleForImport, assertImportSavingsReady } from '../utils/importSafety';
 import { isSavingsTransfer } from '../utils/savingsSync';
 
 interface ImportItem extends Omit<Transaction, 'id'> {
@@ -94,8 +95,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 }) => {
   const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
   const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  const importPending=useRef(false);
+  const [importError,setImportError]=useState('');
+  const requestClose=()=>{if(!importPending.current)onCancel();};
   useBodyScrollLock();
-  const surface=useModalSurface(()=>{if(!isConfirmingImport)onCancel();},{initialSelector:'[aria-label="Закрыть модальное окно"]'});
+  const surface=useModalSurface(requestClose,{initialSelector:'[aria-label="Закрыть модальное окно"]'});
   const pendingRulesRef = useRef<LearnedRule[]>([]);
   // Snapshot of saved family history, not the changing preview, keeps ranking stable.
   const categoryUsage = useMemo(() => countCategoryUsage(transactions, categories), [transactions, categories]);
@@ -321,6 +325,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Синхронизация с родителем
   const syncToParent = (updatedItems: ImportItem[]) => {
+    if(importPending.current)return;
     setItems(updatedItems);
     const cleanItems = updatedItems.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) => rest);
     onUpdateAll(cleanItems);
@@ -477,39 +482,43 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   // Explicit partial manual import. Unrecognized rows remain in the source
   // XLSX for later review; they are never silently categorized or discarded.
+  // A row must pass both the existing persistence gate and the category picker's inherited type rules.
+  const needsCategory=(item:ImportItem)=>!isEligibleForImport(item,categories)||!isCategoryForType(item.category,categories,item.type);
   const handleConfirm = async (onlyReady = false) => {
-    if (isConfirmingImport) return;
-    const selected = onlyReady ? splitImportReview(items, categories).ready : items;
+    if (importPending.current) return;
+    setImportError('');
+    const selected = onlyReady ? items.filter(item=>!needsCategory(item)) : items;
     if (!selected.length) {
-      toast.error('Нет распознанных операций для импорта');
+      setImportError('Нет распознанных операций для импорта');
       return;
     }
-    if (!onlyReady && splitImportReview(selected, categories).needsReview.length) {
-      toast.error('Сначала назначьте категории всем операциям или импортируйте только распознанные.');
+    if (!onlyReady && selected.some(needsCategory)) {
+      setImportError('Сначала назначьте категории всем операциям или импортируйте только распознанные.');
       setFilterTab('unrecognized');
       return;
     }
     if (!globalMemberId || selected.some(item => item.memberId !== globalMemberId)) {
-      toast.error('Владелец выписки не совпадает с участником операции. Повторно загрузите файл.');
+      setImportError('Владелец выписки не совпадает с участником операции. Повторно загрузите файл.');
       return;
     }
     if (selected.some(item => !Number.isFinite(item.amount) || item.amount <= 0 ||
         !Number.isSafeInteger(Math.round(item.amount * 100)) ||
         Math.abs(item.amount * 100 - Math.round(item.amount * 100)) > 0.000001)) {
-      toast.error('Проверьте суммы: они должны быть положительными и с точностью до копейки.');
+      setImportError('Проверьте суммы: они должны быть положительными и с точностью до копейки.');
       return;
     }
     if (selected.some(item => !item.date || Number.isNaN(new Date(item.date).getTime()))) {
-      toast.error('В выписке есть операции с неверной датой. Исправьте их перед импортом.');
+      setImportError('В выписке есть операции с неверной датой. Исправьте их перед импортом.');
       return;
     }
     const cleanItems = selected.map(({ tempId, isVerified, rememberRule, mcc, accountMask, ...rest }) =>
       isSavingsTransfer(rest)?rest:{...rest,externalSavingsConfirmed:undefined});
+    importPending.current=true;
     setIsConfirmingImport(true);
     try {
       assertImportSavingsReady(cleanItems,goals,globalMemberId);
       const committed = await onConfirm(cleanItems);
-      if (!committed) return;
+      if (!committed) {setImportError('Сохранение не подтверждено. Часть операций могла быть записана. Проверьте историю перед повтором.');return;}
       // A partial import must not persist rules belonging to excluded rows.
       const rules = onlyReady ? [] : [...pendingRulesRef.current];
       selected.forEach(item => {
@@ -529,25 +538,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       });
       pendingRulesRef.current = [];
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Не удалось выполнить импорт');
+      setImportError(err instanceof Error ? err.message : 'Не удалось выполнить импорт');
     } finally {
+      importPending.current=false;
       setIsConfirmingImport(false);
     }
   };
 
   // Подсчет сумм
-  const totalIncome = useMemo(() => {
-    return items.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  }, [items]);
-
-  const totalExpense = useMemo(() => {
-    return items.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-  }, [items]);
-
-  const unassignedCount = useMemo(() =>
-    splitImportReview(items, categories).needsReview.length,
-    [items, categories]
-  );
+  const {income:totalIncome,expense:totalExpense}=useMemo(()=>monthlyMoneyTotals(items),[items]);
+  const unassignedCount=items.filter(needsCategory).length;
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
@@ -563,8 +563,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Фильтрация элементов
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      if (filterTab === 'unrecognized' && isCategoryForType(item.category, categories, item.type) &&
-          item.category !== 'other') return false;
+      if (filterTab === 'unrecognized' && !needsCategory(item)) return false;
       if (filterTab === 'income' && item.type !== 'income') return false;
       if (filterTab === 'expense' && item.type !== 'expense') return false;
 
@@ -572,30 +571,31 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const q = searchQuery.toLowerCase().trim();
         const noteMatch = (item.note || '').toLowerCase().includes(q);
         const rawMatch = (item.rawNote || '').toLowerCase().includes(q);
-        const amountMatch = item.amount.toString().includes(q);
+        const amountMatch = !settings.privacyMode&&item.amount.toString().includes(q);
         const mccMatch = (item.mcc || '').includes(q);
         return noteMatch || rawMatch || amountMatch || mccMatch;
       }
 
       return true;
     });
-  }, [items, filterTab, searchQuery, categories]);
+  }, [items, filterTab, searchQuery, categories,settings.privacyMode]);
 
   return createPortal(
     <div 
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          if (!isConfirmingImport) onCancel();
+          requestClose();
         }
       }}
-      className="fixed inset-0 bg-stone-950/45 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-opacity duration-150 cursor-pointer"
+      className="fixed inset-0 bg-black/45 z-50 flex items-end sm:items-center justify-center p-0 sm:p-5 md:p-6 transition-opacity duration-150 cursor-pointer"
     >
       
       {/* Модальное диалоговое окно */}
       <div {...surface}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-modal="true"
+        aria-modal="true" aria-busy={isConfirmingImport}
+        onClickCapture={e=>{if(importPending.current){e.preventDefault();e.stopPropagation();}}}
         aria-labelledby="modal-headline"
         className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[var(--terra-canvas)] rounded-none sm:rounded-2xl shadow-xl border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92dvh] overflow-hidden text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
@@ -603,7 +603,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         {/* Кнопка закрытия в верхнем правом углу */}
         <button 
           type="button"
-          onClick={onCancel}
+          onClick={requestClose}
           disabled={isConfirmingImport}
           aria-label="Закрыть модальное окно"
           className="absolute top-3 right-3 sm:top-5 sm:right-5 z-20 w-11 h-11 rounded-full bg-stone-200/60 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] cursor-pointer"
@@ -653,13 +653,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] dark:text-green-400">
                   <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
                   <span className="text-[var(--terra-muted)] font-medium text-xs">Доходы:</span>
-                  <span className="tabular-nums font-bold">+{totalIncome.toLocaleString('ru-RU')} ₽</span>
+                  <span className="tabular-nums font-bold">{settings.privacyMode?'•••':'+'+formatBudgetMoney(totalIncome)+' ₽'}</span>
                 </div>
                 <div className="h-3.5 w-px bg-stone-200 dark:bg-white/10" />
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#D95D39] dark:text-red-400">
                   <span className="w-2 h-2 rounded-full bg-[#D95D39]" />
                   <span className="text-[var(--terra-muted)] font-medium text-xs">Расходы:</span>
-                  <span className="tabular-nums font-bold">-{totalExpense.toLocaleString('ru-RU')} ₽</span>
+                  <span className="tabular-nums font-bold">{settings.privacyMode?'•••':'−'+formatBudgetMoney(totalExpense)+' ₽'}</span>
                 </div>
               </div>
 
@@ -670,70 +670,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           {/* Тулбар фильтрации и поиска */}
           <div className="mt-4 pt-3 border-t border-[#ECE6DE]/80 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
             
-            {/* Табы фильтров */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
-              <RippleButton 
-                onClick={() => setFilterTab('all')}
-                className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  filterTab === 'all' 
-                    ? 'bg-[#4A7C59] text-white' 
-                    : 'bg-[var(--terra-soft)] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
-                }`}
-              >
-                <span className="leading-none">Все</span>
-                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 min-w-[18px] text-[10px] font-extrabold rounded-full leading-none ${
-                  filterTab === 'all' ? 'bg-white/25 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-gray-300'
-                }`}>
-                  {items.length}
-                </span>
-              </RippleButton>
-
-              <RippleButton 
-                onClick={() => setFilterTab('unrecognized')}
-                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
-                  filterTab === 'unrecognized'
-                    ? 'bg-[#E09F3E] text-white shadow-xs'
-                    : unassignedCount > 0 
-                      ? 'bg-[#FEF7EC] dark:bg-amber-950/30 text-[#B87008] dark:text-amber-300 border border-[#F3D5A5]/70 hover:bg-[#FDF2EE]'
-                      : 'bg-[var(--terra-soft)] text-stone-600 dark:text-gray-300 hover:bg-stone-100 border border-[#ECE6DE] dark:border-white/5'
-                }`}
-              >
-                {unassignedCount > 0 && <AlertCircle size={14} className={filterTab === 'unrecognized' ? 'text-white' : 'text-[#E09F3E]'} strokeWidth={2.5} />}
-                <span className="leading-none">Без категории</span>
-                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 min-w-[18px] text-[10px] font-extrabold rounded-full leading-none ${
-                  filterTab === 'unrecognized' ? 'bg-white text-[#E09F3E]' : 'bg-[#E09F3E] text-white'
-                }`}>
-                  {unassignedCount}
-                </span>
-              </RippleButton>
-
-              <RippleButton 
-                onClick={() => setFilterTab('income')}
-                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  filterTab === 'income' 
-                    ? 'bg-[#4A7C59] text-white font-bold' 
-                    : 'hover:bg-stone-200/70 text-stone-600 dark:text-gray-300'
-                }`}
-              >
-                <span className="leading-none">Доходы</span>
-                <span className="inline-flex items-center justify-center text-[10px] opacity-75 leading-none">
-                  {items.filter(t => t.type === 'income').length}
-                </span>
-              </RippleButton>
-
-              <RippleButton 
-                onClick={() => setFilterTab('expense')}
-                className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  filterTab === 'expense' 
-                    ? 'bg-[#D95D39] text-white font-bold' 
-                    : 'hover:bg-stone-200/70 text-stone-600 dark:text-gray-300'
-                }`}
-              >
-                <span className="leading-none">Расходы</span>
-                <span className="inline-flex items-center justify-center text-[10px] opacity-75 leading-none">
-                  {items.filter(t => t.type === 'expense').length}
-                </span>
-              </RippleButton>
+            <div role="group" aria-label="Фильтр операций выписки" className={FILTER_RAIL}>
+              {(['all','unrecognized','income','expense'] as const).map(tab=>{
+                const label=tab==='all'?'Все':tab==='unrecognized'?'Без категории':tab==='income'?'Доходы':'Расходы';
+                const count=tab==='all'?items.length:tab==='unrecognized'?unassignedCount:items.filter(item=>item.type===tab).length;
+                return <button key={tab} type="button" disabled={isConfirmingImport} aria-pressed={filterTab===tab}
+                  onClick={()=>setFilterTab(tab)} className={FILTER_CHIP+' terra-press '+(filterTab===tab?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}>
+                  {label} <span className="tabular-nums">{count}</span>
+                </button>;
+              })}
             </div>
 
             {/* Поиск */}
@@ -741,11 +686,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <div className="relative w-full">
                 <Search size={14} className="text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input 
-                  type="text" 
+                  type="search" aria-label="Поиск по выписке" disabled={isConfirmingImport}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Поиск по названию, MCC, сумме..." 
-                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--terra-soft)] border border-[#EBE4DC] dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] transition-all"
+                  placeholder={settings.privacyMode?"Название или MCC":"Название, MCC, сумма"} 
+                  className="min-h-[44px] w-full pl-8 pr-3 py-2 bg-[var(--terra-soft)] border border-[#EBE4DC] dark:border-white/10 rounded-xl text-xs text-stone-800 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#4A7C59] focus:border-[#4A7C59] transition-all"
                 />
               </div>
             </div>
@@ -755,9 +700,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* СПИСОК ОПЕРАЦИЙ */}
-        <div className="overflow-y-auto min-h-0 px-3 sm:px-8 py-4 space-y-2.5 flex-1 bg-[#FAF8F5] dark:bg-[#18181A]">
+        <div className="overflow-y-auto overscroll-y-contain min-h-0 px-3 sm:px-8 py-4 space-y-2.5 flex-1 bg-[var(--terra-canvas)]">
           {unassignedCount > 0 && (
-            <div className="bg-gradient-to-r from-[#FEF7EC] to-[#FAF6EE] dark:from-[#282118] dark:to-[#1C1C1E] border-2 border-[#E09F3E]/60 dark:border-amber-900/50 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
+            <div className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#E09F3E] text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
                   <Sparkles size={20} />
@@ -770,17 +715,17 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </span>
                   </div>
                   <div className="text-xs text-stone-500 dark:text-gray-400 mt-0.5">
-                    Анализатор определит категории, покажет обоснование и сохранит правила для будущих выписок.
+                    Проверьте предложенные категории перед сохранением.
                   </div>
                 </div>
               </div>
-              <RippleButton
+              <button type="button" disabled={isConfirmingImport}
                 onClick={() => setIsAnalyzerOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#4A7C59] hover:bg-[#3B6447] text-white text-xs font-bold shadow-md transition cursor-pointer whitespace-nowrap shrink-0"
+                className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}
               >
                 <Sparkles size={16} />
-                <span>Запустить анализатор ({unassignedCount})</span>
-              </RippleButton>
+                <span>Предложить категории ({unassignedCount})</span>
+              </button>
             </div>
           )}
 
@@ -790,11 +735,11 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <p className="text-xs leading-relaxed text-stone-600 dark:text-gray-300">Укажите для каждого перевода его цель. Если деньги переводились между банковскими счетами и не относятся к целям Terra, выберите «Без цели». Новые цели автоматически не создаются.</p>
               {items.filter(isSavingsTransfer).map(item=>(
                 <label key={item.tempId} className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                  <span className="flex-1 min-w-0 text-sm break-words text-stone-800 dark:text-white">{item.note||'Перевод'} · {settings.privacyMode?'•••':item.amount.toLocaleString('ru-RU')} ₽</span>
+                  <span className="flex-1 min-w-0 text-sm break-words text-stone-800 dark:text-white">{item.note||'Перевод'} · {settings.privacyMode?'•••':formatBudgetMoney(item.amount)} ₽</span>
                   <select aria-label={'Цель перевода: '+(item.note||'Перевод')+' '+item.date} disabled={isConfirmingImport} value={item.externalSavingsConfirmed===true&&!item.linkedGoalId?'external':goals.some(g=>g.id===item.linkedGoalId&&g.memberId===globalMemberId)?'goal:'+item.linkedGoalId:''} onChange={event=>{
                     const choice=event.target.value;
                     syncToParent(items.map(row=>row.tempId===item.tempId?{...row,linkedGoalId:choice.startsWith('goal:')?choice.slice(5):undefined,externalSavingsConfirmed:choice==='external'?true:undefined}:row));
-                  }} className="w-full sm:w-64 min-w-0 min-h-[44px] rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 text-sm focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                  }} className="w-full sm:w-64 min-w-0 min-h-[44px] rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 text-sm focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                     <option value="">Выберите вариант</option>
                     <option value="external">Банковский перевод без цели</option>
                     {goals.filter(g=>g.memberId===globalMemberId).map(g=><option key={g.id} value={'goal:'+g.id}>{g.title}</option>)}
@@ -812,7 +757,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           ) : (
             filteredItems.map(item => {
               const category = categories.find(c => c.id === item.category);
-              const isUnrecognized = !item.category || item.category === 'other' || !category;
+              const isUnrecognized = needsCategory(item);
               const isExpense = item.type === 'expense';
               const isDropdownOpen = activeCategoryDropdown === item.tempId;
 
@@ -826,8 +771,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
               return (
                 <div 
-                  key={item.tempId}
-                  className={`rounded-xl p-3 flex flex-col lg:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] lg:items-center justify-between gap-3 transition-colors duration-150 ${
+                  key={item.tempId} data-import-row={item.tempId} data-needs-category={isUnrecognized}
+                  className={`rounded-xl p-3 flex flex-col lg:flex-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] lg:items-center justify-between gap-3 transition-colors duration-150 ${
                     isHighlighted
                       ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-solid)]'
                       : isUnrecognized 
@@ -851,7 +796,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <input 
-                            type="text"
+                            type="text" disabled={isConfirmingImport}
                             value={item.note || ''}
                             onChange={(e) => {
                               const newNote = e.target.value;
@@ -859,7 +804,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                               syncToParent(updated);
                             }}
                             placeholder={item.rawNote || category?.label || 'Название в истории...'}
-                            className="font-bold text-stone-900 dark:text-white text-sm bg-stone-100/60 dark:bg-white/5 hover:bg-white dark:hover:bg-[#252528] focus:bg-white dark:focus:bg-[#252528] px-2.5 py-1 rounded-lg border border-transparent hover:border-stone-300 dark:hover:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none transition w-full"
+                            className="min-h-[44px] font-semibold text-stone-900 dark:text-white text-sm bg-stone-100/60 dark:bg-white/5 hover:bg-white dark:hover:bg-[#252528] focus:bg-white dark:focus:bg-[#252528] px-2.5 py-1 rounded-lg border border-transparent hover:border-stone-300 dark:hover:border-white/20 focus:border-[#4A7C59] focus:ring-1 focus:ring-[#4A7C59] outline-none transition w-full"
                             aria-label="Название операции в истории"
                             title="Название операции в истории"
                           />
@@ -895,10 +840,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         <span>•</span>
                         <label 
                           onClick={(e) => handleToggleRemember(item.tempId, e)}
-                          className="inline-flex items-center gap-1.5 text-stone-500 dark:text-gray-300 cursor-pointer hover:text-stone-800 dark:hover:text-white text-[11px]"
+                          className="min-h-[44px] inline-flex items-center gap-1.5 text-stone-500 dark:text-gray-300 cursor-pointer hover:text-stone-800 dark:hover:text-white text-[11px]"
                         >
                           <input 
-                            type="checkbox"
+                            type="checkbox" disabled={isConfirmingImport}
                             checked={!!item.rememberRule}
                             onChange={() => {}}
                             className="rounded border-stone-300 text-[#4A7C59] focus:ring-[#4A7C59] h-3.5 w-3.5 cursor-pointer"
@@ -921,6 +866,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                           setActiveCategoryDropdown(isDropdownOpen ? null : item.tempId);
                           setCategoryDropdownSearch('');
                         }}
+                        disabled={isConfirmingImport} aria-expanded={isDropdownOpen}
                         className={`inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                           isUnrecognized 
                             ? 'bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)]' 
@@ -934,7 +880,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
                       {isDropdownOpen && (
                         <div ref={dropdownRef} onClick={event => event.stopPropagation()}
-                          className="absolute right-0 top-full mt-2 w-[min(90vw,390px)] z-50 rounded-2xl shadow-2xl">
+                          className="mt-2 w-full min-w-0 max-w-[390px] lg:absolute lg:right-0 lg:top-full lg:w-[390px] z-50 rounded-2xl border border-[var(--terra-border)] bg-[var(--terra-surface)]">
                           <CategoryPickerAccordion
                             key={item.tempId}
                             categories={categories}
@@ -953,24 +899,24 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       <span className={`text-base font-semibold tabular-nums ${
                         isExpense ? 'text-stone-900 dark:text-white' : 'text-[#2E7D32] dark:text-green-400'
                       }`}>
-                        {isExpense ? '-' : '+'}{item.amount.toLocaleString('ru-RU')} ₽
+                        {settings.privacyMode?'•••':(isExpense?'−':'+')+formatBudgetMoney(item.amount)+' ₽'}
                       </span>
                     </div>
 
                     {/* Доступные действия для клавиатуры и смартфона */}
                     <div className="flex items-center gap-1 pl-2 border-l border-amber-200/60 dark:border-white/10">
                       <button type="button"
-                        aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
+                        disabled={isConfirmingImport} aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
                         onClick={e => { e.stopPropagation(); handleOpenEditModal(item); }}
-                        className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                         <Edit3 size={17} />
                       </button>
                       <button 
                         type="button"
                         onClick={(e) => handleToggleVerify(item.tempId, e)}
-                        aria-label={item.isVerified ? 'Снять подтверждение операции' : 'Подтвердить операцию'}
+                        disabled={isConfirmingImport} aria-label={item.isVerified ? 'Снять подтверждение операции' : 'Подтвердить операцию'}
                         aria-pressed={!!item.isVerified}
-                        className={`w-11 h-11 rounded-xl flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors cursor-pointer ${
                           item.isVerified 
                             ? 'bg-[#4A7C59] text-white' 
                             : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2E7D32] dark:text-green-300 hover:bg-[#4A7C59] hover:text-white'
@@ -983,8 +929,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                       <button 
                         type="button"
                         onClick={(e) => handleDeleteItem(item.tempId, e)}
-                        aria-label="Исключить операцию из предпросмотра"
-                        className="w-11 h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer"
+                        disabled={isConfirmingImport} aria-label="Исключить операцию из предпросмотра"
+                        className="w-11 h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-stone-200/70 dark:hover:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer"
                         title="Исключить из выписки"
                       >
                         <Trash2 size={16} />
@@ -999,7 +945,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* ФУТЕР С ДЕЙСТВИЯМИ */}
-        <footer className="px-3 sm:px-8 py-3 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <footer className="px-3 sm:px-8 py-3 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 shrink-0">
+          {importError&&<p role="alert" className="w-full text-sm text-[var(--terra-danger-text)]">{importError}</p>}
           
           {/* Индикатор статуса */}
           <div className="flex items-center text-xs text-stone-600 dark:text-gray-300">
@@ -1021,7 +968,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <div className="relative">
                 <button 
                   type="button"
-                  onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
+                  disabled={isConfirmingImport} aria-expanded={isBatchCategoryOpen} onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
                   className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-[var(--terra-soft)] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Tag size={14} className="text-[#4A7C59]" />
@@ -1047,9 +994,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {/* Кнопка "Отмена" */}
             <button 
               type="button"
-              onClick={onCancel}
+              onClick={requestClose}
               disabled={isConfirmingImport}
-              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-[#EFECE6] dark:bg-white/10 hover:bg-[#E5E1D8] dark:hover:bg-white/20 active:bg-[#DDD8CD] text-stone-700 dark:text-gray-200 font-bold text-xs tracking-wider transition duration-150 uppercase cursor-pointer"
+              className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}
             >
               Отмена
             </button>
@@ -1077,7 +1024,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               type="button"
               onClick={() => void handleConfirm()}
               disabled={isConfirmingImport || items.length === 0 || unassignedCount > 0}
-              className="min-h-[44px] py-2.5 px-5 rounded-xl bg-[#4A7C59] hover:bg-[#3E6A4B] active:bg-[#355B40] text-white font-bold text-xs tracking-wider shadow-[0_8px_20px_rgba(74,124,89,0.32)] hover:shadow-none transition duration-150 flex items-center justify-center gap-2 uppercase cursor-pointer disabled:opacity-50"
+              className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY+" terra-press"}
             >
               <Check size={16} strokeWidth={3} />
               <span>{isConfirmingImport ? 'Сохранение…' : `Импортировать все (${items.length})`}</span>

@@ -1,4 +1,6 @@
-import { Bell, Settings } from 'lucide-react';
+import { ChevronLeft, Search, Trash2 } from 'lucide-react';
+import TerraMobileHeader from './TerraMobileHeader';
+import { TerraHeaderAction } from './TerraPageHeader';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -230,16 +232,8 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
         mobileView === 'list' ? 'flex' : 'hidden lg:flex'
       }`}>
         {/* Sidebar Header */}
-        <header data-terra-mobile-header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
-          <div>
-            <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейные беседы</h1>
-            <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-[#4A7C59] inline-block"></span>
-              <span>{members.length} участников семьи</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">{onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}<button type="button" disabled aria-label="Создать тему" title="Создание тем пока недоступно" className="w-11 h-11 rounded-xl bg-[var(--terra-soft)] opacity-50 flex items-center justify-center cursor-not-allowed"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span></button></div>
-        </header>
+        <TerraMobileHeader title="Чат" subtitle={`${members.length} участников семьи`}
+          onOpenNotifications={onOpenNotifications} onOpenSettings={onOpenSettings} globalMobileOnly/>
 
         {/* Topics List */}
         <div data-testid="chat-topics-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-2 space-y-1.5 custom-scrollbar pb-4 md:pb-2">
@@ -282,59 +276,13 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       }`}>
         
         {/* Chat Header */}
-        <header data-terra-mobile-header className="sticky top-0 w-full z-40 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] border-b border-[var(--terra-border)] dark:border-white/10 shrink-0">
-          <div className="min-h-16 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-            
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Back Button for Mobile View */}
-              <button 
-                type="button"
-                aria-label="К спискам чатов" 
-                onClick={() => setMobileView('list')}
-                className="lg:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
-              </button>
-
-              <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline font-semibold text-sm shrink-0 shadow-[0_2px_8px_rgba(74,124,89,0.15)]">
-                {activeTopic.icon}
-              </div>
-
-              <div className="flex flex-col min-w-0 flex-1">
-                <h2 className="text-[15px] font-headline font-semibold text-on-surface dark:text-white truncate leading-snug">
-                  {activeTopic.title}
-                </h2>
-                <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 truncate leading-none mt-0.5">
-                  {activeTopic.subtitle}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-0.5 shrink-0">
-              <button 
-                type="button"
-                aria-label="Поиск" 
-                onClick={() => setIsSearching(!isSearching)}
-                className="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant dark:text-stone-300 hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[22px]">search</span>
-              </button>
-
-              <button 
-                type="button"
-                aria-label="Удалить чат" 
-                onClick={() => setIsDeleteModalOpen(true)}
-                className="w-11 h-11 flex items-center justify-center rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                title="Удалить чат"
-              >
-                <span className="material-symbols-outlined text-[22px]">delete</span>
-              </button>
-
-              {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}
-            </div>
-
-          </div>
-
+        <TerraMobileHeader title={activeTopic.title} subtitle={activeTopic.subtitle} headingLevel={2}
+          onOpenNotifications={onOpenNotifications} onOpenSettings={onOpenSettings} globalMobileOnly
+          leading={<div className="lg:hidden"><TerraHeaderAction label="К спискам чатов" onClick={() => setMobileView('list')} icon={<ChevronLeft size={20}/>}/></div>}
+          rightExtra={<>
+            <TerraHeaderAction label="Поиск" pressed={isSearching} onClick={() => setIsSearching(!isSearching)} icon={<Search size={18}/>}/>
+            <TerraHeaderAction label="Удалить чат" variant="danger" onClick={() => setIsDeleteModalOpen(true)} icon={<Trash2 size={18}/>}/>
+          </>}>
           {/* Collapsible Search Bar */}
           {isSearching && (
             <div className="px-4 py-2 bg-surface-container-low dark:bg-[var(--terra-surface)] border-t border-surface-variant/40 dark:border-white/10 flex items-center gap-2">
@@ -356,7 +304,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               </button>
             </div>
           )}
-        </header>
+        </TerraMobileHeader>
 
         {/* Messages Feed */}
         <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[var(--terra-canvas)] overflow-hidden">

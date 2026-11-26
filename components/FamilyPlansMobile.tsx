@@ -23,6 +23,7 @@ import { formatReminderLabel } from './EventModal';
 import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
+import { TerraHeaderAction } from './TerraPageHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
 import { ConflictResolverModal } from './ConflictResolverModal';
 
@@ -749,21 +750,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         onOpenSettings={onOpenSettings}
         onOpenNotifications={onOpenNotifications}
         rightExtra={
-          <button
-            type="button"
-            onClick={startListening}
-            aria-label="Голосовой ввод"
-            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
-              isListening
-                ? 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]'
-                : isProcessingVoice
-                ? 'bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]'
-                : 'bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white hover:text-[var(--terra-primary)] hover:bg-[#E0DBD0] dark:hover:bg-white/10 shadow-xs'
-            }`}
-            title="Голосовой ввод события"
-          >
-            {isProcessingVoice ? <Loader2 size={16} className="animate-spin" /> : <Mic size={18} />}
-          </button>
+          <TerraHeaderAction label="Голосовой ввод" onClick={startListening} pressed={isListening}
+            variant={isListening ? 'danger' : isProcessingVoice ? 'pending' : 'secondary'}
+            icon={isProcessingVoice ? <Loader2 size={16} className="animate-spin"/> : <Mic size={18}/>}/>
         }
       />
 

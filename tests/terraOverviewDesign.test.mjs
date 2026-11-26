@@ -15,5 +15,8 @@ test('overview uses content-width layout and matching dashboard card surfaces',(
 test('mobile header uses shared icon action tokens with focus and 44px size',()=>{
  const t=read('components/filterUiTokens.ts'),h=read('components/TerraMobileHeader.tsx');
  assert.match(t,/ICON_ACTION = '[^']*h-11 w-11[^']*focus-visible:ring/);
- assert.ok((h.match(/\$\{ICON_ACTION\}/g)||[]).length>=4);
+ const shared=read('components/TerraPageHeader.tsx');
+ assert.ok((h.match(/<TerraHeaderAction\b/g)||[]).length>=4);
+ assert.match(shared,/showLabel \? TOOLBAR_ACTION : ICON_ACTION/);
+ assert.match(shared,/aria-label=\{label\}/);
 });

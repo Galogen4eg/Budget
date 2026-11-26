@@ -20,12 +20,14 @@ test('motion respects OS preferences without changing scroll or data',()=>{
  assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
  assert.match(css,/transition: none !important; animation: none !important/);
  assert.match(css,/\.terra-press:active \{ transform: none; \}/);
- assert.doesNotMatch(css,/overflow|touch-action|position:\s*fixed/);
+ const motionRules=css.split('/* Terra semantic color roles:')[0];
+ assert.doesNotMatch(motionRules,/overflow|touch-action|position:\s*fixed/);
 });
 test('toolbar and navigation use stable touch targets and shared colors',()=>{
  const tokens=read('components/filterUiTokens.ts');
  assert.match(tokens,/TOOLBAR_ACTION = .*h-11 min-w-\[44px\]/);
- assert.match(read('components/TerraMobileHeader.tsx'),/TOOLBAR_ACTION_IDLE/);
+ assert.match(read('components/TerraMobileHeader.tsx'),/<TerraHeaderAction/);
+ assert.match(read('components/TerraPageHeader.tsx'),/TOOLBAR_ACTION_IDLE/);
  assert.match(read('components/overview/OverviewHeaderBar.tsx'),/TOOLBAR_ACTION_PRIMARY/);
  const app=read('App.tsx');
  assert.match(app,/min-w-\[44px\] min-h-\[48px\]/);

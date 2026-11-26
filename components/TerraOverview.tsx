@@ -20,6 +20,7 @@ import CategoriesModal from './CategoriesModal';
 import DayDetailModal from './DayDetailModal';
 import BrandIcon from './BrandIcon';
 import TerraMobileHeader from './TerraMobileHeader';
+import { TerraHeaderAction } from './TerraPageHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, CHART_TOOLTIP, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE } from './filterUiTokens';
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
@@ -640,11 +641,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           onOpenSettings={onOpenSettings}
           onOpenNotifications={onOpenNotifications}
           rightExtra={
-            <button type="button" onClick={onOpenAIChat}
-              aria-label="AI Ассистент" title="AI Ассистент"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAE6DD] text-[#4A7C59] hover:bg-[#DED8CD] dark:bg-[#252528] dark:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
-              <Sparkles size={18} />
-            </button>
+            <TerraHeaderAction label="AI Ассистент" onClick={onOpenAIChat} icon={<Sparkles size={18}/>}/>
           }
         />
         <div className="px-4 pt-3">

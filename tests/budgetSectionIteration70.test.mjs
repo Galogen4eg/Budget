@@ -74,7 +74,8 @@ test('iteration 70: guarded full import and duplicates are retained',()=>{
   const modal=read('../components/ImportModal.tsx');
   const app=read('../App.tsx');
   const duplicates=read('../components/DuplicatesModal.tsx');
-  assert.ok(modal.includes('splitImportReview(selected, categories).needsReview.length'));
+  assert.ok(modal.includes('selected.some(needsCategory)'));
+  assert.ok(modal.includes('!isEligibleForImport(item,categories)||!isCategoryForType(item.category,categories,item.type)'));
   assert.ok(app.includes('assertImportBatchReady(itemsToImport, categories, importMemberId)'));
   assert.ok(duplicates.includes('Снять выбор'));
 });

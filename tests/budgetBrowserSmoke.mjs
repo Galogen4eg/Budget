@@ -186,8 +186,8 @@ try{
       // Overview UI on Full HD, not just the unauthenticated login page.
       const demo=page.getByRole('button',{name:/Локальный демо-режим/});
       await demo.click({timeout:10000});
-      await page.getByRole('group',{name:'Период динамики расходов на ПК'}).waitFor({state:'visible',timeout:15000});
-      const tabs=page.getByRole('group',{name:'Период динамики расходов на ПК'});
+      await page.getByRole('group',{name:'Период динамики расходов'}).waitFor({state:'visible',timeout:15000});
+      const tabs=page.getByRole('group',{name:'Период динамики расходов'});
       for(const name of ['Неделя','Месяц','День']){
         const tab=tabs.getByRole('button',{name,exact:true});
         await tab.click();

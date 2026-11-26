@@ -1043,7 +1043,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
       {/* МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ОПЕРАЦИИ ИМПОРТА */}
       {editingItem && (
-        <AddTransactionModal
+        <AddTransactionModal previewMode
           initialTransaction={{
             id: editingItem.tempId,
             amount: editingItem.amount,

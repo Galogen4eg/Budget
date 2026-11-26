@@ -30,8 +30,11 @@ test('iteration 68: desktop history never silently shows monthly rows for an emp
  const src=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
  assert.doesNotMatch(src,/selectedDayTransactions\.length > 0 \? selectedDayTransactions : monthTransactions\.slice\(0, 6\)/);
  assert.match(src,/historyScope === 'day' \? selectedDayTransactions : monthTransactions/);
- assert.match(src,/Поиск по истории операций/);
- assert.match(src,/Период истории операций/);
+ const controls=readFileSync(new URL('../components/BudgetHistoryControls.tsx',import.meta.url),'utf8');
+ assert.equal((src.match(/<BudgetHistoryControls\b/g)||[]).length,2);
+ assert.match(controls,/aria-label="Поиск по истории операций"/);
+ assert.match(controls,/aria-label="Период истории операций"/);
+ assert.match(controls,/aria-pressed=\{historyScope===scope\}/);
  assert.match(src,/aria-label=\{\x60Редактировать операцию:/);
 });
 test('iteration 68: quick add never assigns money to arbitrary first family member',()=>{

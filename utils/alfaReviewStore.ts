@@ -54,20 +54,24 @@ export async function verifyAlfaReview(fid:string,uid:string,memberId:string,ids
    pending:await getDocFromServer(doc(inbox(fid,uid),id))
   })));
   for(const {id,saved,pending} of pairs){
-   if(saved.exists()){assertOwner(saved.data() as Transaction,memberId);if(createdIds.has(id))created++;else existing++;}
+   if(saved.exists()){
+    assertOwner(saved.data() as Transaction,memberId);
+    if(pending.exists())await removeSavedAlfaReview(fid,uid,memberId,[id],assertScope);
+    if(createdIds.has(id))created++;else existing++;
+   }
    else if(pending.exists()){assertOwner((pending.data() as AlfaReviewEntry).row,memberId);queued++;}
    else unverified++;
   }
  }
  return {requested:ids.length,created,existing,queued,unverified};
 }
-export async function removeSavedAlfaReview(fid:string,uid:string,memberId:string,ids:readonly string[]){
+export async function removeSavedAlfaReview(fid:string,uid:string,memberId:string,ids:readonly string[],assertScope:()=>void=()=>{}){
  for(const id of ids){
   if(!/^alfa_[a-f0-9]{40}$/.test(id))continue;
   assertAuth(uid);
   const pendingRef=doc(inbox(fid,uid),id);
   await runTransaction(db,async tx=>{
-   assertAuth(uid);
+   assertScope();assertAuth(uid);
    const pending=await tx.get(pendingRef);
    if(!pending.exists())return;
    const saved=await tx.get(transactionRef(fid,id));
@@ -76,8 +80,9 @@ export async function removeSavedAlfaReview(fid:string,uid:string,memberId:strin
   });
  }
 }
-export async function readAlfaReviewCount(fid:string,uid:string){
+export async function readAlfaReviewCount(fid:string,uid:string,memberId:string){
  assertAuth(uid);
  const snapshot=await getDocsFromServer(inbox(fid,uid));
- return snapshot.size;
+ const result=await verifyAlfaReview(fid,uid,memberId,snapshot.docs.map(d=>d.id),new Set());
+ return result.queued;
 }

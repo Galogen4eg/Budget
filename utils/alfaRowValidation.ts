@@ -47,3 +47,34 @@ export function isAlfaServiceRow(row:readonly unknown[],dateIndex:number,amountI
  return labels.some(x=>known.test(x))&&!parseAlfaDate(row[dateIndex])&&(noteIndex<0||!labels[noteIndex]||known.test(labels[noteIndex]))&&
  labels.every((v,i)=>!v||i===amountIndex||known.test(v));
 }
+
+// Empty cleanup is deliberately stricter than normal import. A fuzzy header,
+// blank workbook, totals, unexplained preamble, or any populated data row
+// is not sufficient evidence to discard a statement.
+const emptyHeaderAliases:Record<string,string>={
+ 'дата':'date','дата операции':'date','время':'time','время операции':'time',
+ 'сумма':'amount','сумма операции':'amount','тип':'type','тип операции':'type','направление операции':'type',
+ 'описание':'note','описание операции':'note','номер карты':'card','номер счета':'account','номер счёта':'account',
+ 'валюта':'currency','mcc код':'mcc','mcc-код':'mcc','mcc':'mcc','категория':'category','категория операции':'category'
+};
+export function isVerifiedEmptyAlfaSheets(sheets:readonly (readonly (readonly unknown[])[])[]):boolean{
+ let recognized=0;
+ for(const sheet of sheets){
+  const populated=sheet.filter(row=>!rowIsBlank(row));
+  if(!populated.length)continue;
+  if(populated.length!==1)return false;
+  const cells=populated[0].filter(value=>String(value??'').trim()!=='');
+  const columns=new Set<string>();
+  for(const cell of cells){
+   if(typeof cell!=='string')return false;
+   const name=cell.trim().toLowerCase().replace(/\s+/g,' ');
+   if(!Object.prototype.hasOwnProperty.call(emptyHeaderAliases,name))return false;
+   const key=emptyHeaderAliases[name];
+   if(columns.has(key))return false;
+   columns.add(key);
+  }
+  if(!['date','amount','type','note','mcc','category'].every(key=>columns.has(key)))return false;
+  recognized++;
+ }
+ return recognized>0;
+}

@@ -3,13 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: 'Write synthetic data to the separately configured populated QA family (unchecked = dry run)'
+        description: 'Write synthetic data to the existing isolated QA family (unchecked = dry run)'
         type: boolean
         default: false
 permissions:
   contents: read
 concurrency:
-  group: budget-populated-qa
+  group: budget-production-qa
   cancel-in-progress: false
 jobs:
   seed:
@@ -23,12 +23,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
-      - run: node --test tests/realisticFamilyFixtures.test.mjs && node --check tests/seedPopulatedProductionQa.mjs
+      - run: node --test tests/realisticFamilyFixtures.test.mjs tests/qaSeedSafety.test.mjs && node --check tests/seedPopulatedProductionQa.mjs
       - name: Seed or preview isolated populated family
         env:
-          QA_FILLED_EMAIL: ${{ secrets.QA_FILLED_EMAIL }}
-          QA_FILLED_PASSWORD: ${{ secrets.QA_FILLED_PASSWORD }}
-          QA_FILLED_FAMILY_ID: ${{ secrets.QA_FILLED_FAMILY_ID }}
+          QA_EMAIL_1: ${{ secrets.QA_EMAIL_1 }}
+          QA_PASSWORD_1: ${{ secrets.QA_PASSWORD_1 }}
           QA_FAMILY_ID: ${{ secrets.QA_FAMILY_ID }}
           APPLY: ${{ inputs.apply }}
         run: |

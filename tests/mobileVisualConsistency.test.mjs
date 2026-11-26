@@ -25,9 +25,12 @@ test('nearby agenda is collapsible on mobile and calendar does not include payme
  assert.doesNotMatch(plans, /payments=\{settings\.mandatoryExpenses/);
 });
 test('overview chart uses restrained focus handling with a text alternative',()=>{
- assert.match(overview,/accessibilityLayer=\{false\}/);
- assert.match(overview,/aria-label=\{settings\.privacyMode \? 'График расходов: суммы скрыты'/);
- assert.match(overview,/График расходов: средний/);
+ const chart=read('overview/OverviewExpenseChart.tsx');
+ assert.match(chart,/accessibilityLayer=\{false\}/);
+ assert.match(chart,/Значения графика/);
+ assert.match(chart,/data-testid="overview-chart-values"/);
+ assert.match(chart,/onClick=\{\(\) => onPointSelect\(point\)\}/);
+ assert.match(chart,/График скрыт в режиме приватности/);
  assert.doesNotMatch(overview,/complianceRate \|\| 87/);
  assert.match(overview,/Лимит не задан/);
 });

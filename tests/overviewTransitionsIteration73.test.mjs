@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const src=readFileSync(new URL('../components/TerraOverview.tsx',import.meta.url),'utf8');
+const chart=readFileSync(new URL('../components/overview/OverviewExpenseChart.tsx',import.meta.url),'utf8');
 const recent=readFileSync(new URL('../components/overview/OverviewRecentTransactions.tsx',import.meta.url),'utf8');
 
 test('iteration 73: mobile recent transactions use sorted canonical recent list',()=>{
@@ -11,15 +12,15 @@ test('iteration 73: mobile recent transactions use sorted canonical recent list'
 });
 
 test('iteration 73: month chart navigates to month, not fictional first-day detail',()=>{
- assert.match(src,/if \(chartScale === 'month'\) \{/);
- assert.match(src,/handleMonthChange\(new Date\(payloadData\.dateObj\)\)/);
- assert.match(src,/setSelectedDayDetailDate\(new Date\(payloadData\.dateObj\)\)/);
+ assert.match(src,/if\(chartScale==='month'\)handleMonthChange\(new Date\(point\.dateObj\)\);else setSelectedDayDetailDate\(new Date\(point\.dateObj\)\);/);
+ assert.match(chart,/onPointSelect\(point\)/);
 });
 
 test('iteration 73: hidden currency stays hidden in mobile graph and description',()=>{
- assert.match(src,/settings\.privacyMode \? '•••' : formatBudgetMoney/);
- assert.match(src,/settings\.privacyMode \? 'График расходов: суммы скрыты'/);
- assert.doesNotMatch(src,/typeof val === 'number' \? Math\.round\(val\)\.toLocaleString/);
+ assert.match(chart,/privacyMode \? '••••••' : formatAmount\(value\) \+ ' ₽'/);
+ assert.match(chart,/privacyMode \? <p role="status"[^>]*>График скрыт в режиме приватности<\/p>/);
+ assert.match(chart,/!privacyMode && hasExpenses && <details/);
+ assert.doesNotMatch(chart,/Math\.round\(point\.amount\)/);
 });
 
 test('iteration 73: desktop and mobile operation rows are buttons',()=>{
@@ -35,7 +36,7 @@ test('iteration 73: reusable recent history component navigates to existing Budg
 });
 
 test('iteration 73: chart period controls and category details remain accessible',()=>{
- assert.match(src,/aria-pressed=\{chartScale === scale\}/);
+ assert.match(chart,/aria-pressed=\{scale === value\}/);
  assert.match(src,/aria-label=\{\x60Аналитика категории:/);
 });
 
@@ -47,14 +48,15 @@ test('iteration 73: events open as accessible targets without linking to financi
 });
 
 test('iteration 73: zero data renders stable empty charts without fake curves',()=>{
- assert.match(src,/const hasChartExpenses = dynamicsData\.points\.some\(point => point\.amount > 0\)/);
- assert.match(src,/hasChartExpenses \? \(/);
- const placeholders=src.match(/За выбранный период расходов нет/g)||[];
- assert.equal(placeholders.length,2);
+ assert.match(chart,/const hasExpenses = points\.some\(point => point\.amount > 0\)/);
+ assert.match(chart,/!hasExpenses \? <p role="status"/);
+ assert.match(chart,/За выбранный период расходов нет/);
+ assert.equal((src.match(/<OverviewExpenseChart\b/g)||[]).length,2);
 });
 test('iteration 73: desktop graph axis respects privacy mode',()=>{
- assert.match(src,/tickFormatter=\{\(val\) => settings\.privacyMode \? '•••'/);
- assert.match(src,/value: settings\.privacyMode \? 'Лимит скрыт'/);
+ assert.match(chart,/\{privacyMode \? <p role="status"[\s\S]*?:\s*\n\s*!hasExpenses \? <p role="status"[\s\S]*?:\s*\n\s*<ResponsiveContainer/);
+ assert.match(chart,/!privacyMode && limit > 0/);
+ assert.match(chart,/!privacyMode && hasExpenses && <details/);
 });
 
 test('iteration 73: existing mandatory payment edits start with populated fields before effects',()=>{

@@ -146,9 +146,24 @@ try{
  // C + R: create a new expense on mobile and confirm it in the other session.
  await visible(a.getByRole('button',{name:'Добавить операцию',exact:true})).click();
  await heading(a,'Новая операция').waitFor({state:'visible'});
- await a.getByRole('textbox',{name:'Сумма операции'}).fill('45.67');
+ const form=a.getByRole('dialog',{name:'Новая операция'});
+ const amount=form.getByRole('textbox',{name:'Сумма операции'});
  await nameField(a).fill('QA новая операция');
- await save(a,false);
+ // Malformed pasted text must never silently become a different valid amount.
+ const countBefore=(await rows.get()).size;
+ for(const invalid of ['12abc','0x10','1e3','1.234','0']){
+  await amount.fill(invalid);
+  assert.equal(await amount.inputValue(),invalid,'Invalid input must remain visible for correction');
+  await form.getByRole('button',{name:'Добавить операцию',exact:true}).click();
+  await form.getByRole('alert').waitFor({state:'visible'});
+  assert.equal(await nameField(a).inputValue(),'QA новая операция');
+  assert.equal((await rows.get()).size,countBefore,'Invalid amount created a record');
+ }
+ await amount.fill('45,67');
+ // Two programmatic clicks in the same event loop exercise the synchronous guard.
+ await form.getByRole('button',{name:'Добавить операцию',exact:true}).evaluate(button=>{button.click();button.click();});
+ await form.waitFor({state:'hidden',timeout:20000});
+ console.log('PASS transaction form rejects malformed paste without losing draft, comma amount and duplicate click');
  const created=await rows.where('note','==','QA новая операция').get();
  assert.equal(created.size,1,'exactly one expense must be stored');
  const createdRef=created.docs[0].ref;

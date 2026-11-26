@@ -28,6 +28,7 @@ import {
 } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
+import { captureCompletedSelection, resolveCompletedDeletion } from '../utils/shoppingClearSelection';
 
 export interface ShoppingListMobileProps {
   items: ShoppingItem[];
@@ -102,7 +103,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
   // Collapsible Completed section
   const [isCompletedOpen, setIsCompletedOpen] = useState(true);
-  const [confirmClearCompleted, setConfirmClearCompleted] = useState(false);
+  const [clearSelection,setClearSelection]=useState<string[]|null>(null);
+  const confirmClearCompleted=clearSelection!==null;
+  const clearPending=useRef(false);
+  useEffect(()=>setClearSelection(null),[searchQuery]);
   const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Frequent items state
@@ -320,17 +324,19 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   };
 
   const handleClearCompleted = async () => {
-    if (!confirmClearCompleted || isClearingCompleted || completedItems.length === 0) return;
+    if (clearPending.current) return;
+    const idsToDelete=resolveCompletedDeletion(clearSelection,completedItems);
+    if(!idsToDelete){setClearSelection(null);toast.info('Список изменился. Подтвердите удаление заново.');return;}
+    clearPending.current=true;
     setIsClearingCompleted(true);
-    const idsToDelete = completedItems.map(i => i.id);
     try {
       if (!familyId) throw new Error('Family is not ready');
       await deleteItemsBatch(familyId, 'shopping', idsToDelete);
       setItems(prev => prev.filter(i => !idsToDelete.includes(i.id)));
-      setConfirmClearCompleted(false);
+      setClearSelection(null);
     } catch (error) {
       toast.error('Не удалось очистить купленные товары');
-    } finally { setIsClearingCompleted(false); }
+    } finally { clearPending.current=false;setIsClearingCompleted(false); }
   };
 
   const handleTelegramSend = async () => {
@@ -743,18 +749,18 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
 
               <button type="button"
                 disabled={isClearingCompleted}
-                aria-label={confirmClearCompleted ? `Подтвердить удаление ${completedItems.length} купленных товаров` : 'Очистить купленные товары'}
-                onClick={() => { if (!confirmClearCompleted) setConfirmClearCompleted(true); else void handleClearCompleted(); }}
+                aria-label={confirmClearCompleted ? `Подтвердить удаление ${clearSelection?.length ?? 0} купленных товаров` : 'Очистить купленные товары'}
+                onClick={() => { if (!confirmClearCompleted) setClearSelection(captureCompletedSelection(completedItems)); else void handleClearCompleted(); }}
                 className="min-h-[44px] px-2 text-xs font-semibold text-[#C62828] hover:underline cursor-pointer disabled:opacity-50"
               >
-                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${completedItems.length}?` : 'Очистить купленные'}
+                {isClearingCompleted ? 'Удаление…' : confirmClearCompleted ? `Удалить ${clearSelection?.length ?? 0}?` : 'Очистить купленные'}
               </button>
             </div>
 
             {confirmClearCompleted && (
               <div role="status" className="rounded-xl bg-rose-50 dark:bg-rose-950/20 p-3 text-xs text-red-700 dark:text-red-300">
-                Удалить все купленные товары из общего списка?
-                <button type="button" disabled={isClearingCompleted} onClick={() => setConfirmClearCompleted(false)}
+                Удалить показанные купленные товары из общего списка?
+                <button type="button" disabled={isClearingCompleted} onClick={() => setClearSelection(null)}
                   className="ml-3 min-h-[44px] px-3 font-semibold underline">Отмена</button>
               </div>
             )}

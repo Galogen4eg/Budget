@@ -68,6 +68,19 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      const prior=await picker.getAttribute('aria-label');await previous.click();assert.notEqual(await picker.getAttribute('aria-label'),prior);
      await next.click();assert.equal(await picker.getAttribute('aria-label'),prior);
      await button(monthGroup,'Текущий месяц').click();await monthGroup.waitFor({state:'hidden'});
+     await overview.getByTestId('overview-daily-mobile').waitFor({state:'visible'});
+     await picker.click();await previous.click();
+     await overview.getByTestId('overview-daily-mobile').waitFor({state:'hidden'});
+     await button(monthGroup,'Текущий месяц').click();await monthGroup.waitFor({state:'hidden'});
+     await targetSize(button(overview.getByTestId('overview-daily-mobile'),/Открыть подробности .* резерва/,false),label+' reserve shortcut');
+    }
+    const daily=overview.getByTestId(mobile?'overview-daily-mobile':'overview-daily-desktop');
+    if(await daily.isVisible()){
+     await noOverflow(daily,label+' daily comparison');
+     assert.equal(await daily.locator('dl dd').count(),2);
+     assert.ok(await daily.getByRole('progressbar').count()<=1,label+' duplicate daily progress');
+     const pair=await daily.locator('dl').evaluate(el=>[...el.children].map(x=>x.getBoundingClientRect().toJSON()));
+     assert.ok(pair[0].right<=pair[1].left+1,label+' daily values overlap');
     }
     const values=chart.locator('summary').filter({hasText:'Значения графика'});
     await values.waitFor({state:'visible'});await targetSize(values,label+' chart values');await values.click();
@@ -109,6 +122,10 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const hide=button(overview,'Скрыть суммы');await hide.click();
     await chart.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'visible'});
     assert.equal(await chart.locator('.recharts-wrapper').count(),0);
+    if(await daily.isVisible()){
+     assert.equal(await daily.getByRole('progressbar').count(),0,label+' private daily progress visible');
+     for(const value of await daily.locator('dl dd').allTextContents())assert.match(value,/^(?:—|•+\s*₽)$/u,label+' daily amount visible in privacy mode');
+    }
     await button(overview,'Показать суммы').click();
     await chart.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'hidden'});
     console.log('PASS TERRA V2 PILOT '+label+' overview/analytics, period, targets, chart geometry and privacy');

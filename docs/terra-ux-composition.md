@@ -9,3 +9,4 @@ Capture authenticated workspaces across the existing light/dark viewport matrix,
 
 ## Financial hierarchy follow-up
 Consolidate daily spending and daily guidance into one summary and one progress bar. On mobile the summary follows the balance and includes reserve access; past months do not show daily guidance calculated for the wrong period. The desktop layout has three current-period groups, two for archives. Align monthly income/expense/result as readable rows; provide a direct mobile link to mandatory payments. No projection formulas or Firestore writes changed. Verify screenshots and exact CI before merge.
+Mobile daily comparison is an internal group in the existing balance surface, not a new card. Browser pilot now checks current/previous month visibility, two aligned value cells, at most one progress indicator, privacy and the reserve shortcut's target size.

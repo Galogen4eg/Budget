@@ -765,14 +765,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 />
               </div>
             </div>}
-          </section>
-
-          {isCurrentCalendarMonth&&<section className={DASHBOARD_CARD+' space-y-3'} data-testid="overview-daily-mobile">
+            {isCurrentCalendarMonth&&<div className="space-y-3 pt-3 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
             {dailySummary}
             <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] pt-2 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               <span className="text-sm text-[var(--terra-muted)]">{personalOnly?'Личный резерв':'Семейный резерв'}</span><span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-[var(--terra-ink)]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
             </button>
-          </section>}
+            </div>}
+          </section>
 
           {/* 2. Динамика расходов Card */}
           <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} space-y-4`}>

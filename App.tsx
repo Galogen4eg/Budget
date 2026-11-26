@@ -558,7 +558,7 @@ export default function App() {
           const assertScope=()=>{if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');};
           const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
           const fileSha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-          if((window as any).__budgetAlfaReviewRun!==true||reviewRequest?.fileSha256!==fileSha256)throw new Error('ALFA_REVIEW_FILE_MISMATCH');
+          if((window as any).__budgetAlfaReviewRun!==true||reviewRequest?.fileSha256!==fileSha256||reviewRequest?.scope!==scope)throw new Error('ALFA_REVIEW_FILE_MISMATCH');
           const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport);
           const plan=planAlfaReview(allRows,categories,memberId);
           assertScope();

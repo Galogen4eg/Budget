@@ -11,7 +11,7 @@ import {
 import { Transaction, AppSettings, LearnedRule, Category, FamilyMember, SavingsGoal } from '../types';
 import { getIconById } from '../constants';
 import { useClickAway } from 'react-use';
-import { FILTER_RAIL,FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY,ICON_ACTION } from './filterUiTokens';
+import { FILTER_RAIL,FILTER_CHIP,FILTER_CHIP_ACTIVE,FILTER_CHIP_IDLE,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 import { formatBudgetMoney, monthlyMoneyTotals } from '../utils/budgetFinancialMath';
 import AddTransactionModal from './AddTransactionModal';
 import { UnrecognizedAnalyzerModal } from './UnrecognizedAnalyzerModal';
@@ -468,8 +468,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Массовое назначение категории нераспознанным
   const handleBatchAssignCategory = (catId: string) => {
     const updated = items.map(i => {
-      if (isCategoryForType(catId, categories, i.type) &&
-          (i.category === 'other' || !i.category || !categories.some(c => c.id === i.category))) {
+      if (isCategoryForType(catId, categories, i.type) && needsCategory(i)) {
         return { ...i, category: catId, isVerified: true };
       }
       return i;
@@ -548,6 +547,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   // Подсчет сумм
   const {income:totalIncome,expense:totalExpense}=useMemo(()=>monthlyMoneyTotals(items),[items]);
   const unassignedCount=items.filter(needsCategory).length;
+  const needsSavingsChoice=(item:ImportItem)=>{
+    if(!isSavingsTransfer(item))return false;
+    try{assertImportSavingsReady([item],goals,globalMemberId);return false;}catch{return true;}
+  };
+  const savingsChoiceCount=items.filter(needsSavingsChoice).length;
+  const readyCategorySavingsCount=items.filter(item=>!needsCategory(item)&&needsSavingsChoice(item)).length;
 
   // Диапазон дат выписки
   const dateRangeString = useMemo(() => {
@@ -635,7 +640,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
             </div>
 
-            {report&&<p role="status" className="text-xs text-[var(--terra-muted)]">Строк операций: {report.operationRows} · Готово: {items.length-unassignedCount} · Нужна проверка: {unassignedCount} · Дубликаты: {report.duplicates} · Ошибки: {report.errors.length}</p>}
+            {report&&<p role="status" className="text-xs text-[var(--terra-muted)]">Строк операций: {report.operationRows} · Категория назначена: {items.length-unassignedCount} · Нужна категория: {unassignedCount} · Дубликаты: {report.duplicates} · Ошибки: {report.errors.length}</p>}
             {/* Сводка и селектор авторов */}
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               
@@ -858,7 +863,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 min-w-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
                     
                     {/* Выпадающее меню категорий */}
-                    <div className="relative">
+                    <div className={isDropdownOpen?'relative w-full min-w-0 max-w-full lg:w-auto':'relative min-w-0 max-w-full'}>
                       <button 
                         type="button"
                         onClick={(e) => {
@@ -951,9 +956,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           {/* Индикатор статуса */}
           <div className="flex items-center text-xs text-stone-600 dark:text-gray-300">
             <div>
-              Готово к импорту: <span className="font-bold text-stone-900 dark:text-white">{items.length - unassignedCount} из {items.length}</span> операций
+              Категория назначена: <span className="font-semibold tabular-nums text-[var(--terra-ink)]">{items.length - unassignedCount} из {items.length}</span> операций
+              {savingsChoiceCount>0&&<p role="status" className="text-[var(--terra-offline-text)]">Выберите назначение для переводов: {savingsChoiceCount}.</p>}
               {unassignedCount > 0 && (
-                <span className="text-[#B87008] dark:text-amber-400 font-semibold ml-1">
+                <span className="text-[var(--terra-offline-text)] font-semibold ml-1">
                   ({unassignedCount} требуют назначения категории)
                 </span>
               )}
@@ -978,7 +984,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 {isBatchCategoryOpen && (
                   <div ref={batchDropdownRef} className="absolute right-0 bottom-full mb-2 w-[min(90vw,390px)] z-50 rounded-2xl shadow-xl">
                     <p className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 text-xs rounded-t-xl">
-                      Внимание: категория назначится всем {unassignedCount} операциям без категории.
+                      Категория будет назначена только подходящим операциям из {unassignedCount} требующих разбора.
                     </p>
                     <CategoryPickerAccordion
                       categories={categories}
@@ -1005,7 +1011,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <button
                 type="button"
                 onClick={() => void handleConfirm(true)}
-                disabled={isConfirmingImport}
+                disabled={isConfirmingImport||readyCategorySavingsCount>0}
                 className="py-2.5 px-4 rounded-xl border border-amber-600/40 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-xs min-h-[44px]"
                 title="Нераспознанные операции не импортируются. Их можно разобрать при повторной загрузке той же выписки."
               >
@@ -1015,7 +1021,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             {unassignedCount > 0 && (
               <p className="text-xs text-amber-800 dark:text-amber-300 w-full sm:basis-full" role="status">
                 Полный импорт недоступен, пока есть операции без подходящей категории.
-                Можно сохранить только распознанные строки, а остальные разобрать после повторной загрузки XLSX.
+                {reviewMode?'Остальные операции останутся в очереди разбора.':'Остальные можно разобрать после повторной загрузки XLSX.'}
               </p>
             )}
 
@@ -1023,7 +1029,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <button 
               type="button"
               onClick={() => void handleConfirm()}
-              disabled={isConfirmingImport || items.length === 0 || unassignedCount > 0}
+              disabled={isConfirmingImport || items.length === 0 || unassignedCount > 0 || savingsChoiceCount>0}
               className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY+" terra-press"}
             >
               <Check size={16} strokeWidth={3} />

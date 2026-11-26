@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Category, Transaction, TransactionType } from '../types';
 import { categoriesForType } from '../utils/categoryCatalog';
+import { countCategoryUsage, sortCategoriesByPopularity } from '../utils/categoryPopularity';
 import { getIconById } from '../constants';
 import { toast } from 'sonner';
 import useModalBackHandler from '../hooks/useModalBackHandler';
@@ -73,33 +74,23 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
     }
   }, [isOpen, selectedCategoryId]);
 
-  // Compute transaction counts for display
-  const transactionStats = useMemo(() => {
-    const countMap: Record<string, number> = {};
-    transactions.forEach(tx => {
-      if (tx.category) {
-        countMap[tx.category] = (countMap[tx.category] || 0) + 1;
-      }
-    });
-    return countMap;
-  }, [transactions]);
+  // Count existing operations in the current scope; rank parents by child usage too.
+  const transactionStats = useMemo(() => countCategoryUsage(transactionType?transactions.filter(tx=>tx.type===transactionType):transactions,categories), [transactions,categories,transactionType]);
 
-  // Organize categories into parents and child map
   const { parentCategories, subcategoriesByParent } = useMemo(() => {
     const filtered = categoriesForType(categories, transactionType);
-    const parents = filtered.filter(c => !c.parentId && c.id !== 'other');
+    const ordered = sortCategoriesByPopularity(filtered, transactionStats);
+    const parents = ordered.filter(c => !c.parentId && c.id !== 'other');
     const subMap = new Map<string, Category[]>();
-
-    filtered.forEach(c => {
+    ordered.forEach(c => {
       if (c.parentId) {
         const current = subMap.get(c.parentId) || [];
         current.push(c);
         subMap.set(c.parentId, current);
       }
     });
-
     return { parentCategories: parents, subcategoriesByParent: subMap };
-  }, [categories, transactionType]);
+  }, [categories, transactionType, transactionStats]);
 
   // Filter categories and auto-expand when searching
   const filteredParents = useMemo(() => {
@@ -307,7 +298,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="relative w-full h-full sm:h-auto sm:max-w-2xl bg-[#FAF6F0] dark:bg-[#121214] sm:rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-2xl overflow-hidden font-body text-[#2E3230] dark:text-stone-100 flex flex-col my-auto"
+        className="relative w-full h-full sm:h-auto sm:max-w-2xl bg-[var(--terra-canvas)] sm:rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-2xl overflow-hidden font-body text-[#2E3230] dark:text-stone-100 flex flex-col my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -318,7 +309,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               type="button"
               onClick={onClose}
               aria-label="Закрыть"
-              className="w-10 h-10 flex items-center justify-center rounded-full text-stone-700 dark:text-stone-200 hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="w-11 h-11 flex items-center justify-center rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-stone-700 dark:text-stone-200 hover:bg-[#F0ECE4] dark:hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -326,13 +317,11 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               Выбор категории
             </h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#4A7C59] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-            П
-          </div>
+
         </header>
 
         {/* Scrollable Modal Content */}
-        <main className="flex-1 overflow-y-auto pb-28 no-scrollbar">
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-28 no-scrollbar">
           
           {/* Section Header with Add Category Button */}
           <div className="px-5 pt-3 pb-3 flex items-center justify-between gap-3">
@@ -345,7 +334,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
             <button 
               type="button"
               onClick={handleToggleCreatePanel}
-              className="h-9 px-3.5 flex items-center gap-1.5 rounded-full bg-[#C8E8D0] text-[#002110] dark:bg-[#4A7C59]/30 dark:text-green-300 font-label text-xs font-bold transition-transform active:scale-95 hover:bg-[#B2DFC0] cursor-pointer"
+              className="min-h-[44px] px-3.5 flex items-center gap-1.5 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold transition-colors hover:bg-[var(--terra-primary-hover)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
             >
               <Plus size={16} className={`transition-transform duration-200 ${isCreatePanelOpen ? 'rotate-45' : ''}`} />
               <span>Создать</span>

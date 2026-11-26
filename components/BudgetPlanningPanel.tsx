@@ -100,7 +100,7 @@ export default function BudgetPlanningPanel({
     <div className="space-y-3">
      {rows.map(row=><div key={row.categoryId} className="space-y-1.5">
       <div className="flex flex-wrap justify-between items-center gap-2 text-sm">
-       <button type="button" disabled={saving} onClick={()=>openLimit(row.categoryId)} aria-label={"Изменить лимит: "+row.label} className="min-h-[44px] min-w-0 text-left font-semibold text-[var(--terra-ink)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] break-words">{row.label}</button>
+       <button type="button" disabled={saving} onClick={()=>openLimit(row.categoryId)} data-limit-category={row.categoryId} aria-label={"Изменить лимит: "+row.label} className="min-h-[44px] min-w-0 text-left font-semibold text-[var(--terra-ink)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] break-words">{row.label}</button>
        <span className={"tabular-nums break-words "+(!settings.privacyMode&&row.overLimit?'font-semibold text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]')}>
         {currency(row.spent)} / {currency(row.limit)}
        </span>

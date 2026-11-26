@@ -9,7 +9,7 @@ import { categoriesForType } from '../utils/categoryCatalog';
 import { getIconById } from '../constants';
 import { toast } from 'sonner';
 import useModalBackHandler from '../hooks/useModalBackHandler';
-import { sortCategoriesByPopularity } from '../utils/categoryPopularity';
+import { countCategoryUsage, sortCategoriesByPopularity } from '../utils/categoryPopularity';
 
 export interface DesktopCategoryPickerModalProps {
   isOpen: boolean;
@@ -75,23 +75,14 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   // A Firestore category snapshot must not erase the category just created/selected.
   }, [isOpen, selectedCategoryId]);
 
-  // Compute transaction counts for display
-  const transactionStats = useMemo(() => {
-    if (categoryUsage) return categoryUsage;
-    const countMap: Record<string, number> = {};
-    transactions.forEach(tx => {
-      if (tx.category) countMap[tx.category] = (countMap[tx.category] || 0) + 1;
-    });
-    return countMap;
-  }, [transactions, categoryUsage]);
+  // Count existing operations in the current scope; rank parents by child usage too.
+  const transactionStats = useMemo(() => categoryUsage || countCategoryUsage(transactionType?transactions.filter(tx=>tx.type===transactionType):transactions,categories), [transactions,categories,transactionType,categoryUsage]);
 
-  // Organize categories into parents and child map
   const { parentCategories, subcategoriesByParent } = useMemo(() => {
     const filtered = categoriesForType(categories, transactionType);
-    const ordered = categoryUsage ? sortCategoriesByPopularity(filtered, categoryUsage) : filtered;
+    const ordered = sortCategoriesByPopularity(filtered, transactionStats);
     const parents = ordered.filter(c => !c.parentId && c.id !== 'other');
     const subMap = new Map<string, Category[]>();
-
     ordered.forEach(c => {
       if (c.parentId) {
         const current = subMap.get(c.parentId) || [];
@@ -99,9 +90,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         subMap.set(c.parentId, current);
       }
     });
-
     return { parentCategories: parents, subcategoriesByParent: subMap };
-  }, [categories, categoryUsage, transactionType]);
+  }, [categories, transactionType, transactionStats]);
 
   // Filter categories and auto-expand when searching
   const filteredParents = useMemo(() => {
@@ -310,12 +300,12 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.94, opacity: 0, y: 18 }}
         transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-        className="relative max-w-4xl lg:max-w-5xl w-full bg-[#F7F5F0] dark:bg-[#1C1C1E] rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
+        className="relative max-w-4xl lg:max-w-5xl w-full bg-[var(--terra-surface)] rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Top Header */}
-        <div className="px-6 py-5 bg-[#F7F5F0] dark:bg-[#1C1C1E] border-b border-[#E8E4DA] dark:border-white/10 flex items-center justify-between gap-4 select-none shrink-0 relative z-30">
+        <div className="px-6 py-5 bg-[var(--terra-surface)] border-b border-[#E8E4DA] dark:border-white/10 flex items-center justify-between gap-4 select-none shrink-0 relative z-30">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold tracking-tight text-[#1E261E] dark:text-white font-headline">
               Выбор категории
@@ -325,7 +315,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
             <button 
               type="button"
               onClick={handleToggleCreatePanel}
-              className="btn-shine-effect bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              className="min-h-[44px] bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] hover:bg-[var(--terra-primary-hover)] text-sm font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
             >
               {isCreatePanelOpen ? <X size={14} /> : <Plus size={14} />}
               <span>{isCreatePanelOpen ? 'Закрыть форму' : 'Создать категорию'}</span>
@@ -334,7 +324,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
               type="button"
               onClick={onClose}
               aria-label="Закрыть"
-              className="w-8 h-8 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-[#EAE6DE] dark:text-stone-400 dark:hover:text-white dark:hover:bg-white/10 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
+              className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-stone-500 hover:text-stone-800 hover:bg-[#EAE6DE] dark:text-stone-400 dark:hover:text-white dark:hover:bg-white/10 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -636,7 +626,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-[#F7F5F0] dark:bg-[#1C1C1E] border-t border-[#E8E4DA] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 select-none shrink-0 relative z-30">
+        <div className="px-6 py-4 bg-[var(--terra-surface)] border-t border-[#E8E4DA] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 select-none shrink-0 relative z-30">
           {/* Left Selection Indicator */}
           <div className="flex items-center gap-2 text-xs font-medium text-stone-700 dark:text-stone-300 w-full sm:w-auto">
             <span>

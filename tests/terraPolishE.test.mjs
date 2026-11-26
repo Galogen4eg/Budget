@@ -11,7 +11,7 @@ test('history and wallet filters expose selected state and common target geometr
 test('drilldown uses semantic axis colors, selection and stable chart geometry',()=>{
  const s=read('components/drilldown/DrillDownAnalyticsChart.tsx');
  assert.ok(s.includes('fill="var(--terra-muted)"'));
- assert.ok(s.includes("aria-pressed={chartGranularity==='daily'}"));
+ assert.ok(s.includes('aria-pressed={chartGranularity===value}'));
  assert.doesNotMatch(s,/className="transition-all duration-300"/);
 });
 test('shared ripple and controls respect reduced motion',()=>{

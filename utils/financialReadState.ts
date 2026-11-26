@@ -1,6 +1,9 @@
 export type FinancialCollection = 'transactions' | 'goals' | 'debts';
-export type FinancialReadStatus = 'loading' | 'ready' | 'stale' | 'error';
+export type FinancialReadStatus = 'loading' | 'ready' | 'stale' | 'pending' | 'error';
 export type FinancialReadState = { scope: string | null; collections: Record<FinancialCollection, FinancialReadStatus> };
+export function financialSnapshotStatus(metadata:{fromCache:boolean;hasPendingWrites:boolean}):FinancialReadStatus {
+ return metadata.fromCache?'stale':metadata.hasPendingWrites?'pending':'ready';
+}
 export function initialFinancialRead(scope: string | null): FinancialReadState {
  return {scope,collections:{transactions:'loading',goals:'loading',debts:'loading'}};
 }
@@ -14,5 +17,6 @@ export function financialReadStatus(state: FinancialReadState, scope: string | n
  const statuses=Object.values(state.collections);
  if(statuses.includes('error'))return 'error';
  if(statuses.includes('stale'))return 'stale';
+ if(statuses.includes('pending'))return 'pending';
  return settingsReady&&statuses.every(s=>s==='ready')?'ready':'loading';
 }

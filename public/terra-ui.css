@@ -63,7 +63,7 @@ html.dark {
 .terra-overview-columns {grid-template-columns:minmax(0,1fr);}
 .terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
 @container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
-@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:repeat(4,minmax(0,1fr));}}
+@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.55fr) repeat(3,minmax(0,1fr));}}
 @container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
 
 /* Width belongs to the working area, not the browser viewport. */
@@ -80,6 +80,15 @@ html.dark {
 .terra-boot-error h2{font-size:20px;font-weight:700;}
 .terra-boot-error p{max-width:440px;font-size:14px;color:var(--terra-muted);}
 .terra-boot-error button{min-height:44px;padding:10px 20px;border:0;border-radius:12px;background:var(--terra-primary-solid);color:var(--terra-on-primary);font-weight:600;cursor:pointer;}
+
+/* Shared chart geometry: stable across periods, empty and private states. */
+.terra-overview-chart-plot {height:208px;}
+@media(min-width:768px){.terra-overview-chart-plot{height:248px;}}
+@media(min-width:1024px){.terra-overview-chart-plot{height:264px;}}
+
+/* Chart toolbars fit available content, not the outer window; narrow cards keep full-width scrollable rails. */
+.terra-chart-toolbar{container-type:inline-size;}
+@container (min-width:560px){.terra-chart-toolbar>.terra-chart-rail{width:auto;max-width:100%;}}
 
 /* E: native focus and reduced motion also apply to portals and shared controls. */
 .terra-shell :is(button,a[href],input,select,textarea,[tabindex]):focus-visible {outline:2px solid var(--terra-focus);outline-offset:2px;}

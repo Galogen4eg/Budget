@@ -186,8 +186,8 @@ try{
       // Overview UI on Full HD, not just the unauthenticated login page.
       const demo=page.getByRole('button',{name:/Локальный демо-режим/});
       await demo.click({timeout:10000});
-      await page.getByRole('group',{name:'Период динамики расходов на ПК'}).waitFor({state:'visible',timeout:15000});
-      const tabs=page.getByRole('group',{name:'Период динамики расходов на ПК'});
+      await page.getByRole('group',{name:'Период динамики расходов'}).waitFor({state:'visible',timeout:15000});
+      const tabs=page.getByRole('group',{name:'Период динамики расходов'});
       for(const name of ['Неделя','Месяц','День']){
         const tab=tabs.getByRole('button',{name,exact:true});
         await tab.click();
@@ -269,7 +269,7 @@ try{
       const amountField=page.getByRole('textbox',{name:'Сумма операции'});
       await amountField.fill('1250');
       assert.equal(await amountField.inputValue(),'1250','1920: amount field does not accept expense');
-      const incomeTab=page.getByRole('button',{name:/ДОХОД/}).filter({visible:true}).first();
+      const incomeTab=page.getByRole('button',{name:/Доход/i}).filter({visible:true}).first();
       await incomeTab.click();
       assert.equal(await incomeTab.getAttribute('aria-pressed'),'true','1920: income mode not selected');
       await page.getByRole('button',{name:'Закрыть модальное окно'}).click();

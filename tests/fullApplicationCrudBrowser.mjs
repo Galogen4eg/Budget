@@ -1,3 +1,4 @@
+import {runTerraV2Pilot} from './terraV2PilotBrowser.mjs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
@@ -151,6 +152,48 @@ if(process.argv.includes('--navigation')){
   assert.equal(legacyAfter.date,legacyBefore.date);
   await edit(b,legacyAfter.note).waitFor({state:'visible',timeout:20000});
   console.log('PASS legacy transaction edit with missing optional metadata');
+  // Exercise actual shared category-limit editing on both independent sessions.
+  const limitSettings=family.collection('config').doc('settings');
+  const beforeLimits=(await limitSettings.get()).data().categoryBudgets;
+  const beforeLedger=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+  assert.ok(beforeLimits.food>0,'Expected populated food limit');
+  const planning=page=>visible(page.getByTestId('budget-planning'));
+  const food=page=>planning(page).locator('button[data-limit-category="food"]');
+  for(const page of [a,b]){
+   await visible(page.locator('nav').getByRole('button',{name:'Бюджет',exact:true})).click();
+   await planning(page).waitFor({state:'visible'});
+  }
+  const amount=page=>planning(page).getByRole('textbox',{name:/Лимит в месяц/});
+  const select=page=>planning(page).getByRole('combobox',{name:'Категория',exact:true});
+  const close=page=>planning(page).getByRole('button',{name:'Закрыть',exact:true});
+  const savedLimit=async(page,value)=>{
+   await amount(page).fill(value);
+   await planning(page).getByRole('button',{name:'Сохранить лимит',exact:true}).click();
+   await amount(page).waitFor({state:'hidden',timeout:20000});
+  };
+  await food(b).waitFor({state:'visible',timeout:20000}).catch(async error=>{console.error('TERRA planning evidence',await planning(b).innerText().catch(()=>''));throw error;});
+  await food(b).click();
+  assert.equal(await select(b).inputValue(),'food');
+  assert.equal(Number(await amount(b).inputValue()),beforeLimits.food);
+  const targetIds=await b.locator('[data-testid="budget-planning"] [id]').evaluateAll(nodes=>nodes.map(el=>el.id));
+  assert.equal(new Set(targetIds).size,targetIds.length,'Duplicate planning form IDs');
+  await amount(b).fill('12abc');
+  await planning(b).getByRole('button',{name:'Сохранить лимит',exact:true}).click();
+  await planning(b).getByRole('alert').waitFor({state:'visible'});
+  assert.equal(await amount(b).inputValue(),'12abc');
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,beforeLimits);
+  await savedLimit(b,'12345,67');
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,{...beforeLimits,food:12345.67});
+  await a.waitForFunction(()=>Array.from(document.querySelectorAll('[data-testid="budget-planning"]')).some(el=>el.getClientRects().length&&/12[\s\u00a0\u202f]345,67/.test(el.textContent??'')),null,{timeout:20000});
+  await food(a).click();
+  assert.equal(Number(await amount(a).inputValue()),12345.67);
+  await savedLimit(a,String(beforeLimits.food));
+  assert.deepEqual((await limitSettings.get()).data().categoryBudgets,beforeLimits);
+  await food(b).click();
+  await close(b).click();
+  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),beforeLedger,'Limit editor changed financial ledger');
+  console.log('PASS TERRA category limit invalid input, exact decimal save, other account update and restored ledger');
+  await runTerraV2Pilot(b,{settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),transactionsRef:rows});
  }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;
@@ -265,10 +308,32 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  assert.equal(await b.getByTestId('alfa-review-open').count(),0);
  await action.click();
  const dialog=a.getByRole('dialog',{name:'Операции на разбор',exact:true});await dialog.waitFor({state:'visible'});
+ phase='review filters and consistent counts';
+ const filters=dialog.getByRole('group',{name:'Фильтр операций выписки'});
+ const without=filters.getByRole('button',{name:'Без категории 1',exact:true});
+ const all=filters.getByRole('button',{name:'Все 1',exact:true});
+ const search=dialog.getByRole('searchbox',{name:'Поиск по выписке'});
+ for(const control of [without,all,search]){
+  const rect=await control.boundingBox();assert.ok(rect&&rect.height>=44&&rect.width>=44,'Import control target too small');
+ }
+ await without.click();
+ assert.equal(await without.getAttribute('aria-pressed'),'true');
+ assert.equal(await dialog.locator('[data-import-row][data-needs-category="true"]').count(),1);
+ assert.equal(await btn(dialog,'Импортировать все (1)').isDisabled(),true);
+ await search.fill('QA_NO_MATCH_98473201');
+ assert.equal(await dialog.locator('[data-import-row]').count(),0);
+ await dialog.getByText('Операций по выбранным фильтрам не найдено',{exact:true}).waitFor({state:'visible'});
+ await search.fill('');
+ assert.equal(await dialog.locator('[data-import-row]').count(),1);
+ await all.click();
  await btn(dialog,'Выбрать категорию').click();
  await dialog.getByPlaceholder('Поиск категории или подкатегории...').fill('Продукты');
  await btn(dialog,'Продукты').click();
- await btn(dialog,'Импортировать все (1)').click();
+ assert.equal(await dialog.locator('[data-import-row][data-needs-category="false"]').count(),1);
+ assert.equal(await filters.getByRole('button',{name:'Без категории 0',exact:true}).count(),1);
+ assert.equal(await btn(dialog,'Импортировать все (1)').isEnabled(),true);
+ await btn(dialog,'Импортировать все (1)').evaluate(button=>{button.click();button.click();});
+ console.log('PASS TERRA import filter counts, search, category readiness and duplicate click');
  await dialog.waitFor({state:'hidden',timeout:30000});
  const resolved=await currentDoc(rows.doc(item.id),x=>x.exists,'resolved bank transaction');
  assert.equal(resolved.data().amount,23.45);assert.equal(resolved.data().memberId,'a');assert.equal(resolved.data().category,'food');
@@ -360,6 +425,19 @@ await scenario('SHP Terra filtered clear, template preview and pantry transfer',
  phase='other account pantry view';
  await btn(q,/^Кладовая/,false).click();
  const stockRow=q.locator('[data-pantry-id="'+moved.id+'"]');await stockRow.waitFor({state:'visible',timeout:20000});assert.match(await stockRow.innerText(),/2\.5 л/);
+ phase='edit inventory quantity, unit and expiry on mobile';
+ await btn(stockRow,'Редактировать запас: '+titles[2]).click();
+ await q.getByLabel('Количество',{exact:true}).filter({visible:true}).last().fill('1,25');
+ await q.getByLabel('Единица',{exact:true}).filter({visible:true}).last().fill('кг');
+ await q.getByLabel('Годен до',{exact:true}).fill('2028-02-29');
+ const editor=q.locator('form').filter({has:q.getByLabel('Годен до',{exact:true})});
+ await btn(editor,'Сохранить').click();
+ await currentDoc(moved.ref,snap=>snap.data()?.amount==='1.25'&&snap.data()?.unit==='кг'&&snap.data()?.expiryDate==='2028-02-29','inventory edit persisted');
+ await btn(p,/^Кладовая/,false).click();
+ const peerStock=p.locator('[data-pantry-id="'+moved.id+'"]');
+ await peerStock.waitFor({state:'visible',timeout:20000});
+ await b.waitForFunction(id=>Array.from(document.querySelectorAll('[data-pantry-id]')).some(el=>el.getAttribute('data-pantry-id')===id&&el.textContent.includes('1.25 кг')&&el.getClientRects().length),moved.id).catch(async()=>{assert.match(await peerStock.innerText(),/1\.25 кг/);});
+ await btn(p,/^Кладовая/,false).click();
  await btn(q,/^Кладовая/,false).click();
  phase='template preview does not write';
  const before=JSON.stringify((await shopping.get()).docs.map(doc=>[doc.id,doc.data()]));
@@ -371,7 +449,11 @@ await scenario('SHP Terra filtered clear, template preview and pantry transfer',
  await btn(preview,'Отмена').click();await preview.waitFor({state:'hidden'});
  await btn(p,/Быстрые списки/,false).click();await search.fill('');
  // Remove only disposable emulator fixtures.
- await shopping.doc(ids[1]).delete();await moved.ref.delete();
+ await shopping.doc(ids[1]).delete();
+ await btn(q,/^Кладовая/,false).click();
+ await btn(stockRow,'Удалить запас: '+titles[2]).click();
+ await btn(q,'Удалить',true).click();
+ await currentDoc(moved.ref,snap=>!snap.exists,'inventory deletion confirmed');
  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),ledgerBefore,'Shopping changed the financial ledger');
  console.log('PASS TERRA shopping filtered clear, exact pantry transfer, other account inventory, template preview and unchanged ledger');
 });

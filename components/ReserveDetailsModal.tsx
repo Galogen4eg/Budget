@@ -12,6 +12,7 @@ import {
 import { MandatoryExpense } from '../types';
 import { reserveSelection } from '../utils/reserveSelection';
 import { parseDebtAmount } from '../utils/debtEdit';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 
 export interface DetailedMandatoryExpense {
   expense: MandatoryExpense;
@@ -142,7 +143,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
 
   const formatMoney = (val: number) => {
     if (privacyMode) return '••••';
-    return Number(val.toFixed(1)).toLocaleString('ru-RU');
+    return formatBudgetMoney(val);
   };
 
   return createPortal(
@@ -265,14 +266,14 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                   </div>
                   
                   {/* Interactive Input */}
-                  <div className="relative flex items-center mt-0.5 group/input">
+                  {privacyMode?<span className="text-xl font-semibold">••••</span>:<div className="relative flex items-center mt-0.5 group/input">
                     <input 
                       type="text" inputMode="decimal" disabled={busy||!onUpdateManualSavings}
                       value={manualInput}
                       onChange={(e) => setManualInput(e.target.value)}
                       onBlur={handleManualBlur}
                       onKeyDown={(e) => {if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}
-                      className="w-full text-xl sm:text-2xl font-display font-bold text-stone-900 dark:text-white tracking-tight bg-stone-50/80 dark:bg-stone-800/80 hover:bg-stone-100/80 dark:hover:bg-stone-800 focus:bg-white dark:focus:bg-[#1E1E20] border border-stone-200/90 dark:border-white/10 hover:border-emerald-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-2.5 py-1 pr-10 transition outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="min-h-[44px] w-full text-xl sm:text-2xl font-display font-bold text-stone-900 dark:text-white tracking-tight bg-stone-50/80 dark:bg-stone-800/80 hover:bg-stone-100/80 dark:hover:bg-stone-800 focus:bg-white dark:focus:bg-[#1E1E20] border border-stone-200/90 dark:border-white/10 hover:border-emerald-200 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-2.5 py-1 pr-10 transition outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0"
                       aria-label="Сумма вручную"
                     />
@@ -281,14 +282,14 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                         {currency}
                       </span>
                     </div>
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="mt-3">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
                       <Edit3 className="w-3 h-3" />
-                      Накопительный счёт / Резерв
+                      Ручной резерв
                     </span>
                   </div>
                 </div>
@@ -310,9 +311,9 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                 <div className="mt-3">
                   <button 
                     type="button"
-                    disabled={busy||!onUpdateManualSavings||availableBalance<=0}
+                    disabled={busy||privacyMode||!onUpdateManualSavings||availableBalance<=0}
                     onClick={()=>void saveManual(String(Math.round((manualReserved+availableBalance)*100)/100))}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAF2EC] dark:bg-primary/20 text-primary dark:text-green-400 border border-primary/30 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition"
+                    className="min-h-[44px] inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold bg-[#EAF2EC] dark:bg-primary/20 text-primary dark:text-green-400 border border-primary/30 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition"
                   >
                     Добавить свободную сумму в резерв
                   </button>
@@ -326,7 +327,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                 <Info className="w-4 h-4" />
               </div>
               <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                Блок <strong>«Свободно»</strong> показывает остаток средств после вычета всех резервов (Авто + Обязательные + Отложено). Эту сумму безопасно перевести в копилку без риска кассового разрыва.
+                Блок <strong>«Свободно»</strong> показывает остаток средств после вычета всех резервов (Авто + Обязательные + Отложено). Это расчётный остаток по текущим данным, а не гарантия достаточности средств для будущих расходов.
               </p>
             </div>
           </div>

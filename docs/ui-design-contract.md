@@ -8,11 +8,11 @@ Visual thesis: the active financial amount or selected calendar date is the foca
 
 | Role | Light | Dark |
 | --- | --- | --- |
-| App canvas | `#FAF6F0` | `#121214` |
-| Surface | `#FAF8F5` | `#1C1C1E` |
+| App canvas | `#F6F1E8` | `#151716` |
+| Surface | `#FFFCF7` | `#1D201E` |
 | Primary action | `#4A7C59` | existing green-on-dark tokens |
-| Main ink | `#2E3230` | `#F5F5F5` |
-| Border | `#EAE5DB` | `rgba(255,255,255,.10)` |
+| Main ink | `#1F2A24` | `#F3F1EC` |
+| Border | `#E2D8C8` | `#313733` |
 | Dangerous action | existing restrained red | existing dark-mode red |
 
 Use existing project font utilities (`font-headline` for main amounts/headings and `font-sans` or `font-body` for UI copy). Limit typography to three useful levels: page heading, section heading, readable 12–14px labels and 14–16px interactive/body content. Avoid tracking-heavy ALL CAPS for recurring navigation and actions.
@@ -59,3 +59,7 @@ Overview cards and charts use DASHBOARD_CARD / CHART_TOOLTIP; chart period filte
 
 ## Unified palette
 Semantic colors are defined in public/terra-ui.css for both themes. Core section surfaces use the same canvas, surface, soft, border, ink and muted roles; keep category/status and loyalty-brand colors distinct. Desktop settings is bounded to 1120×780 with independent sidebar/content scrolling. Pointer chart focus is suppressed only inside Recharts; keyboard focus remains visible. No data model or scroll architecture changes.
+
+## Terra v2 pilot
+
+The project-provided Terra_UI_Design_Contract_v2.md (2026-11-26) is the target standard. Current semantic CSS remains authoritative for actual colors; see docs/terra-v2-pilot.md for scoped findings, acceptance criteria and remaining checks. Do not copy demonstration layouts or replace financial APIs.

@@ -4,6 +4,7 @@ import { X, Trash2, Edit3, Send, CheckCircle2, CheckSquare, CreditCard, Home, Li
 import { MandatoryExpense, MandatoryExpenseType, AppSettings, FamilyMember } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { formatBudgetMoney } from '../utils/budgetFinancialMath';
 
 interface MandatoryExpenseModalProps {
   expense: MandatoryExpense | null;
@@ -86,7 +87,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
       }
       if (!amount || amount === '0') {
         const payment = targetDebt.monthlyPayment || targetDebt.minPayment;
-        if (payment) setAmount(String(Math.round(payment)));
+        if (payment) setAmount(String(payment));
       }
       if (targetDebt.paymentDay) {
         setDay(String(targetDebt.paymentDay));
@@ -101,9 +102,10 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
     e?.preventDefault();
     if (isSaving) return;
     setFormError('');
-    const parsedAmount = Number(String(amount).replace(',', '.'));
+    const normalizedAmount = String(amount).trim().replace(',', '.');
+    const parsedAmount = Number(normalizedAmount);
     const parsedDay = Number(day);
-    if (!name.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0 ||
+    if (!name.trim() || !/^\d+(?:\.\d{1,2})?$/.test(normalizedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0 ||
         !Number.isSafeInteger(Math.round(parsedAmount * 100)) ||
         Math.abs(parsedAmount * 100 - Math.round(parsedAmount * 100)) > 0.000001 ||
         !Number.isInteger(parsedDay) || parsedDay < 1 || parsedDay > 31) {
@@ -195,8 +197,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 onClick={() => {
                   setExpenseType('regular');
                   setLinkedDebtId('');
-                }}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                }} aria-pressed={expenseType==='regular'}
+                className={`min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                   expenseType === 'regular'
                     ? 'bg-[var(--terra-soft)] text-stone-900 dark:text-white shadow-xs'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
@@ -208,8 +210,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setExpenseType('debt')}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                onClick={() => setExpenseType('debt')} aria-pressed={expenseType==='debt'}
+                className={`min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                   expenseType === 'debt'
                     ? 'bg-[var(--terra-soft)] text-[#8C3A3A] dark:text-rose-400 shadow-xs'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
@@ -245,7 +247,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   <option value="">-- Выберите долг для синхронизации --</option>
                   {debts.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.name} (остаток: {Math.round(d.currentBalance ?? d.totalAmount).toLocaleString('ru-RU')} ₽, взнос: {Math.round(d.monthlyPayment || 0).toLocaleString('ru-RU')} ₽)
+                      {d.name} (остаток: {settings.privacyMode?'•••':formatBudgetMoney(d.currentBalance ?? d.totalAmount)} ₽, взнос: {settings.privacyMode?'•••':formatBudgetMoney(d.monthlyPayment || 0)} ₽)
                     </option>
                   ))}
                 </select>
@@ -295,9 +297,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 <input 
                   id="paymentAmount" 
                   name="paymentAmount" 
-                  type="number" 
-                  step="0.01"
-                  min="0.01"
+                  type="text" inputMode="decimal"
                   value={amount} 
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
@@ -431,7 +431,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full min-h-[44px] font-bold py-3.5 px-6 rounded-xl shadow-[0_4px_20px_rgba(46,50,48,0.12)] transition text-xs uppercase bg-[#4A7C59] hover:bg-[#3D6B4C] text-white disabled:opacity-60 disabled:cursor-wait"
+              className="w-full min-h-[44px] font-semibold py-3 px-6 rounded-xl transition-colors text-sm bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 disabled:cursor-wait"
             >
               {isSaving ? 'Сохранение…' : expense ? 'Сохранить изменения' : 'Добавить платёж'}
             </button>
@@ -442,7 +442,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   type="button"
                   onClick={handleDelete}
                   disabled={isSaving}
-                  className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#D95C48] hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-[#D95C48] hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
                 >
                   <Trash2 size={16} />
                   <span>Удалить платеж</span>
@@ -453,7 +453,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                     type="button"
                     onClick={handleDelete}
                   disabled={isSaving}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-[#D95C48] hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-white bg-[#D95C48] hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
                     <Trash2 size={16} />
                     <span>Подтвердить удаление</span>
@@ -461,7 +461,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   <button 
                     type="button"
                     onClick={() => setIsConfirmingDelete(false)}
-                    className="py-2.5 px-3 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 rounded-xl transition-colors cursor-pointer"
+                    className="min-h-[44px] py-2.5 px-3 text-sm text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 rounded-xl transition-colors cursor-pointer"
                   >
                     Отмена
                   </button>

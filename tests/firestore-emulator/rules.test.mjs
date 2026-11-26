@@ -144,3 +144,24 @@ test('actual shopping library config supports both family members in either budg
  await assertFails(updateDoc(doc(a,path),{initialBalance:100}));
  await assertFails(getDoc(doc(a,f+'/config/unknown')));
 });
+
+test('Alfa review inbox is private, immutable, and removable only after matching saved transaction',async()=>{
+ const id='alfa_'+'a'.repeat(40),base=f+'/members/u1/alfaReview/',entry={id,row:{id,memberId:'a',type:'expense',amount:12.34,date:'2026-11-26T10:00:00Z',note:'QA',category:'other'},reason:'category',createdAt:'2026-11-26T10:00:00Z'};
+ const a=db('u1'),b=db('u2'),out=db('outsider');
+ await assertFails(setDoc(doc(a,base+id),{...entry,row:{...entry.row,memberId:'b'}}));
+ await assertFails(setDoc(doc(b,base+id),entry));
+ await assertSucceeds(setDoc(doc(a,base+id),entry));
+ await assertSucceeds(getDocs(collection(a,base.slice(0,-1))));
+ await assertFails(getDoc(doc(b,base+id)));
+ await assertFails(getDoc(doc(out,base+id)));
+ await assertFails(updateDoc(doc(a,base+id),{reason:'savings'}));
+ await assertFails(deleteDoc(doc(a,base+id)));
+ await assertSucceeds(setDoc(doc(b,f+'/transactions/'+id),{...entry.row,memberId:'b'}));
+ await assertFails(deleteDoc(doc(a,base+id)));
+ await assertSucceeds(updateDoc(doc(a,f+'/transactions/'+id),{memberId:'a'}));
+ await assertSucceeds(deleteDoc(doc(a,base+id)));
+ await personal();
+ await assertSucceeds(setDoc(doc(a,base+id),entry));
+ await assertFails(getDocs(collection(b,base.slice(0,-1))));
+ await assertSucceeds(deleteDoc(doc(a,base+id)));
+});

@@ -15,3 +15,16 @@ export function assertQaFixtureBaseline(records,seeded){
   if(!seeded||!id?.startsWith(QA_FIXTURE_PREFIX)||doc.fields?.id?.stringValue!==id)throw new Error('Unmarked QA data; refusing mutation');
  }
 }
+
+const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const equal=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+export function assertUnchangedQaFixtureBaseline(before,after,seeded){
+ assertQaFixtureBaseline(before,seeded);assertQaFixtureBaseline(after,seeded);
+ const byName=rows=>Object.fromEntries(rows.map(d=>[d.name,d.fields]));
+ if(!equal(byName(before),byName(after)))throw new Error('Seeded records changed during regression');
+}
+export function assertUnmarkedBillsPreserved(before,after,testId){
+ const bills=fields=>(fields?.mandatoryExpenses?.arrayValue?.values??[]).filter(v=>!testId||v?.mapValue?.fields?.id?.stringValue!==testId);
+ const paid=fields=>Object.fromEntries(Object.entries(fields?.manualPaidExpenses?.mapValue?.fields??{}).map(([month,value])=>[month,(value?.arrayValue?.values??[]).filter(v=>!testId||v.stringValue!==testId).map(v=>v.stringValue)]).filter(([,ids])=>ids.length));
+ if(!equal(bills(before),bills(after))||!equal(paid(before),paid(after)))throw new Error('Non-test mandatory payments changed; refusing restore');
+}

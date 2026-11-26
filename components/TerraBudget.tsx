@@ -1587,7 +1587,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
                         <div 
                           className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-                          style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                          style={{ width: `${settings.privacyMode?0:pct}%`, backgroundColor: cat.color }}
                         />
                       </div>
                     </button>

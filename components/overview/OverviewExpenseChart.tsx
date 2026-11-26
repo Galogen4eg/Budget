@@ -38,12 +38,12 @@ export function OverviewExpenseChart({
     if (point) onPointSelect(point);
   };
   return <>
-    <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="terra-chart-toolbar flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         <h3 className={SECTION_HEADING}>Динамика расходов</h3>
         <p className="mt-1 text-sm text-[var(--terra-muted)]">{subtitle}</p>
       </div>
-      <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL}>
+      <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL+" terra-chart-rail"}>
         {scales.map(value => <button key={value} type="button" aria-pressed={scale === value}
           className={FILTER_CHIP + ' terra-press ' + (scale === value ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE)}
           onClick={() => setScale(value)}>{scaleLabels[value]}</button>)}

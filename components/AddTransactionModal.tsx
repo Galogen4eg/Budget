@@ -2,7 +2,7 @@ import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { TOOLBAR_ACTION, TOOLBAR_ACTION_PRIMARY, TOOLBAR_ACTION_IDLE, ICON_ACTION, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
+import { TOOLBAR_ACTION, TOOLBAR_ACTION_PRIMARY } from './filterUiTokens';
 import { 
   ChevronLeft, X, Calendar, FileText, Repeat, ChevronRight, Check, Trash2, 
   Sparkles, Link as LinkIcon, Plus, Send, Search, RotateCcw, ShieldCheck
@@ -499,9 +499,13 @@ export default function AddTransactionModal({
                           key={addVal}
                           type="button"
                           onClick={() => {
-                            const numericInput=Number(amount.replace(/\s/g, '').replace(',', '.'));
-                            const evaluated=evaluateMathExpression(amount);
-                            const currentNum=Number.isFinite(numericInput) ? numericInput : (evaluated ?? 0);
+                            const normalized=amount.replace(/\s/g,'').replace(',', '.');
+                            const expression=/[+*/]/.test(normalized)||/-(?!^)/.test(normalized);
+                            const currentNum=normalized?(expression?evaluateMathExpression(amount):/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(normalized)?Number(normalized):null):0;
+                            if(currentNum===null||!Number.isFinite(currentNum)||!Number.isSafeInteger(Math.round((currentNum+addVal)*100))){
+                              setValidationError('Сначала исправьте сумму.');
+                              return;
+                            }
                             setAmount(String(Math.round((currentNum+addVal)*100)/100));
                             triggerHaptic('light');
                           }}

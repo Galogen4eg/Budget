@@ -269,7 +269,7 @@ try{
       const amountField=page.getByRole('textbox',{name:'Сумма операции'});
       await amountField.fill('1250');
       assert.equal(await amountField.inputValue(),'1250','1920: amount field does not accept expense');
-      const incomeTab=page.getByRole('button',{name:/ДОХОД/}).filter({visible:true}).first();
+      const incomeTab=page.getByRole('button',{name:/Доход/i}).filter({visible:true}).first();
       await incomeTab.click();
       assert.equal(await incomeTab.getAttribute('aria-pressed'),'true','1920: income mode not selected');
       await page.getByRole('button',{name:'Закрыть модальное окно'}).click();

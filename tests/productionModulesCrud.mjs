@@ -408,7 +408,7 @@ try{
   const preview=options.getByRole('region',{name:'Состав быстрого списка'});
   await preview.waitFor({state:'visible'});
   check((await preview.innerText()).includes(original),'Wrong template preview');
-  await mutation(()=>btn(preview,'Добавить 1 товаров').click());const reapplied=await created('shopping','title',original);
+  await mutation(()=>btn(preview,'Добавить в список (1)').click());const reapplied=await created('shopping','title',original);
   check(Number(scalar(reapplied,'amount'))===1,'Reapplied quantity mismatch');
   phase='delete saved template';await mutation(()=>btn(options,'Удалить шаблон '+original).click());
   await poll(async()=>!array(await request(library()),'templates').some(x=>fields(x).name?.stringValue===original),'template deletion');

@@ -14,14 +14,14 @@ export function subscribeAlfaReview(fid:string,uid:string,receive:(rows:AlfaRevi
 }
 // Read both records before writing; an existing saved transaction always wins.
 // Previously queued rows are not silently recategorized or duplicated on retries.
-export async function stageAlfaReview(fid:string,uid:string,memberId:string,plan:readonly AlfaReviewPlanRow[]){
+export async function stageAlfaReview(fid:string,uid:string,memberId:string,plan:readonly AlfaReviewPlanRow[],assertScope:()=>void=()=>{}){
  assertAuth(uid);
  const created:Transaction[]=[];
  for(const {row,reason} of plan){
-  assertAuth(uid);assertOwner(row,memberId);
+  assertScope();assertAuth(uid);assertOwner(row,memberId);
   const savedRef=transactionRef(fid,row.id),pendingRef=doc(inbox(fid,uid),row.id);
   const outcome=await runTransaction(db,async tx=>{
-   assertAuth(uid);
+   assertScope();assertAuth(uid);
    const [saved,pending]=await Promise.all([tx.get(savedRef),tx.get(pendingRef)]);
    if(saved.exists()){
     assertOwner(saved.data() as Transaction,memberId);
@@ -44,11 +44,11 @@ export async function stageAlfaReview(fid:string,uid:string,memberId:string,plan
 }
 // Reconcile only the exact bank IDs whose saved transaction is verified on the server.
 // Missing stable IDs (including possible legacy duplicates) are NOT acknowledged.
-export async function verifyAlfaReview(fid:string,uid:string,memberId:string,ids:readonly string[],createdIds:ReadonlySet<string>){
+export async function verifyAlfaReview(fid:string,uid:string,memberId:string,ids:readonly string[],createdIds:ReadonlySet<string>,assertScope:()=>void=()=>{}){
  assertAuth(uid);
  let created=0,existing=0,queued=0,unverified=0;
  for(let i=0;i<ids.length;i+=10){
-  assertAuth(uid);
+  assertScope();assertAuth(uid);
   const pairs=await Promise.all(ids.slice(i,i+10).map(async id=>({
    id,saved:await getDocFromServer(transactionRef(fid,id)),
    pending:await getDocFromServer(doc(inbox(fid,uid),id))

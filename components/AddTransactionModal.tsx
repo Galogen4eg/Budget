@@ -214,6 +214,10 @@ export default function AddTransactionModal({
       return;
     }
     finalAmount=Math.round(finalAmount*100)/100;
+    if(!previewMode&&typeof navigator!=='undefined'&&!navigator.onLine){
+      setValidationError('Нет соединения. Операция не отправлена. Восстановите сеть, не закрывая форму.');
+      return;
+    }
     mutationPending.current=true;
     setIsSubmitting(true);
     let phase:TransactionSavePhase='prepare';

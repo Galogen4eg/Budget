@@ -1,3 +1,4 @@
+import ShoppingPantryTransferButton from './ShoppingPantryTransferButton';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SURFACE_CARD } from './filterUiTokens';
 import {
@@ -57,6 +58,7 @@ interface ShoppingListProps {
   members: FamilyMember[];
   onMoveToPantry: (item: ShoppingItem) => Promise<void>;
   onSendToTelegram: (items: ShoppingItem[]) => Promise<boolean>;
+  beforeContent?:React.ReactNode;
 }
 
 export interface DepartmentConfig {
@@ -192,7 +194,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   settings,
   members,
   onMoveToPantry,
-  onSendToTelegram
+  onSendToTelegram,
+  beforeContent
 }) => {
   const { familyId, user } = useAuth();
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
@@ -839,7 +842,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-stone-100 font-sans p-6 lg:p-8">
+    <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 min-w-0 w-full h-full overflow-y-auto overscroll-y-contain bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-stone-100 font-sans p-6 lg:p-8">
       <div className="terra-shopping-layout w-full max-w-[1280px] mx-auto flex flex-col gap-5 pb-8">
         
         {/* Top Header & Summary */}
@@ -905,7 +908,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
               <button 
                 onClick={() => openAddModal()}
-                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3D694B] text-white text-sm font-semibold transition  cursor-pointer group"
+                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] text-sm font-semibold transition  cursor-pointer group"
               >
                 <Plus size={19} strokeWidth={2.5} className="" />
                 <span>Добавить товар</span>
@@ -971,7 +974,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                   <button 
                     type="submit"
                     disabled={!quickInputText.trim() || isSubmittingQuick}
-                    className="absolute right-1 min-h-[44px] min-w-[44px] bg-[#4A7C59] hover:bg-[#3D694B] text-white rounded-lg transition disabled:opacity-40 cursor-pointer   flex items-center justify-center shrink-0"
+                    className="absolute right-1 min-h-[44px] min-w-[44px] bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] rounded-lg transition disabled:opacity-40 cursor-pointer   flex items-center justify-center shrink-0"
                     title="Добавить в список" aria-label="Добавить товары в общий список"
                   >
                     <Plus size={16} strokeWidth={2.5} />
@@ -1021,14 +1024,15 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     </div>
                   </div>
 
-                  {/* Department Item Rows */}
-                  <div className="flex flex-col gap-2">
+                  {beforeContent}
+            {/* Department Item Rows */}
+                  <div className="rounded-2xl border border-[var(--terra-border)] bg-[var(--terra-surface)] divide-y divide-[var(--terra-border)]">
                     {deptItems.map((item, itemIdx) => {
                       return (
                         <div 
                           key={item.id ? `desk-item-${item.id}` : `desk-item-idx-${dept.id}-${itemIdx}`}
                           onClick={() => openEditModal(item)}
-                          className="group relative flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[var(--terra-surface)] rounded-xl border border-[var(--terra-border)] transition-colors cursor-pointer hover:border-primary"
+                          data-terra-shopping-item data-shopping-id={item.id} className="group relative flex flex-wrap items-center justify-between gap-2 p-2.5 transition-colors cursor-pointer hover:bg-[var(--terra-soft)]"
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             {/* Custom checkmark */}
@@ -1053,7 +1057,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                 <button type="button"
                                   onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
                                   aria-label={`Редактировать товар: ${item.title}`}
-                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white break-words rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white break-words rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                                   {item.title}
                                 </button>
                                 {item.priority === 'high' && (
@@ -1062,6 +1066,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                                   </span>
                                 )}
                               </div>
+                              {members.find(member=>member.id===item.memberId)&&<span className="text-xs text-[var(--terra-muted)] break-words">{members.find(member=>member.id===item.memberId)?.name}</span>}
+                              {item.note&&<span className="text-xs text-[var(--terra-muted)] break-words">{item.note}</span>}
                             </div>
                           </div>
 
@@ -1071,7 +1077,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
                                 aria-label={`Уменьшить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 -
                               </button>
@@ -1081,7 +1087,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
                                 aria-label={`Увеличить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 +
                               </button>
@@ -1090,7 +1096,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                             <button 
                               onClick={(e) => handleDeleteItem(e, item.id)}
                               aria-label={`Удалить товар: ${item.title}`}
-                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-muted)] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-muted)] hover:text-[#B83230] hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               title="Удалить товар"
                             >
                               <Trash2 size={17} />
@@ -1118,7 +1124,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
             {completedItems.length > 0 && (
               <section className="mt-4 bg-[#F5F1EA]/80 dark:bg-stone-900/60 rounded-2xl p-4 flex flex-col gap-3 border border-[var(--terra-border)] dark:border-white/5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button type="button" aria-expanded={isPurchasedOpen} aria-controls="desktop-completed-shopping-items" onClick={() => setIsPurchasedOpen(prev => !prev)} className="min-h-[44px] flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <button type="button" aria-expanded={isPurchasedOpen} aria-controls="desktop-completed-shopping-items" onClick={() => setIsPurchasedOpen(prev => !prev)} className="min-h-[44px] flex items-center gap-2 text-[var(--terra-muted)] dark:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                     <ChevronDown size={18} className={`transition-transform duration-200 ${isPurchasedOpen ? 'rotate-180' : ''}`} />
                     <span className="font-headline font-semibold text-sm">Куплено</span>
                     <span className="px-2 py-0.5 rounded-full bg-[var(--terra-soft)] dark:bg-stone-800 text-xs font-bold text-[var(--terra-primary)] dark:text-emerald-400">
@@ -1154,28 +1160,29 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     {completedItems.map((item, compIdx) => (
                       <div 
                         key={item.id ? `desk-comp-${item.id}` : `desk-comp-idx-${compIdx}`}
-                        className="flex items-center justify-between px-1 py-2"
+                        className="flex flex-wrap items-center justify-between gap-2 px-1 py-2"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <button 
                             onClick={() => handleToggleComplete(item)}
                             aria-label={`Вернуть в список: ${item.title}`}
-                            className="min-w-[44px] min-h-[44px] rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition focus-visible:ring-2 focus-visible:ring-primary"
+                            className="min-w-[44px] min-h-[44px] rounded-md bg-[#4A7C59] text-white flex items-center justify-center cursor-pointer hover:bg-rose-500 transition focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                             title="Вернуть в список"
                           >
                             <Check size={13} strokeWidth={3} />
                           </button>
-                          <span className="line-through text-xs font-medium text-[var(--terra-ink)] dark:text-stone-300">
+                          <span className="line-through text-sm font-medium text-[var(--terra-muted)] break-words [overflow-wrap:anywhere]">
                             {item.title}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-3 text-xs text-[var(--terra-muted)]">
                           <span>{item.amount || '1'} {item.unit || 'шт'}</span>
+                          <ShoppingPantryTransferButton item={item} onMoveToPantry={onMoveToPantry}/>
                           <button 
                             onClick={(e) => handleDeleteItem(e, item.id)}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-stone-400 hover:text-red-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
-                            title="Удалить навсегда"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-stone-400 hover:text-red-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                            title="Удалить навсегда" aria-label={`Удалить товар: ${item.title}`}
                           >
                             <Trash2 size={14} />
                           </button>

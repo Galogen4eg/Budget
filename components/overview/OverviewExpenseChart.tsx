@@ -58,12 +58,12 @@ export function OverviewExpenseChart({
       {privacyMode ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
         !hasExpenses ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 0}} accessibilityLayer={false}
+          <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 4}} accessibilityLayer={false}
             onClick={selectFromChart} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
               tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} />
-            <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={mobile ? 39 : 52}
+            <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={80}
               tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} tickFormatter={axisAmount} />
             {limit > 0 && <ReferenceLine y={limit} stroke="var(--terra-offline-text)" strokeDasharray="4 4" />}
             <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.55}}

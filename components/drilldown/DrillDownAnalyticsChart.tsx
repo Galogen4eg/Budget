@@ -231,10 +231,10 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
       </div>
       <div className="terra-overview-chart-plot w-full min-w-0" data-testid="drilldown-chart">
         {chartHasValues?<ResponsiveContainer width="100%" height="100%">
-          <BarChart data={aggregatedChartData.list} margin={{top:8,right:8,left:0,bottom:4}} barCategoryGap="18%" accessibilityLayer={false}>
+          <BarChart data={aggregatedChartData.list} margin={{top:8,right:8,left:4,bottom:4}} barCategoryGap="18%" accessibilityLayer={false}>
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3"/>
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={18} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
-            <YAxis domain={[0,chartMax]} width={52} axisLine={false} tickLine={false} tickFormatter={axisAmount} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
+            <YAxis domain={[0,chartMax]} width={80} axisLine={false} tickLine={false} tickFormatter={axisAmount} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
             <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.5}} content={({active,payload})=>{
               if(!active||!payload?.length)return null;
               const item=payload[0].payload as {label:string;expense:number;income:number};

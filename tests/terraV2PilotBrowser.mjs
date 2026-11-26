@@ -16,11 +16,12 @@ async function noOverflow(locator,label){
  assert.ok(await locator.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+' horizontal overflow');
 }
 async function axisFits(locator,label){
- await locator.locator('.recharts-yAxis .recharts-cartesian-axis-tick-value').first().waitFor({state:'visible'});
+ try{await locator.locator('[data-terra-money-tick]').first().waitFor({state:'visible',timeout:10000});}
+ catch(error){console.error('TERRA axis diagnostic '+label+' '+JSON.stringify(await locator.evaluate(el=>({text:el.textContent?.slice(0,200),svg:[...el.querySelectorAll('svg')].map(svg=>({class:svg.getAttribute('class'),text:svg.textContent?.slice(0,200)})),rect:el.getBoundingClientRect().toJSON()}))));throw error;}
  const bounds=await locator.evaluate(plot=>{
-  const svg=plot.querySelector('svg.recharts-surface');
+  const svg=plot.querySelector('[data-terra-money-tick]').ownerSVGElement;
   const box=svg.getBoundingClientRect();
-  const ticks=Array.from(svg.querySelectorAll('.recharts-yAxis .recharts-cartesian-axis-tick-value'));
+  const ticks=Array.from(svg.querySelectorAll('[data-terra-money-tick]'));
   return {count:ticks.length,clipped:ticks.map(tick=>({text:tick.textContent,rect:tick.getBoundingClientRect().toJSON()})).filter(tick=>tick.rect.left<box.left-.5||tick.rect.right>box.right+.5||tick.rect.top<box.top-.5||tick.rect.bottom>box.bottom+.5)};
  });
  assert.ok(bounds.count>=2,label+' missing Y-axis ticks');

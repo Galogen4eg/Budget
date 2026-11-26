@@ -32,9 +32,8 @@ export const ShoppingList: React.FC<ShoppingListProps> = (props) => {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      {isDesktop&&<ShoppingQuickListsPanel items={props.items} members={props.members} />}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {isDesktop ? <ShoppingListDesktop {...props}/> : <ShoppingListMobile {...props} beforeContent={<ShoppingQuickListsPanel items={props.items} members={props.members}/>}/>}
+        {isDesktop ? <ShoppingListDesktop {...props} beforeContent={<ShoppingQuickListsPanel items={props.items} members={props.members}/>}/> : <ShoppingListMobile {...props} beforeContent={<ShoppingQuickListsPanel items={props.items} members={props.members}/>}/>}
       </div>
     </div>
   );

@@ -85,3 +85,7 @@ html.dark {
 .terra-overview-chart-plot {height:208px;}
 @media(min-width:768px){.terra-overview-chart-plot{height:248px;}}
 @media(min-width:1024px){.terra-overview-chart-plot{height:264px;}}
+
+/* Chart toolbars fit available content, not the outer window; narrow cards keep full-width scrollable rails. */
+.terra-chart-toolbar{container-type:inline-size;}
+@container (min-width:560px){.terra-chart-toolbar>.terra-chart-rail{width:auto;max-width:100%;}}

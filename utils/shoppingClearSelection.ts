@@ -1,4 +1,4 @@
-type Row = {id:string;completed:boolean};
+type Row = {id:string;completed?:boolean};
 
 /** A destructive confirmation must name the same completed rows the user saw. */
 export function captureCompletedSelection(rows:readonly Row[]):string[]{

@@ -172,9 +172,10 @@ export default function App() {
   useEffect(()=>{
     if(alfaReviewReady&&familyId&&user?.uid&&!isAuthLoading&&importSourcesReady){
       (window as any).__budgetAlfaReviewProtocol=1;
-    }else delete (window as any).__budgetAlfaReviewProtocol;
-    return ()=>{delete (window as any).__budgetAlfaReviewProtocol;};
-  },[alfaReviewReady,familyId,user?.uid,isAuthLoading,importSourcesReady]);
+      (window as any).__budgetAlfaReviewScope=tabScope;
+    }else {delete (window as any).__budgetAlfaReviewProtocol;delete (window as any).__budgetAlfaReviewScope;}
+    return ()=>{delete (window as any).__budgetAlfaReviewProtocol;delete (window as any).__budgetAlfaReviewScope;};
+  },[tabScope,alfaReviewReady,familyId,user?.uid,isAuthLoading,importSourcesReady]);
   useEffect(()=>{
     if(!alfaReviewReady||!familyId||!user?.uid||!importSourcesReady||!settingsReady)return;
     const uid=user.uid,scope=tabScope;
@@ -184,7 +185,7 @@ export default function App() {
       if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid||(window as any).__budgetAlfaReviewRun!==true)throw new Error('ALFA_REVIEW_AUTH');
       if(!summary||![summary.created,summary.existing,summary.unverified,summary.deferred].every(n=>Number.isSafeInteger(n)&&n>=0))throw new Error('ALFA_REVIEW_SUMMARY');
       sent=true;
-      const pending=await readAlfaReviewCount(familyId,uid);
+      const pending=await readAlfaReviewCount(familyId,uid,resolveImportMemberId(members,uid));
       if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');
       if(!pending&&!summary.unverified&&!summary.deferred)return {status:'not-needed',pending};
       const text='Budget · Импорт Альфа-Банка\n\nДобавлено: '+summary.created+' операций.\nСовпадений с сохранёнными: '+summary.existing+'.\nНа разбор: '+pending+'.'+(summary.unverified?'\nСтрок без подтверждения: '+summary.unverified+'.':'')+(summary.deferred?'\nВыписок с ошибкой: '+summary.deferred+'.':'')+'\n\nОткройте Budget: https://budget-omega-jade.vercel.app/';
@@ -193,7 +194,7 @@ export default function App() {
     };
     (window as any).__budgetAlfaReviewFinish=finish;
     return ()=>{if((window as any).__budgetAlfaReviewFinish===finish)delete (window as any).__budgetAlfaReviewFinish;};
-  },[tabScope,alfaReviewReady,familyId,user?.uid,importSourcesReady,settingsReady,settings.telegramBotToken,settings.telegramChatId,settings.telegramApiUrl]);
+  },[tabScope,alfaReviewReady,familyId,user?.uid,importSourcesReady,settingsReady,settings.telegramBotToken,settings.telegramChatId,settings.telegramApiUrl,members]);
   const [tabVisits,setTabVisits]=useState<import('./utils/tabLifecycle').TabVisits>(()=>({scope:tabScope,tabs:['overview']}));
   useEffect(()=>{
     if(!isAuthLoading&&user)setTabVisits(previous=>rememberTabVisit(previous,tabScope,activeTab));

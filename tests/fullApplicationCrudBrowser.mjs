@@ -2,7 +2,8 @@ import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/r
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
+import * as XLSX from 'xlsx';
 import {chromium} from 'playwright';
 import {initializeApp,deleteApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
@@ -191,6 +192,75 @@ const openEvent=async(p,title)=>{
  const row=p.viewportSize().width<1024?btn(panel(p,'plans'),'Открыть событие: '+title):btn(panel(p,'plans'),new RegExp('^(?:Открыть событие: )?'+title+'(?:,|$|\\s)'),false);await row.click();
  await eventDialog(p).waitFor({state:'visible'});
 };
+await scenario('ALFA partial import, replay, mobile review action and persistence',async()=>{
+ phase='wait for review capability';
+ const owner=users[0],inbox=family.collection('members').doc(owner.uid).collection('alfaReview');
+ await a.waitForFunction(()=>window.__budgetAlfaReviewProtocol===1&&typeof window.__budgetAlfaReviewFinish==='function',null,{timeout:60000});
+ const makeFile=(data)=>{
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Дата','Сумма','Тип','Описание','MCC код','Категория'],...data]),'QA');
+  return XLSX.write(wb,{type:'buffer',bookType:'xlsx'});
+ };
+ const date='2026-11-25 12:34:56';
+ const xlsx=makeFile([[date,'12.34','Расход','QA продукты','5411','Продукты'],[date,'23.45','Расход','ZZQXVJ7U3','9999','']]);
+ const send=async(buffer)=>{
+  const sha=createHash('sha256').update(buffer).digest('hex');
+  await a.evaluate(sha=>{
+   window.__budgetAlfaReviewRun=true;
+   window.__qaReviewOutcome=null;
+   window.addEventListener('budget:import-review-result',e=>{window.__qaReviewOutcome={kind:'result',detail:e.detail}},{once:true});
+   window.addEventListener('budget:import-review-error',e=>{window.__qaReviewOutcome={kind:'error',detail:e.detail}},{once:true});
+   window.__budgetAlfaReviewRequest={fileSha256:sha,scope:window.__budgetAlfaReviewScope};
+  },sha);
+  await a.locator('#import-input').setInputFiles({name:'alfa_qa.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer});
+  await a.waitForFunction(()=>window.__qaReviewOutcome,null,{timeout:90000});
+  const result=await a.evaluate(()=>window.__qaReviewOutcome);
+  assert.equal(result.kind,'result',JSON.stringify(result));assert.equal(result.detail.fileSha256,sha);
+  assert.equal(await a.evaluate(()=>window.__budgetAlfaReviewRequest),undefined);
+  return result.detail;
+ };
+ phase='mixed XLSX';
+ const first=await send(xlsx);
+ assert.deepEqual([first.requested,first.created,first.existing,first.queued,first.unverified],[2,1,0,1,0]);
+ const pending=await inbox.get();assert.equal(pending.size,1);
+ const item=pending.docs[0];assert.equal(item.data().row.amount,23.45);
+ assert.equal((await rows.doc(item.id).get()).exists,false,'pending row must not enter transactions');
+ const saved=await rows.where('rawNote','==','QA продукты').get();assert.equal(saved.size,1);assert.equal(saved.docs[0].data().amount,12.34);
+ phase='replay';
+ await reset(a);await a.waitForFunction(()=>window.__budgetAlfaReviewProtocol===1);
+ const repeat=await send(xlsx);
+ assert.deepEqual([repeat.requested,repeat.created,repeat.existing,repeat.queued,repeat.unverified],[2,0,1,1,0]);
+ assert.equal((await inbox.get()).size,1);assert.equal((await rows.where('rawNote','==','QA продукты').get()).size,1);
+ phase='review after reload';
+ await reset(a);await a.waitForFunction(()=>window.__budgetAlfaReviewProtocol===1);
+ const action=a.getByTestId('alfa-review-open');
+ await action.waitFor({state:'visible',timeout:20000});assert.match(await action.textContent(),/На разбор: 1/);
+ assert.equal(await b.getByTestId('alfa-review-open').count(),0);
+ await action.click();
+ const dialog=a.getByRole('dialog',{name:'Операции на разбор',exact:true});await dialog.waitFor({state:'visible'});
+ await btn(dialog,'Выбрать категорию').click();
+ await dialog.getByPlaceholder('Поиск категории или подкатегории...').fill('Продукты');
+ await btn(dialog,'Продукты').click();
+ await btn(dialog,'Импортировать все (1)').click();
+ await dialog.waitFor({state:'hidden',timeout:30000});
+ const resolved=await currentDoc(rows.doc(item.id),x=>x.exists,'resolved bank transaction');
+ assert.equal(resolved.data().amount,23.45);assert.equal(resolved.data().memberId,'a');assert.equal(resolved.data().category,'food');
+ await currentDoc(item.ref,x=>!x.exists,'queue removed only after save');
+ await action.waitFor({state:'hidden'});
+ phase='replay after resolution';
+ await reset(a);await a.waitForFunction(()=>window.__budgetAlfaReviewProtocol===1);
+ const final=await send(xlsx);
+ assert.deepEqual([final.requested,final.created,final.existing,final.queued,final.unverified],[2,0,2,0,0]);
+ assert.equal((await inbox.get()).size,0);
+ phase='defer savings';
+ const saving=await send(makeFile([[date,'34.56','Расход','Перевод на накопительный счет','','']]));
+ assert.deepEqual([saving.requested,saving.created,saving.existing,saving.queued,saving.unverified],[1,0,0,1,0]);
+ const transfers=await inbox.get();assert.equal(transfers.size,1);assert.equal(transfers.docs[0].data().reason,'savings');
+ assert.equal((await rows.doc(transfers.docs[0].id).get()).exists,false);
+ // Emulator-only cleanup, no real data touched. Leave finance state unchanged for other tests.
+ await transfers.docs[0].ref.delete();await rows.doc(item.id).delete();await saved.docs[0].ref.delete();
+ console.log('PASS ALFA review end to end; no duplicate, manual resolution, savings deferred');
+});
 await scenario('PLN-03/04/06 event create, cross-user edit, checklist, delete',async()=>{
  await nav(b,'plans','Планы');
  await btn(panel(b,'plans'),'День').click();

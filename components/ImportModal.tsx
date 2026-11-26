@@ -34,6 +34,7 @@ import type { AlfaParseReport } from '../utils/alfaRowValidation';
 
 interface ImportModalProps {
   report?: AlfaParseReport|null;
+  reviewMode?: boolean;
   preview: Omit<Transaction, 'id'>[];
   onConfirm: (items?: Omit<Transaction, 'id'>[]) => Promise<boolean>;
   onCancel: () => void;
@@ -78,7 +79,7 @@ function extractAccountMask(text?: string): string | undefined {
 }
 
 export const ImportModal: React.FC<ImportModalProps> = ({ 
-  preview, report,
+  preview, report, reviewMode=false,
   onConfirm, 
   onCancel, 
   settings, 
@@ -622,7 +623,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 id="modal-headline" className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white tracking-tight font-headline">
-                    Проверка выписки
+                    {reviewMode?'Операции на разбор':'Проверка выписки'}
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full bg-[#E5ECE9] dark:bg-primary/30 text-[#2A4C34] dark:text-green-300 text-xs font-bold">
                     {items.length} {items.length === 1 ? 'операция' : 'операций'}

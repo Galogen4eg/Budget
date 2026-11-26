@@ -52,6 +52,9 @@ const PinScreen = React.lazy(() => import('./components/PinScreen'));
 const NotificationsModal = React.lazy(() => import('./components/NotificationsModal'));
 
 import { parseAlfaStatement } from './utils/alfaParser';
+import { isAlfaOperationDuplicate } from './utils/alfaDuplicates';
+import { planAlfaReview, assertAlfaReviewResult, type AlfaReviewEntry } from './utils/alfaReviewPlan';
+import { subscribeAlfaReview, stageAlfaReview, verifyAlfaReview, removeSavedAlfaReview, readAlfaReviewCount } from './utils/alfaReviewStore';
 import { AlfaStatementRowsError, type AlfaParseReport } from './utils/alfaRowValidation';
 import { isCategoryForType } from './utils/categoryCatalog';
 import { useTelegramSync } from './hooks/useTelegramSync';
@@ -148,6 +151,50 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('overview');
   const tabScope=JSON.stringify([user?.uid??null,familyId??null]);
+  const alfaScopeRef=useRef(tabScope);alfaScopeRef.current=tabScope;
+  const [alfaReviewState,setAlfaReviewState]=useState<{scope:string;status:'ready'|'error';rows:AlfaReviewEntry[]}|null>(null);
+  const alfaReviewReady=alfaReviewState?.scope===tabScope&&alfaReviewState.status==='ready';
+  const alfaReviewEntries=alfaReviewReady?alfaReviewState.rows:[];
+  const pendingAlfaReview=useMemo(()=>{
+    const saved=new Set(transactions.map(t=>t.id));
+    return alfaReviewEntries.filter(entry=>!saved.has(entry.id));
+  },[alfaReviewEntries,transactions]);
+  useEffect(()=>{
+    if(!familyId||!user?.uid||isAuthLoading)return;
+    let active=true;
+    const unsubscribe=subscribeAlfaReview(familyId,user.uid,
+      rows=>{if(active)setAlfaReviewState({scope:tabScope,status:'ready',rows});},
+      ()=>{if(active)setAlfaReviewState({scope:tabScope,status:'error',rows:[]});});
+    return ()=>{active=false;unsubscribe();};
+  },[tabScope,familyId,user?.uid,isAuthLoading]);
+  // Protocol 2 stays compatible with the existing importer. The new capability
+  // is advertised only after a confirmed server read under the deployed rules.
+  useEffect(()=>{
+    if(alfaReviewReady&&familyId&&user?.uid&&!isAuthLoading&&importSourcesReady){
+      (window as any).__budgetAlfaReviewProtocol=1;
+      (window as any).__budgetAlfaReviewScope=tabScope;
+    }else {delete (window as any).__budgetAlfaReviewProtocol;delete (window as any).__budgetAlfaReviewScope;}
+    return ()=>{delete (window as any).__budgetAlfaReviewProtocol;delete (window as any).__budgetAlfaReviewScope;};
+  },[tabScope,alfaReviewReady,familyId,user?.uid,isAuthLoading,importSourcesReady]);
+  useEffect(()=>{
+    if(!alfaReviewReady||!familyId||!user?.uid||!importSourcesReady||!settingsReady)return;
+    const uid=user.uid,scope=tabScope;
+    let sent=false;
+    const finish=async(summary:{created:number;existing:number;unverified:number;deferred:number})=>{
+      if(sent)return {status:'already-called'};
+      if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid||(window as any).__budgetAlfaReviewRun!==true)throw new Error('ALFA_REVIEW_AUTH');
+      if(!summary||![summary.created,summary.existing,summary.unverified,summary.deferred].every(n=>Number.isSafeInteger(n)&&n>=0))throw new Error('ALFA_REVIEW_SUMMARY');
+      sent=true;
+      const pending=await readAlfaReviewCount(familyId,uid,resolveImportMemberId(members,uid));
+      if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');
+      if(!pending&&!summary.unverified&&!summary.deferred)return {status:'not-needed',pending};
+      const text='Budget · Импорт Альфа-Банка\n\nДобавлено: '+summary.created+' операций.\nСовпадений с сохранёнными: '+summary.existing+'.\nНа разбор: '+pending+'.'+(summary.unverified?'\nСтрок без подтверждения: '+summary.unverified+'.':'')+(summary.deferred?'\nВыписок с ошибкой: '+summary.deferred+'.':'')+'\n\nОткройте Budget: https://budget-omega-jade.vercel.app/';
+      const result=await dispatchTelegramMessage({config:{botToken:settings.telegramBotToken,chatId:settings.telegramChatId,apiUrl:settings.telegramApiUrl},text});
+      return {status:result.success?'sent':'failed',pending};
+    };
+    (window as any).__budgetAlfaReviewFinish=finish;
+    return ()=>{if((window as any).__budgetAlfaReviewFinish===finish)delete (window as any).__budgetAlfaReviewFinish;};
+  },[tabScope,alfaReviewReady,familyId,user?.uid,importSourcesReady,settingsReady,settings.telegramBotToken,settings.telegramChatId,settings.telegramApiUrl,members]);
   const [tabVisits,setTabVisits]=useState<import('./utils/tabLifecycle').TabVisits>(()=>({scope:tabScope,tabs:['overview']}));
   useEffect(()=>{
     if(!isAuthLoading&&user)setTabVisits(previous=>rememberTabVisit(previous,tabScope,activeTab));
@@ -202,6 +249,17 @@ export default function App() {
   const [editingGoal, setEditingGoal] = useState<any>(null);
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
+  const [alfaReviewOpen,setAlfaReviewOpen]=useState(false);
+  const openAlfaReview=()=>{
+    if(!alfaReviewReady||!importSourcesReady||importingRef.current||importPreview||!pendingAlfaReview.length)return;
+    try{
+      const memberId=resolveImportMemberId(members,user?.uid);
+      if(pendingAlfaReview.some(entry=>entry.row.memberId!==memberId))throw new Error('Владелец операции изменился. Требуется проверка профиля.');
+      importFileRef.current=null;importFileDigestRef.current=null;
+      setImportReport(null);setImportIssue(null);setAlfaReviewOpen(true);
+      setImportPreview(pendingAlfaReview.map(entry=>entry.row));
+    }catch(error){toast.error(error instanceof Error?error.message:'Не удалось открыть очередь разбора');}
+  };
   const [isImporting, setIsImporting] = useState(false);
   const [importReport,setImportReport]=useState<AlfaParseReport|null>(null);
   const [importIssue,setImportIssue]=useState<AlfaParseReport|null>(null);
@@ -214,7 +272,7 @@ export default function App() {
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   useEffect(()=>{
-    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
   },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(()=>typeof window==='undefined'||window.innerWidth>=1024);
   
@@ -483,18 +541,54 @@ export default function App() {
 
   const handleImport = async (file: File) => {
     if(importingRef.current||importPreview)return;
-    setImportReport(null);setImportIssue(null);
+    setImportReport(null);setImportIssue(null);setAlfaReviewOpen(false);
+    // Consume a one-file opt-in before any await. A stale browser session must not auto-confirm a later manual upload.
+    const reviewRequest=(window as any).__budgetAlfaReviewRequest;
+    delete (window as any).__budgetAlfaReviewRequest;
+    let reviewWriteStarted=false;
     importingRef.current=true;
     setIsImporting(true);
     importFileDigestRef.current = null;
     importFileRef.current = file;
     try {
         const memberId = resolveImportMemberId(members, user?.uid);
+        if(reviewRequest!==undefined){
+          if(!alfaReviewReady||!importSourcesReady||!familyId||!user?.uid)throw new Error('ALFA_REVIEW_NOT_READY');
+          const uid=user.uid,scope=tabScope;
+          const assertScope=()=>{if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');};
+          const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
+          const fileSha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+          if((window as any).__budgetAlfaReviewRun!==true||reviewRequest?.fileSha256!==fileSha256||reviewRequest?.scope!==scope)throw new Error('ALFA_REVIEW_FILE_MISMATCH');
+          const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport);
+          const plan=planAlfaReview(allRows,categories,memberId);
+          assertScope();
+          // Preserve legacy duplicate detection. Do not turn approximate matches into
+          // confirmed server IDs or create replacements merely to acknowledge a file.
+          const candidates=plan.filter(({row})=>!isAlfaOperationDuplicate(transactions,row));
+          reviewWriteStarted=true;
+          const created=await stageAlfaReview(familyId,uid,memberId,candidates,assertScope);
+          assertScope();
+          const result={...await verifyAlfaReview(familyId,uid,memberId,allRows.map(row=>row.id),new Set(created.map(row=>row.id)),assertScope),fileSha256};
+          assertScope();assertAlfaReviewResult(result,fileSha256);
+          setTransactions(prev=>[...created.filter(row=>!prev.some(saved=>saved.id===row.id)),...prev]);
+          window.dispatchEvent(new CustomEvent('budget:import-review-result',{detail:result}));
+          // The old cleanup ACK is still reserved for fully saved statements.
+          if(!result.queued&&!result.unverified)window.dispatchEvent(new CustomEvent('budget:import-committed',{detail:{count:result.created,requested:result.requested,fileSha256}}));
+          return;
+        }
         const data = await parseAlfaStatement(file, settings.alfaMapping, memberId, learnedRules, categories, transactions,setImportReport);
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
     } catch (err: any) {
+        if(reviewRequest!==undefined){
+          const message=err instanceof Error?err.message:'';
+          const code=reviewWriteStarted?'WRITE_UNVERIFIED':err instanceof AlfaStatementRowsError?'PARSE_ROWS':message==='Новых уникальных операций не найдено.'?'EMPTY_STATEMENT':message.startsWith('Неизвестное или неоднозначное значение столбца')||message.startsWith('Не удалось определить направление операции')?'DIRECTION':message==='Не удалось прочитать файл'?'READ_ERROR':'IMPORT_BLOCKED';
+          window.dispatchEvent(new CustomEvent('budget:import-review-error',{detail:{fileSha256:reviewRequest?.fileSha256,code}}));
+          if(err instanceof AlfaStatementRowsError)setImportIssue(err.report);
+          else toast.error('Автоимпорт остановлен. XLSX сохранён. '+code);
+          return;
+        }
         if(err instanceof AlfaStatementRowsError){setImportIssue(err.report);return;}
         if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
           try {
@@ -1010,6 +1104,7 @@ export default function App() {
           <p>Строк операций: {importIssue.operationRows}. Ошибок: {importIssue.errors.length}. Исправьте файл и загрузите снова. Исходная выписка не подтверждена для удаления.</p>
           <ul className="mt-2 list-disc pl-5">{importIssue.errors.map((issue,index)=><li key={index}>{issue.sheet}, строка {issue.row}: {issue.reason}</li>)}</ul>
         </section>}
+        {(activeTab==='overview'||activeTab==='budget')&&pendingAlfaReview.length>0&&<section className="shrink-0 px-4 py-2 border-b border-[var(--terra-border)] bg-[var(--terra-surface)]" aria-label="Операции на разбор"><button type="button" data-testid="alfa-review-open" disabled={!importSourcesReady||isImporting||!!importPreview} onClick={openAlfaReview} className="inline-flex max-w-full min-h-[44px] items-center justify-between gap-3 px-3 rounded-xl bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)] text-sm font-semibold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"><span>На разбор: {pendingAlfaReview.length}</span><span aria-hidden="true">›</span></button></section>}
         {isImporting&&<div role="status" className="shrink-0 px-4 py-2 text-sm bg-[var(--terra-pending-soft)] text-[var(--terra-pending-text)]">Чтение выписки…</div>}
         <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden">
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
@@ -1278,8 +1373,8 @@ export default function App() {
             {importPreview && (
               <ImportModal 
                 key="import-modal"
-                preview={importPreview} report={importReport} 
-                onCancel={() => setImportPreview(null)} 
+                preview={importPreview} report={importReport} reviewMode={alfaReviewOpen}
+                onCancel={() => {setImportPreview(null);setAlfaReviewOpen(false);}} 
                 onConfirm={async (finalItems) => {
                   try {
                     const itemsToImport = finalItems || importPreview;
@@ -1292,6 +1387,9 @@ export default function App() {
                     const importMemberId = resolveImportMemberId(members, user?.uid);
                     assertImportRowsBelongToMember(itemsToImport, importMemberId);
                     assertImportBatchReady(itemsToImport, categories, importMemberId);
+                    if(alfaReviewOpen){
+                      if(!alfaReviewReady||!user?.uid||itemsToImport.some(item=>!pendingAlfaReview.some(entry=>entry.id===(item as Transaction).id)))throw new Error('Очередь изменилась. Откройте её заново.');
+                    }
                     const prepared: Transaction[] = itemsToImport.map(item => {
                       const { tempId, isVerified, rememberRule, mcc, accountMask, ...clean } = item as any;
                       const rawNum = Number(clean.amount);
@@ -1306,7 +1404,7 @@ export default function App() {
                     });
 
                     // Savings transfers have side effects on goals; never process them unattended.
-                    const unattended = window.sessionStorage.getItem('alfaSyncUnattended') === '1';
+                    const unattended = !alfaReviewOpen && window.sessionStorage.getItem('alfaSyncUnattended') === '1';
                     if (unattended && prepared.some(t => isSavingsTransfer(t))) {
                       throw new Error('Найдены переводы в накопления: требуется ручная проверка.');
                     }
@@ -1337,7 +1435,14 @@ export default function App() {
                       if(await addImportedSavingsItemIdempotent(familyId,row,goal))created.push(row);
                     }
                     const totalImportedSavings=created.reduce((sum,t)=>sum+savingsContributionKopecks(t),0)/100;
-                    setImportPreview(null);
+                    // A cleanup failure never rolls back or repeats a successful financial write.
+                    const queuedIds=new Set(alfaReviewEntries.map(entry=>entry.id));
+                    const resolved=prepared.filter(row=>queuedIds.has(row.id)).map(row=>row.id);
+                    if(resolved.length&&user?.uid){
+                      try{await removeSavedAlfaReview(familyId,user.uid,importMemberId,resolved);}
+                      catch{toast.warning('Операции сохранены; не удалось обновить очередь разбора.');}
+                    }
+                    setAlfaReviewOpen(false);setImportPreview(null);
                     setTransactions(prev=>[...created.filter(t=>!prev.some(ex=>ex.id===t.id)),...prev]);
                     if (created.length === 0) toast.info('Все операции уже сохранены');
                     else if (totalImportedSavings !== 0) toast.success(

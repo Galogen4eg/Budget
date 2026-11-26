@@ -66,6 +66,27 @@ service cloud.firestore {
             && !existsAfter(invitationPath()));
         allow delete: if owner(fid) && joint(fid) && resource.data.get('userId',null) == null
           && resource.data.get('isAdmin',false) == false && resource.data.get('email',null) == null;
+        // Bank review inbox is private to the authenticated account, in either budget policy.
+        // A queued operation can be removed only after its matching transaction is saved.
+        match /alfaReview/{operationId} {
+          allow read: if member(fid) && pid == request.auth.uid;
+          allow create: if member(fid) && pid == request.auth.uid
+            && operationId.matches('alfa_[a-f0-9]{40}')
+            && request.resource.data.keys().hasOnly(['id','row','reason','createdAt'])
+            && request.resource.data.id == operationId
+            && request.resource.data.row.id == operationId
+            && request.resource.data.reason in ['category','savings']
+            && request.resource.data.createdAt is string
+            && request.resource.data.row.keys().hasOnly(['id','memberId','type','amount','date','note','category','rawNote','payee','subcategory'])
+            && request.resource.data.row.type in ['income','expense']
+            && request.resource.data.row.amount is number && request.resource.data.row.amount > 0
+            && request.resource.data.row.date is string && request.resource.data.row.note is string
+            && request.resource.data.row.category is string
+            && owns(fid,request.resource.data.row);
+          allow delete: if member(fid) && pid == request.auth.uid
+            && owns(fid,resource.data.row)
+            && getAfter(/databases/$(database)/documents/families/$(fid)/transactions/$(operationId)).data.memberId == resource.data.row.memberId;
+        }
         match /{privateKind}/{recordId} {
           allow read, write: if member(fid) && pid == request.auth.uid && !joint(fid) && privateKind in ['rules','knowledge'];
         }

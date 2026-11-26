@@ -203,22 +203,38 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  };
  const date='2026-11-25 12:34:56';
  const xlsx=makeFile([[date,'12.34','Расход','QA продукты','5411','Продукты'],[date,'23.45','Расход','ZZQXVJ7U3','9999','']]);
- const send=async(buffer)=>{
+ const send=async(buffer,{acceptEmpty=false,expectError=false}={})=>{
   const sha=createHash('sha256').update(buffer).digest('hex');
-  await a.evaluate(sha=>{
+  await a.evaluate(({sha,acceptEmpty})=>{
    window.__budgetAlfaReviewRun=true;
    window.__qaReviewOutcome=null;
    window.addEventListener('budget:import-review-result',e=>{window.__qaReviewOutcome={kind:'result',detail:e.detail}},{once:true});
    window.addEventListener('budget:import-review-error',e=>{window.__qaReviewOutcome={kind:'error',detail:e.detail}},{once:true});
-   window.__budgetAlfaReviewRequest={fileSha256:sha,scope:window.__budgetAlfaReviewScope};
-  },sha);
+   window.__budgetAlfaReviewRequest={fileSha256:sha,scope:window.__budgetAlfaReviewScope,acceptEmpty};
+  },{sha,acceptEmpty});
   await a.locator('#import-input').setInputFiles({name:'alfa_qa.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer});
   await a.waitForFunction(()=>window.__qaReviewOutcome,null,{timeout:90000});
   const result=await a.evaluate(()=>window.__qaReviewOutcome);
-  assert.equal(result.kind,'result',JSON.stringify(result));assert.equal(result.detail.fileSha256,sha);
+  assert.equal(result.kind,expectError?'error':'result',JSON.stringify(result));assert.equal(result.detail.fileSha256,sha);
   assert.equal(await a.evaluate(()=>window.__budgetAlfaReviewRequest),undefined);
   return result.detail;
  };
+ phase='verified empty XLSX';
+ const beforeEmpty=(await rows.get()).size;
+ const empty=await send(makeFile([]),{acceptEmpty:true});
+ assert.deepEqual([empty.requested,empty.created,empty.existing,empty.queued,empty.unverified,empty.emptyVerified],[0,0,0,0,0,true]);
+ assert.equal((await rows.get()).size,beforeEmpty);
+ assert.equal((await inbox.get()).size,0);
+ phase='old client still defers empty';
+ const old=await send(makeFile([]),{expectError:true});
+ assert.equal(old.code,'EMPTY_STATEMENT');
+ phase='unrecognized blank XLSX retained';
+ const blankBook=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(blankBook,XLSX.utils.aoa_to_sheet([['']]),'QA');
+ const blank=await send(XLSX.write(blankBook,{type:'buffer',bookType:'xlsx'}),{acceptEmpty:true,expectError:true});
+ assert.equal(blank.code,'EMPTY_STATEMENT');
+ assert.equal((await rows.get()).size,beforeEmpty);
+ assert.equal((await inbox.get()).size,0);
  phase='mixed XLSX';
  const first=await send(xlsx);
  assert.deepEqual([first.requested,first.created,first.existing,first.queued,first.unverified],[2,1,0,1,0]);

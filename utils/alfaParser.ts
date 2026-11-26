@@ -8,7 +8,7 @@ import { isAlfaOperationDuplicate } from './alfaDuplicates';
 import { analyzeTransaction, matchMerchantBrand } from './analyzerHelper';
 import { isCategoryForType } from './categoryCatalog';
 import { isEligibleForImport } from './importSafety';
-import { newAlfaReport, AlfaStatementRowsError, parseAlfaDate, parseAlfaAmount, rowIsBlank, isAlfaServiceRow, type AlfaParseReport } from './alfaRowValidation';
+import { newAlfaReport, AlfaStatementRowsError, parseAlfaDate, parseAlfaAmount, rowIsBlank, isAlfaServiceRow, isVerifiedEmptyAlfaSheets, type AlfaParseReport } from './alfaRowValidation';
 
 export const parseAlfaStatement = (
   file: File, 
@@ -17,7 +17,8 @@ export const parseAlfaStatement = (
   learnedRules: LearnedRule[] = [],
   categories: Category[],
   existingTransactions: Transaction[] = [],
-  onReport?: (report:AlfaParseReport)=>void
+  onReport?: (report:AlfaParseReport)=>void,
+  allowVerifiedEmpty = false
 ): Promise<Transaction[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -206,6 +207,27 @@ export const parseAlfaStatement = (
         onReport?.(report);
         if(report.errors.length)throw new AlfaStatementRowsError(report);
         if (allParsedTransactions.length === 0) {
+          // A generic no-new-rows error is not proof of an empty statement.
+          // For destructive cleanup, require a real XLSX container, no hidden
+          // formula/error content, the recognized full bank header and zero data rows.
+          const bytes = new Uint8Array(data as ArrayBuffer);
+          if(allowVerifiedEmpty && report.operationRows===0 && report.duplicates===0 &&
+             /\.xlsx$/i.test(file.name) && bytes.length>=4 && bytes[0]===0x50 && bytes[1]===0x4b && bytes[2]===3 && bytes[3]===4){
+            const sheets=workbook.SheetNames.map(name=>workbook.Sheets[name]);
+            const trustworthy=sheets.every(sheet=>Boolean(sheet)&&Object.entries(sheet).every(([address,cell])=>{
+              if(address.startsWith('!'))return true;
+              const c=cell as XLSX.CellObject;
+              if(!c||typeof c!=='object'||c.f!==undefined||c.F!==undefined||c.t==='e'||c.l||c.c)return false;
+              // Do not ignore populated cells outside the declared worksheet range.
+              if(c.v===undefined||c.v===null||c.v==='')return true;
+              if(!sheet['!ref'])return false;
+              const pos=XLSX.utils.decode_cell(address),range=XLSX.utils.decode_range(sheet['!ref']);
+              return pos.r>=range.s.r&&pos.r<=range.e.r&&pos.c>=range.s.c&&pos.c<=range.e.c;
+            }));
+            if(trustworthy&&isVerifiedEmptyAlfaSheets(sheets.map(sheet=>XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,raw:true,defval:''})))){
+              resolve([]);return;
+            }
+          }
           throw new Error("Новых уникальных операций не найдено.");
         }
 

@@ -4,7 +4,7 @@ import { isSavingsTransfer } from './savingsSync.ts';
 export type AlfaReviewReason='category'|'savings';
 export type AlfaReviewPlanRow={row:Transaction;reason:AlfaReviewReason|null};
 export type AlfaReviewEntry={id:string;row:Transaction;reason:AlfaReviewReason;createdAt:string};
-export type AlfaReviewResult={fileSha256:string;requested:number;created:number;existing:number;queued:number;unverified:number};
+export type AlfaReviewResult={fileSha256:string;requested:number;created:number;existing:number;queued:number;unverified:number;emptyVerified?:true};
 type ImportCategory={id:string;transactionType?:'income'|'expense'};
 export function planAlfaReview(rows:readonly Transaction[],categories:readonly ImportCategory[],memberId:string):AlfaReviewPlanRow[]{
  if(!memberId||!rows.length)throw new Error('Invalid import owner or empty statement');
@@ -27,6 +27,6 @@ export function planAlfaReview(rows:readonly Transaction[],categories:readonly I
 export function assertAlfaReviewResult(result:AlfaReviewResult,sha:string):void{
  if(!/^[a-f0-9]{64}$/.test(sha)||result.fileSha256!==sha||
     ![result.requested,result.created,result.existing,result.queued,result.unverified].every(n=>Number.isSafeInteger(n)&&n>=0)||
-    result.requested<1||result.created+result.existing+result.queued+result.unverified!==result.requested)
+    (result.requested===0?result.emptyVerified!==true:result.emptyVerified!==undefined)||result.created+result.existing+result.queued+result.unverified!==result.requested)
   throw new Error('Invalid review result');
 }

@@ -195,11 +195,11 @@ if(process.argv.includes('--navigation')){
   console.log('PASS TERRA category limit invalid input, exact decimal save, other account update and restored ledger');
   await runTerraV2Pilot(b,{settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),transactionsRef:rows});
  }
- const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
+ const result=await runNavigationAudit(b,{captureScreens:true,includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;
  await family.collection('members').doc(users[1].uid).collection('config').doc('settings').set({theme:'dark'},{merge:true});
  await b.waitForFunction(()=>document.documentElement.classList.contains('dark'));
- const dark=await runNavigationAudit(b,{includeInventoryDetails:true,inventoryOnly:true,extraViewports:[[360,800],[375,812],[390,844],[768,1024],[1024,768],[1280,800],[1920,1080]]});
+ const dark=await runNavigationAudit(b,{captureScreens:true,includeInventoryDetails:true,inventoryOnly:true,extraViewports:[[360,800],[375,812],[390,844],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(dark.failures.length)process.exitCode=1;
 }else{
 const failures=[];

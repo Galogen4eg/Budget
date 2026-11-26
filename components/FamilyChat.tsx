@@ -280,7 +280,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       </aside>
 
       {/* RIGHT COLUMN: ACTIVE CHAT FEED (Always visible on desktop md+, toggleable on mobile) */}
-      <section className={`flex-1 flex flex-col h-full bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] min-w-0 relative ${
+      <section className={`flex-1 min-h-0 flex-col h-full bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] min-w-0 relative ${
         mobileView === 'chat' ? 'flex' : 'hidden md:flex'
       }`}>
         

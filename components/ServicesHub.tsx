@@ -94,7 +94,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'receipts', 
       label: 'Чеки ФНС и выписки', 
-      desc: 'Импорт выписок и распознавание чеков', 
+      desc: 'Просмотр реквизитов QR-кода чека', 
       hasAttention: false,
       icon: (
         <ShieldCheck className="w-6 h-6 stroke-[1.8]" />

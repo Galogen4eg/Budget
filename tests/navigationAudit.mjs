@@ -1,5 +1,6 @@
 /** Shared UI scenarios. Caller owns browser, data and network isolation. */
-export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
+import {mkdir} from 'node:fs/promises';
+export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,captureScreens=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
 page.setDefaultTimeout(10000);
 const failures=[],counts=[];
 const first=loc=>loc.filter({visible:true}).first();
@@ -67,6 +68,12 @@ async function inventory(id){
  if(includeInventoryDetails){
   const controls=await panel(id).evaluate(el=>[...el.querySelectorAll('button,a[href],input,select,textarea,[role=button],[role=switch],[role=tab],[role=checkbox]')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').map(e=>({tag:e.tagName.toLowerCase(),role:e.getAttribute('role'),name:(e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.textContent?.trim()||'').replace(/\s+/g,' ').slice(0,120),disabled:!!(e.disabled||e.getAttribute('aria-disabled')==='true'),pressed:e.getAttribute('aria-pressed'),expanded:e.getAttribute('aria-expanded')})));
   console.log('CONTROL INVENTORY '+label+' '+id+' '+JSON.stringify(controls));
+ }
+ if(captureScreens){
+  await page.evaluate(async()=>{await document.fonts.ready;});
+  const theme=await page.evaluate(()=>document.documentElement.classList.contains('dark')?'dark':'light');
+  await mkdir('artifacts/terra-v2-pilot/workspaces',{recursive:true});
+  await page.screenshot({path:'artifacts/terra-v2-pilot/workspaces/'+theme+'-'+label+'-'+id+'.png',animations:'disabled'});
  }
  console.log('INVENTORY '+label+' '+id+' '+JSON.stringify(result));
 }
@@ -157,8 +164,8 @@ async function checkSections(){
   const back=button(p,'К спискам чатов');
   if(mobile()){action='return to chat list';await back.waitFor({state:'visible'});await back.click();}
   action='wait for topic list';await expectVisible(p.getByRole('heading',{name:'Семейные беседы'}));
-  await expectVisible(button(p,'Создать тему'));
-  // Topic creation is deliberately not invoked in the navigation-only suite.
+  if(await p.getByRole('button',{name:'Создать тему',exact:true}).count())throw new Error('Unimplemented topic creation exposed');
+  // Only existing topics are offered.
   const topics=p.getByTestId('chat-topics-scroll-container').getByRole('button');
   if(await topics.count()){
    action='open existing topic';await first(topics).click();
@@ -386,8 +393,9 @@ async function checkButtons(){
  await buttonScenario('CHT-01-create-topic-unavailable',async()=>{
   await nav('chat','Чат');const p=panel('chat');if(mobile())await button(p,'К спискам чатов').click();
   action='check explicit unavailable topic creation';
-  const create=button(p,'Создать тему');await expectVisible(create);check(await create.isDisabled(),'Unimplemented topic creation must be disabled');
-  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'explicitly disabled; topic persistence not implemented'});
+  check(await p.getByRole('button',{name:'Создать тему',exact:true}).count()===0,'Unimplemented topic creation must not be offered');
+  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'not offered; topic persistence not implemented'});
+  if(mobile())await first(p.getByTestId('chat-topics-scroll-container').getByRole('button')).click();
  });
  await buttonScenario('SRV-04-wallet-editor-cancel',async()=>{
   await nav('services','Сервисы');const p=panel('services');action='open wallet';await button(p,/^Карты лояльности/,false).click();

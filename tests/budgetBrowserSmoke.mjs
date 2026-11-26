@@ -158,7 +158,7 @@ try{
      // Exercise the compiled utilities (including arbitrary values and dark variants), not just the presence of a CSS file.
      const compiled=await page.evaluate(()=>{
        const probe=document.createElement('div');
-       probe.className='flex min-h-[44px] rounded-2xl bg-surface text-graphite dark:text-graphite';
+       probe.className='flex min-h-[44px] rounded-2xl bg-[var(--terra-surface)] text-[var(--terra-ink)]';
        document.body.appendChild(probe);
        const style=getComputedStyle(probe);
        const actual={display:style.display,minHeight:style.minHeight,radius:style.borderRadius,background:style.backgroundColor,color:style.color};

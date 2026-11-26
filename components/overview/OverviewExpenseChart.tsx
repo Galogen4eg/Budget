@@ -1,122 +1,96 @@
 import React from 'react';
-import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid 
-} from 'recharts';
-import { AppSettings } from '../../types';
+import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChevronRight } from 'lucide-react';
+import { CHART_TOOLTIP, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, FILTER_RAIL, SECTION_HEADING } from '../filterUiTokens';
 
-interface ChartPoint {
-  date: string;
-  amount: number;
-  label?: string;
-}
-
+type Scale = 'day' | 'week' | 'month';
+type Point = { label: string; fullLabel?: string; dateObj: Date; amount: number };
 interface OverviewExpenseChartProps {
-  currentMonthName: string;
-  budgetMode: 'family' | 'personal';
-  chartScale: 'day' | 'week' | 'month';
-  setChartScale: (scale: 'day' | 'week' | 'month') => void;
-  chartData: ChartPoint[];
-  settings: AppSettings;
-  formatAmount: (val: number) => string;
+  scale: Scale;
+  setScale: (value: Scale) => void;
+  points: Point[];
+  subtitle: string;
+  average: number;
+  maximum: number;
+  limit: number;
+  limitLabel: string;
+  complianceText: string;
+  privacyMode: boolean;
+  formatAmount: (value: number) => string;
+  onPointSelect: (point: Point) => void;
+  onOpenBudget: () => void;
+  mobile?: boolean;
 }
+const scales: Scale[] = ['day', 'week', 'month'];
+const scaleLabels = { day: 'День', week: 'Неделя', month: 'Месяц' };
+const axisAmount = (value: number) => new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 
-export const OverviewExpenseChart: React.FC<OverviewExpenseChartProps> = ({
-  currentMonthName,
-  budgetMode,
-  chartScale,
-  setChartScale,
-  chartData,
-  settings,
-  formatAmount
-}) => {
-  return (
-    <section className="bg-[#FAF8F5] dark:bg-[#1C1C1E] rounded-3xl p-5 sm:p-6 border border-[#EAE6DD] dark:border-white/10 shadow-sm space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
-            Динамика расходов
-          </h3>
-          <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-            {currentMonthName}, {budgetMode === 'family' ? 'семейные траты' : 'личные траты'}
-          </p>
-        </div>
-
-        {/* Scale Toggle Tabs */}
-        <div className="bg-[#EAE6DD] dark:bg-[#2C2C2E] p-0.5 rounded-xl flex items-center text-xs self-start sm:self-auto">
-          {(['day', 'week', 'month'] as const).map(scale => {
-            const labels: Record<string, string> = { day: 'День', week: 'Неделя', month: 'Месяц' };
-            const isActive = chartScale === scale;
-            return (
-              <button
-                key={scale}
-                type="button"
-                onClick={() => setChartScale(scale)}
-                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-                  isActive
-                    ? 'bg-[#FAF8F5] dark:bg-[#1C1C1E] text-graphite dark:text-white shadow-xs'
-                    : 'text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white'
-                }`}
-              >
-                {labels[scale]}
-              </button>
-            );
-          })}
-        </div>
+export function OverviewExpenseChart({
+  scale, setScale, points, subtitle, average, maximum, limit, limitLabel,
+  complianceText, privacyMode, formatAmount, onPointSelect, onOpenBudget, mobile = false
+}: OverviewExpenseChartProps) {
+  const hasExpenses = points.some(point => point.amount > 0);
+  const ceiling = Math.max(0, limit, ...points.map(point => point.amount));
+  const amount = (value: number) => privacyMode ? '••••••' : formatAmount(value) + ' ₽';
+  const selectFromChart = (event: unknown) => {
+    const label = (event as {activeLabel?: unknown} | null)?.activeLabel;
+    const point = points.find(item => item.label === label);
+    if (point) onPointSelect(point);
+  };
+  return <>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className={SECTION_HEADING}>Динамика расходов</h3>
+        <p className="mt-1 text-sm text-[var(--terra-muted)]">{subtitle}</p>
       </div>
-
-      {/* Recharts Area Chart */}
-      <div className="h-64 sm:h-72 w-full pt-2">
+      <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL}>
+        {scales.map(value => <button key={value} type="button" aria-pressed={scale === value}
+          className={FILTER_CHIP + ' terra-press ' + (scale === value ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE)}
+          onClick={() => setScale(value)}>{scaleLabels[value]}</button>)}
+      </div>
+    </div>
+    <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm tabular-nums">
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(average)}</dd></div>
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(maximum)}</dd></div>
+      {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
+    </dl>
+    <div data-testid="overview-chart-plot" className="terra-overview-chart-plot w-full min-w-0">
+      {privacyMode ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
+        !hasExpenses ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#4A7C59" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#4A7C59" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAE6DD" />
-            <XAxis 
-              dataKey="date" 
-              tickLine={false} 
-              axisLine={false} 
-              tick={{ fontSize: 11, fill: '#888' }} 
-            />
-            <YAxis 
-              tickLine={false} 
-              axisLine={false} 
-              tick={{ fontSize: 11, fill: '#888' }}
-              tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-            />
-            <Tooltip 
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload as ChartPoint;
-                  return (
-                    <div className="bg-[#FAF8F5] dark:bg-[#1C1C1E] p-3 rounded-2xl border border-[#EAE6DD] dark:border-white/10 shadow-lg text-xs font-sans space-y-1">
-                      <p className="font-bold text-graphite dark:text-white">{data.label || data.date}</p>
-                      <p className="text-[#4A7C59] font-extrabold font-headline">
-                        {settings.privacyMode ? '•••' : `${formatAmount(data.amount)} ₽`}
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Area 
-              type="monotone" 
-              dataKey="amount" 
-              stroke="#4A7C59" 
-              strokeWidth={3} 
-              fillOpacity={1} 
-              fill="url(#expenseGradient)" 
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+          <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 0}} accessibilityLayer={false}
+            onClick={selectFromChart} barCategoryGap="22%">
+            <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
+              tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} />
+            <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={mobile ? 39 : 52}
+              tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} tickFormatter={axisAmount} />
+            {limit > 0 && <ReferenceLine y={limit} stroke="var(--terra-offline-text)" strokeDasharray="4 4" />}
+            <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.55}}
+              content={({active,payload}) => {
+                if (!active || !payload?.length) return null;
+                const point = payload[0].payload as Point;
+                return <div className={CHART_TOOLTIP}><div>{point.fullLabel || point.label}</div><strong className="tabular-nums">{amount(point.amount)}</strong></div>;
+              }} />
+            <Bar dataKey="amount" name="Расходы" fill="var(--terra-primary-solid)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
+          </BarChart>
+        </ResponsiveContainer>}
+    </div>
+    {!privacyMode && hasExpenses && <details className="border-t border-[var(--terra-border)]">
+      <summary className="min-h-[44px] flex items-center cursor-pointer rounded-lg text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Значения графика</summary>
+      <div data-testid="overview-chart-values" className="max-h-64 overflow-y-auto overscroll-y-contain divide-y divide-[var(--terra-border)]">
+        {points.map((point,index) => <button key={index} type="button" onClick={() => onPointSelect(point)}
+          className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left px-2 py-2 text-sm rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+          <span>{point.fullLabel || point.label}</span><span className="font-semibold tabular-nums break-words">{amount(point.amount)}</span>
+        </button>)}
       </div>
-    </section>
-  );
-};
-
+    </details>}
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--terra-border)] text-sm text-[var(--terra-muted)] pt-1">
+      {!privacyMode && <span className="flex-1 min-w-[120px]">{complianceText}</span>}
+      <button type="button" onClick={onOpenBudget} className="min-h-[44px] px-2 inline-flex items-center gap-1 font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+        {mobile ? 'К бюджету' : 'Подробный отчет'}<ChevronRight size={15} aria-hidden="true"/>
+      </button>
+    </div>
+  </>;
+}
 export default OverviewExpenseChart;

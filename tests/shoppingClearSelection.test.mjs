@@ -15,7 +15,7 @@ test('restored, missing or newly completed products require confirmation again',
  assert.equal(resolveCompletedDeletion(selection,[...rows,{id:'d',completed:true}]),null);
 });
 test('order does not change confirmation; empty and repeated IDs are safe',()=>{
- const selection=captureCompletedSelection([rows[1],rows[0],rows[0],{id:'',completed:true}]);
+ const selection=captureCompletedSelection([rows[1],rows[0],rows[0],{id:'',completed:true},{id:'legacy'}]);
  assert.deepEqual(selection,['a','b']);
  assert.deepEqual(resolveCompletedDeletion(selection,[rows[0],rows[1]]),['a','b']);
  assert.equal(resolveCompletedDeletion([],[]),null);

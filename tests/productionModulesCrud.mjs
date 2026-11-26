@@ -404,7 +404,11 @@ try{
   check(saved.items?.arrayValue?.values?.length===1&&fields(saved.items.arrayValue.values[0]).title?.stringValue===original,'Template item mismatch');
   phase='delete source product';await btn(p,/Быстрые списки/,false).click();await mutation(()=>btn(p,'Удалить товар: '+original).click());await absent('shopping',doc);
   phase='reload and reuse saved template';await reset(390);await nav('shopping','Покупки');await btn(p,/Быстрые списки/,false).click();
-  await mutation(()=>btn(options,original+' · 1').click());const reapplied=await created('shopping','title',original);
+  await btn(options,original+' · 1').click();
+  const preview=options.getByRole('region',{name:'Состав быстрого списка'});
+  await preview.waitFor({state:'visible'});
+  check((await preview.innerText()).includes(original),'Wrong template preview');
+  await mutation(()=>btn(preview,'Добавить 1 товаров').click());const reapplied=await created('shopping','title',original);
   check(Number(scalar(reapplied,'amount'))===1,'Reapplied quantity mismatch');
   phase='delete saved template';await mutation(()=>btn(options,'Удалить шаблон '+original).click());
   await poll(async()=>!array(await request(library()),'templates').some(x=>fields(x).name?.stringValue===original),'template deletion');

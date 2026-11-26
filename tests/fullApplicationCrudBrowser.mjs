@@ -210,7 +210,7 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
    window.__qaReviewOutcome=null;
    window.addEventListener('budget:import-review-result',e=>{window.__qaReviewOutcome={kind:'result',detail:e.detail}},{once:true});
    window.addEventListener('budget:import-review-error',e=>{window.__qaReviewOutcome={kind:'error',detail:e.detail}},{once:true});
-   window.__budgetAlfaReviewRequest={fileSha256:sha};
+   window.__budgetAlfaReviewRequest={fileSha256:sha,scope:window.__budgetAlfaReviewScope};
   },sha);
   await a.locator('#import-input').setInputFiles({name:'alfa_qa.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer});
   await a.waitForFunction(()=>window.__qaReviewOutcome,null,{timeout:90000});

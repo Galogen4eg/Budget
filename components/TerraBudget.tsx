@@ -1093,7 +1093,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </header>
 
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="terra-budget-metrics grid gap-3">
         {/* Card 1: Дневной безопасный лимит */}
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1230,7 +1230,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
               historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
               selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
-            <div className="divide-y divide-[var(--terra-border)] terra-desktop-history-list">
+            <div className="divide-y divide-[var(--terra-border)] max-h-[420px] overflow-y-auto overscroll-contain">
               {visibleHistory.length===0 && (
                 <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
                   {historyEmptyText}

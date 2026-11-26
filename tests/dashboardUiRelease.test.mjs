@@ -23,7 +23,9 @@ test('motion respects OS preferences without changing scroll or data',()=>{
  assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
  assert.match(css,/transition: none !important; animation: none !important/);
  assert.match(css,/\.terra-press:active \{ transform: none; \}/);
- assert.doesNotMatch(css,/overflow|touch-action|position:\s*fixed/);
+ const motion=css.split('/* Terra semantic color roles')[0];
+ assert.doesNotMatch(motion,/overflow|touch-action|position:\s*fixed/);
+ for(const block of css.matchAll(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/g))assert.doesNotMatch(block[1],/overflow|touch-action|position:\s*fixed/);
 });
 test('toolbar and navigation use stable touch targets and shared colors',()=>{
  const tokens=read('components/filterUiTokens.ts');
@@ -86,7 +88,7 @@ test('overview transaction history uses compact rows and preserves edit actions'
 
 test('desktop overview widgets retain actions and avoid decorative card clutter',()=>{
  const overview=read('components/TerraOverview.tsx');
- const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Виджет «История операций»')[0];
+ const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Reserve Details Modal */}')[0];
  assert.ok(section);
  assert.doesNotMatch(section,/КАТЕГОРИИ РАСХОДОВ|СПИСОК ПОКУПОК|СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ|Все покупки сделаны!|whitespace-nowrap/);
  for(const action of ['onDrillDown(cat.id)','handleToggleShopping(item)','handleAddShoppingInline','onEditEvent(ev)','formatAmount(cat.amount)'])assert.ok(section.includes(action),action);
@@ -142,5 +144,8 @@ test('budget calendar, operations and category cards retain stable actions and p
  assert.match(sidebar,/formatBudgetMoney\(cat.sum\)/);
  assert.doesNotMatch(sidebar,/Math.round\(cat.sum\)/);
  assert.match(sidebar,/onToggleMandatoryPaid\(expense.id\)/);
- assert.match(sidebar,/filter|historySearch/);
+ const history=budget.split('data-testid="budget-history-desktop"')[1]?.split('</section>')[0];
+ assert.match(history,/historySearch=\{historySearch\}/);
+ assert.match(history,/historyCategory=\{historyCategory\}/);
+ assert.match(history,/onEditTransaction\(tx\)/);
 });

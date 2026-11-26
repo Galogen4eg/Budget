@@ -107,5 +107,13 @@ html.dark {
 @media(max-width:480px){.terra-shopping-tools>button svg,.terra-calendar-views>button svg{display:none;}.terra-calendar-views>button{min-width:0;white-space:nowrap;padding-inline:2px;}}
 .terra-plans-toolbar {padding:0 2px;}
 [id^="budget-"][id$="-mobile"] {scroll-margin-top:76px;}
-@media(min-width:768px){.terra-desktop-history-list{max-height:420px;overflow-y:auto;overscroll-behavior:contain;}}
 @container (min-width:920px){.terra-shopping-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
+
+/* Financial workspace: use content width, not viewport width. */
+.terra-budget-metrics {grid-template-columns:minmax(0,1fr);}
+@container (min-width:620px){.terra-budget-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@container (min-width:960px){.terra-budget-metrics {grid-template-columns:minmax(0,1.25fr) repeat(2,minmax(0,1fr));}}
+.terra-history-controls {container-type:inline-size;}
+.terra-history-toolbar {display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;}
+@container (min-width:560px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr);}.terra-history-filters{grid-column:1/-1;}}
+@container (min-width:780px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr) minmax(0,1fr);}.terra-history-filters{grid-column:auto;}}

@@ -160,7 +160,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
         <div id="shopping-template-options" className="pt-3 space-y-3 min-w-0" aria-label="Быстрые списки покупок">
           {libraryError&&<p role="alert" className="text-sm text-[var(--terra-danger-text)]">Не удалось загрузить семейные шаблоны.</p>}
           {familyId&&libraryFamily!==familyId&&!libraryError&&<p role="status" className="text-sm text-[var(--terra-muted)]">Загрузка семейных шаблонов…</p>}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain">
             {[...templates, ...BUILTIN].map(t => (
               <div key={t.id} className="flex min-w-0 max-w-full items-center gap-1 border rounded-xl border-[var(--terra-border)] p-1">
                 <button type="button" disabled={saving} aria-pressed={previewId===t.id} onClick={()=>setPreviewId(t.id)}
@@ -176,7 +176,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
           </div>
           {previewTemplate&&<section aria-label="Состав быстрого списка" className="rounded-xl border border-[var(--terra-border)] p-3 space-y-2">
             <h3 className="font-semibold text-sm">{previewTemplate.name}</h3>
-            <ul className="divide-y divide-[var(--terra-border)]">{previewTemplate.items.map((product,index)=><li key={index} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span className="min-w-0 break-words">{product.title}</span><span className="tabular-nums">{product.amount} {product.unit}</span></li>)}</ul>
+            <ul className="divide-y divide-[var(--terra-border)] max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain">{previewTemplate.items.map((product,index)=><li key={index} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span className="min-w-0 break-words">{product.title}</span><span className="tabular-nums">{product.amount} {product.unit}</span></li>)}</ul>
             <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={()=>void addProducts(previewTemplate.items)} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}>Добавить в список ({previewTemplate.items.length})</button><button type="button" onClick={()=>setPreviewId(null)} disabled={saving} className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}>Отмена</button></div>
           </section>}
           <form onSubmit={e => { e.preventDefault(); void saveTemplate(); }} className="flex gap-2 flex-wrap">
@@ -202,7 +202,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             </button>
           </div>
           {libraryError?<p role="alert" className="text-sm text-[var(--terra-danger-text)]">Не удалось загрузить историю покупок.</p>:recent.length===0&&<p className="text-sm text-[var(--terra-muted)]">{familyId&&libraryFamily!==familyId?'История загружается.':'Купленных товаров пока нет.'}</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain">
             {recent.map(p=>(
               <button key={p.title.toLowerCase()+'|'+p.unit} type="button" disabled={saving}
                 onClick={() => void addProducts([p])}
@@ -222,7 +222,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
         </div>
       )}
       {section==='pantry'&&<section id="shopping-pantry-options" aria-label="Запасы кладовой" className="pt-2 border-t border-[var(--terra-border)]">
-        {!shoppingReady?<p role="status" className="text-sm text-[var(--terra-muted)]">Ожидаем данные кладовой…</p>:pantry.length===0?<p className="py-2 text-sm text-[var(--terra-muted)]">Кладовая пуста. Перенесите сюда купленный товар.</p>:<ul className="divide-y divide-[var(--terra-border)]">{pantry.map(item=><li data-pantry-id={item.id} key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-3 text-sm"><span className="min-w-0 break-words font-semibold">{item.title}</span><span className="tabular-nums">{item.amount} {item.unit}</span><span className="w-full text-xs text-[var(--terra-muted)]">{item.expiryDate?'Годен до: '+item.expiryDate.slice(0,10).split('-').reverse().join('.'):'Срок не указан'}</span></li>)}</ul>}
+        {!shoppingReady?<p role="status" className="text-sm text-[var(--terra-muted)]">Ожидаем данные кладовой…</p>:pantry.length===0?<p className="py-2 text-sm text-[var(--terra-muted)]">Кладовая пуста. Перенесите сюда купленный товар.</p>:<ul className="divide-y divide-[var(--terra-border)] max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain">{pantry.map(item=><li data-pantry-id={item.id} key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-3 text-sm"><span className="min-w-0 break-words font-semibold">{item.title}</span><span className="tabular-nums">{item.amount} {item.unit}</span><span className="w-full text-xs text-[var(--terra-muted)]">{item.expiryDate?'Годен до: '+item.expiryDate.slice(0,10).split('-').reverse().join('.'):'Срок не указан'}</span></li>)}</ul>}
       </section>}
     </div>
   );

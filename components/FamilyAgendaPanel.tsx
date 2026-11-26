@@ -34,6 +34,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    if(contentRef.current) contentRef.current.inert=!panelOpen;
  },[panelOpen]);
  const [savingId,setSavingId]=useState<string|null>(null);
+ const taskPending=React.useRef(false);
  const [today,setToday]=useState(()=>formatLocalCalendarDate(new Date()));
  useEffect(()=>{
    const id=window.setInterval(()=>{
@@ -67,11 +68,12 @@ export const FamilyAgendaPanel:React.FC<Props>=({
   ?event.memberIds.map(id=>members.find(member=>member.id===id)?.name).filter(Boolean).join(', ')
   :'Общее дело';
  const toggle=async(event:FamilyEvent)=>{
-  if(savingId)return;
+  if(taskPending.current)return;
+  taskPending.current=true;
   setSavingId(event.id);
   try{await onToggleTask(event);}catch(error){
    toast.error(error instanceof Error?error.message:'Не удалось обновить задачу');
-  }finally{setSavingId(null);}
+  }finally{taskPending.current=false;setSavingId(null);}
  };
  return <section className="border-b border-[var(--terra-border)] dark:border-white/10 bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] px-3 sm:px-5 py-2.5 space-y-2 shrink-0">
   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -80,7 +82,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
       className="min-h-[44px] flex items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-ink)] dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
     <ListTodo size={17} className="text-[#4A7C59]"/>
     Ближайшие дела <span className="text-xs font-normal text-stone-500">({agenda.length})</span>
-    <ChevronDown size={16} aria-hidden="true" className={`text-stone-500 transition-transform ${expanded?'rotate-180':''}`}/>
+    <ChevronDown size={16} aria-hidden="true" className={`text-stone-500 transition-transform motion-reduce:transition-none ${expanded?'rotate-180':''}`}/>
    </button>
    <div className="hidden md:flex gap-1.5 flex-wrap">
     <button type="button" aria-label="Создать задачу" onClick={()=>onOpenEvent(null,{kind:'task',date:today})}
@@ -131,7 +133,7 @@ export const FamilyAgendaPanel:React.FC<Props>=({
    {agenda.length===0&&<p className="text-xs text-stone-500 py-3">Пока нет запланированных дел на этот период.</p>}
    {agenda.map(event=><div key={event.id} className="flex gap-2 items-center py-2 px-2 rounded-lg">
     {event.kind==='task'?
-      <button type="button" title="Отметить выполнение" disabled={savingId===event.id}
+      <button type="button" title="Отметить выполнение" disabled={savingId!==null}
        onClick={()=>void toggle(event)} aria-label={event.completed?"Вернуть задачу":"Отметить выполнение"} aria-pressed={Boolean(event.completed)} className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[#4A7C59] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
        {event.completed?<CircleCheck size={19}/>:<Circle size={19}/>}
       </button>:<CalendarDays size={17} className="text-[#4A7C59] shrink-0"/>}

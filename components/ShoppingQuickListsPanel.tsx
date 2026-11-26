@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import type { ShoppingItem, FamilyMember } from '../types';
 import { generateUniqueId, saveShoppingMerge } from '../utils/db';
+import PantryInventory from './PantryInventory';
 import { unseenPurchaseCompletions } from '../utils/familyWorkspace';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
 import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../utils/shoppingManager';
@@ -222,7 +223,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
         </div>
       )}
       {section==='pantry'&&<section id="shopping-pantry-options" aria-label="Запасы кладовой" className="pt-2 border-t border-[var(--terra-border)]">
-        {!shoppingReady?<p role="status" className="text-sm text-[var(--terra-muted)]">Ожидаем данные кладовой…</p>:pantry.length===0?<p className="py-2 text-sm text-[var(--terra-muted)]">Кладовая пуста. Перенесите сюда купленный товар.</p>:<ul className="divide-y divide-[var(--terra-border)] max-h-[min(32dvh,16rem)] overflow-y-auto overscroll-contain">{pantry.map(item=><li data-pantry-id={item.id} key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-3 text-sm"><span className="min-w-0 break-words font-semibold">{item.title}</span><span className="tabular-nums">{item.amount} {item.unit}</span><span className="w-full text-xs text-[var(--terra-muted)]">{item.expiryDate?'Годен до: '+item.expiryDate.slice(0,10).split('-').reverse().join('.'):'Срок не указан'}</span></li>)}</ul>}
+        <PantryInventory key={familyId||'none'} familyId={familyId||null} items={pantry} ready={shoppingReady}/>
       </section>}
     </div>
   );

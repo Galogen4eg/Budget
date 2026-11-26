@@ -52,6 +52,8 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES_MAP);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const scope=familyId&&user?.uid?`${familyId}:${user.uid}`:null;
+  const currentScopeRef=useRef(scope);
+  currentScopeRef.current=scope;
   const [openedScope,setOpenedScope]=useState<string|null>(null);
   const [loadedScope,setLoadedScope]=useState<string|null>(null);
   const [loadError,setLoadError]=useState(false);
@@ -163,6 +165,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
     };
     try {
       await addItem(familyId, 'chat', newMsg);
+      if(currentScopeRef.current!==scope)return;
       triggerHaptic('medium');
       followChat.current=true;
       setInputText(prev => prev.trim() === text ? '' : prev);
@@ -173,7 +176,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       } : t));
     } catch (err) {
       console.error('Failed to send chat message:', err);
-      toast.error('Сообщение не отправлено. Повторите попытку.');
+      if(currentScopeRef.current===scope)toast.error('Сообщение не отправлено. Повторите попытку.');
     } finally {
       sendingRef.current=false;setIsSendingMessage(false);
     }

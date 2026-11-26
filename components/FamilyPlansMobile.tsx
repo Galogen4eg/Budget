@@ -744,7 +744,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       {/* 1. UNIFIED MOBILE HEADER */}
       <TerraMobileHeader
         title="Планы"
-        onAdd={() => onOpenEvent(null)}
+        onAdd={() => onOpenEvent(null, { date: selectedDateStr })}
         addTitle="Добавить событие"
         onOpenSettings={onOpenSettings}
         onOpenNotifications={onOpenNotifications}

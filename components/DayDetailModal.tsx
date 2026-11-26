@@ -1,5 +1,9 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { useModalSurface } from '../hooks/useDialogFocus';
+import useModalBackHandler from '../hooks/useModalBackHandler';
+import { terraTransition } from '../utils/uiMotion';
 import { X, Calendar, ArrowUpRight, ArrowDownRight, Tag, Clock } from 'lucide-react';
 import { Transaction, Category, FamilyMember } from '../types';
 import BrandIcon from './BrandIcon';
@@ -38,6 +42,9 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
   privacyMode
 }) => {
   useBodyScrollLock(isOpen);
+  useModalBackHandler(isOpen,onClose);
+  const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть детали дня"]'});
+  const reduced=Boolean(useReducedMotion());
 
   if (!isOpen) return null;
 
@@ -54,32 +61,24 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
   const dayName = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const isToday = new Date().toDateString() === date.toDateString();
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div 
-        initial={{ opacity: 0 }}
+        initial={reduced?false:{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-[#2E3230]/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all overflow-y-auto"
+        exit={{ opacity: 0 }} transition={terraTransition(reduced,.18)}
+        className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
         onClick={onClose}
       >
         <motion.div 
-          initial={{ y: 20, opacity: 0, scale: 0.98 }}
+          {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-day-detail-heading" data-testid="terra-day-detail"
+          initial={reduced?false:{ y: 6, opacity: 0, scale: .98 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 20, opacity: 0, scale: 0.98 }}
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={{ top: 0, bottom: 0.6 }}
-          onDragEnd={(_, info) => {
-            if (info.offset.y > 100 || info.velocity.y > 300) {
-              onClose();
-            }
-          }}
-          className="bg-white dark:bg-[#1C1C1E] w-full max-w-3xl lg:max-w-4xl rounded-t-3xl sm:rounded-2xl border-0 sm:border border-surface-border dark:border-white/10 shadow-2xl flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden my-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+          exit={{ y: 6, opacity: 0, scale: .98 }}
+          transition={terraTransition(reduced,.2)}
+          className="bg-[var(--terra-surface)] text-[var(--terra-ink)] w-full max-w-3xl lg:max-w-4xl rounded-t-2xl sm:rounded-2xl border border-[var(--terra-border)] shadow-xl flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Mobile Drag Indicator Handle */}
-          <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto my-2 cursor-grab active:cursor-grabbing sm:hidden shrink-0" />
 
           {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-surface-border/80 dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528]">
@@ -92,7 +91,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white capitalize">
+                <h3 id="terra-day-detail-heading" className="text-base font-bold font-headline text-[var(--terra-ink)] capitalize">
                   {dayName}
                 </h3>
                 {isToday && (
@@ -110,7 +109,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
           <button 
             onClick={onClose}
             className="w-11 h-11 shrink-0 rounded-xl border border-surface-border dark:border-white/10 hover:bg-[#F3EFE7] dark:hover:bg-white/5 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white flex items-center justify-center transition cursor-pointer active:scale-95"
-            title="Закрыть"
+            title="Закрыть" aria-label="Закрыть детали дня" type="button"
           >
             <X size={16} />
           </button>
@@ -133,12 +132,12 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               {income > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30">
-                  {formatMoney(income, { showSign: true })}
+                  {formatMoney(income, { privacy: privacyMode, showSign: true })}
                 </span>
               )}
               {expense > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-300 text-[11px] font-bold border border-red-200 dark:border-red-800/30">
-                  -{formatMoney(expense)}
+                  -{formatMoney(expense,{privacy:privacyMode})}
                 </span>
               )}
             </div>
@@ -146,12 +145,12 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
           <div className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Дневной лимит: <b className="text-graphite dark:text-white">{formatBudgetMoney(dailySafeLimit)} ₽/дн</b></span>
+            <span>Дневной лимит: <b className="text-graphite dark:text-white">{privacyMode?'•••':formatBudgetMoney(dailySafeLimit)+' ₽/дн'}</b></span>
           </div>
         </div>
 
         {/* Transactions list */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 no-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 sm:p-5 space-y-4 no-scrollbar">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
@@ -175,10 +174,10 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                   const brandKey = getMerchantBrandKey(displayTitle);
 
                   return (
-                    <div 
+                    <button type="button"
                       key={tx.id}
                       onClick={() => onEditTransaction(tx)}
-                      className="p-3 rounded-xl bg-white dark:bg-[#252528] border border-surface-border dark:border-white/5 hover:border-primary/50 shadow-xs flex items-center justify-between cursor-pointer group transition-all"
+                      className="p-3 rounded-xl bg-white dark:bg-[#252528] border border-surface-border dark:border-white/5 hover:border-primary/50 shadow-xs flex items-center justify-between cursor-pointer group transition-colors min-h-[44px] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="shrink-0">
@@ -222,7 +221,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                           редактировать ↗
                         </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -234,7 +233,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
         <div className="p-4 sm:px-5 border-t border-surface-border dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528] flex items-center justify-between gap-2">
           <button 
             onClick={onAddTransactionForDay}
-            className="px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary-dark active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5"
+            className="min-h-[44px] px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5"
           >
             + Добавить операцию
           </button>
@@ -248,7 +247,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
         </div>
       </motion.div>
     </motion.div>
-  </AnimatePresence>
+  </AnimatePresence>, document.body
   );
 };
 

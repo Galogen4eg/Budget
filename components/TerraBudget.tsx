@@ -558,7 +558,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           <div role="group" aria-label="Разделы бюджета" className={FILTER_RAIL}>
-            {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits']] as const).map(([label,id])=><button key={id} type="button" className={FILTER_CHIP+' '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
+            {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits'],['Платежи','payments']] as const).map(([label,id])=><button key={id} type="button" className={FILTER_CHIP+' '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
           </div>
           {/* Shared history controls retain day/member context */}
           <section id="budget-history-mobile" tabIndex={-1} aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
@@ -822,10 +822,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Scheduled Monthly Mandatory Payments */}
-          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A]" />
+          <section id="budget-payments-mobile" tabIndex={-1} className={`${SURFACE_CARD} flex flex-col gap-3`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A] shrink-0" />
                 <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Обязательные платежи</span>
               </div>
               <div className="flex items-center gap-2">
@@ -1186,29 +1186,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 py-1 my-1">
-            <div className="text-center px-1">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Доходы</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-primary dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}
-              </span>
-            </div>
-
-            <div className="text-center px-1 border-y lg:border-y-0 lg:border-x border-surface-border/70 dark:border-white/5">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Расходы</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-[#D95C48] dark:text-red-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}
-              </span>
-            </div>
-
-            <div className="text-center px-1">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Результат месяца</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-emerald-700 dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
-              </span>
-              <span className="text-xs text-graphite-muted dark:text-gray-400 block">Доходы − расходы</span>
-            </div>
-          </div>
+          <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
+            <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}</dd></div>
+            <div><dt>Расходы</dt><dd className="text-[var(--terra-ink)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</dd></div>
+            <div><dt>Результат месяца<span className="block text-xs font-normal text-[var(--terra-muted)]">Доходы − расходы</span></dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
+          </dl>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>

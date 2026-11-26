@@ -65,10 +65,16 @@ test('desktop metric cards use shared surfaces and readable wrapping labels',()=
  const overview=read('components/TerraOverview.tsx');
  const section=overview.split('data-testid="overview-metrics-desktop"')[1]?.split('</section>')[0];
  assert.ok(section);
- assert.equal((section.match(/\$\{DASHBOARD_CARD\}/g)||[]).length,4);
+ assert.equal((section.match(/\$\{DASHBOARD_CARD\}/g)||[]).length,3);
  assert.doesNotMatch(section,/whitespace-nowrap|uppercase tracking-wider|shadow-sm/);
  assert.match(section,/focus-visible:ring-2/);
- for(const name of ['sharedLedger','dailyLimit','spentToday','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
+ for(const name of ['sharedLedger','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
+ assert.match(section,/\{dailySummary\}/);
+ const summary=overview.split('const dailySummary = (')[1]?.split('return (')[0];
+ assert.ok(summary);
+ for(const name of ['dailyLimit','spentToday'])assert.match(summary,new RegExp('formatAmount\\('+name+'\\)'));
+ assert.equal((summary.match(/role="progressbar"/g)||[]).length,1);
+ assert.match(summary,/!settings\.privacyMode&&personalOpeningKnown&&dailyLimit>0/);
 });
 
 
@@ -149,3 +155,7 @@ test('budget calendar, operations and category cards retain stable actions and p
  assert.match(history,/historyCategory=\{historyCategory\}/);
  assert.match(history,/onEditTransaction\(tx\)/);
 });
+
+ test('monthly metrics use aligned rows and negative results have a distinct semantic color',()=>{
+ const s=read('components/TerraBudget.tsx');assert.match(s,/terra-month-totals/);assert.match(s,/monthBalance<0\?'text-\[var\(--terra-danger-text\)\]'/);assert.match(s,/id="budget-payments-mobile"/);
+ });

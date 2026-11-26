@@ -6,3 +6,6 @@ Material/Apple list-detail: aligned service rows; chat two panes at md, compact 
 
 ## Acceptance and receipt integrity
 Capture authenticated workspaces across the existing light/dark viewport matrix, preserving all navigation and geometry assertions. Remove obsolete disabled topic-creation assertions; verify existing topics and hidden unavailable action. Compiled CSS probe uses active semantic surface tokens. Receipt source generated hardcoded products and rounded imported money; real FNS retrieval is not implemented. Replace mock import with strict read-only QR metadata preview, no ledger writes. Bank import remains independent. This is a deliberate correction of misleading behavior, not an implemented FNS integration.
+
+## Financial hierarchy follow-up
+Consolidate daily spending and daily guidance into one summary and one progress bar. On mobile the summary follows the balance and includes reserve access; past months do not show daily guidance calculated for the wrong period. The desktop layout has three current-period groups, two for archives. Align monthly income/expense/result as readable rows; provide a direct mobile link to mandatory payments. No projection formulas or Firestore writes changed. Verify screenshots and exact CI before merge.

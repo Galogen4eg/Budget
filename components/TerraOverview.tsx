@@ -622,6 +622,26 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       });
   }, [events]);
 
+  const dailySummary = (
+    <div className="space-y-3 min-w-0" data-testid="overview-daily-summary">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-[var(--terra-ink)]">{personalOnly?'Сегодня · личный бюджет':'Сегодня · семейный бюджет'}</h3>
+        {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&<span className={`text-xs font-semibold ${isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}`}>{isOverDailyLimit?'Выше ориентира':'В пределах ориентира'}</span>}
+      </div>
+      <dl className="terra-daily-pair">
+        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Ориентир на день</dt><dd className="mt-1 text-xl font-headline font-semibold tabular-nums [overflow-wrap:anywhere]">{personalOpeningKnown?formatAmount(dailyLimit)+' ₽':'—'}</dd></div>
+        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Потрачено</dt><dd className={`mt-1 text-xl font-headline font-semibold tabular-nums [overflow-wrap:anywhere] ${!settings.privacyMode&&isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatAmount(spentToday)} ₽</dd></div>
+      </dl>
+      {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&<div className="space-y-1.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><span className={isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}>{isOverDailyLimit?'Превышение: '+formatAmount(overLimitDelta)+' ₽':'Использовано от дневного ориентира'}</span><span className="tabular-nums font-semibold">{dailyUsagePercent}%</span></div>
+        <div role="progressbar" aria-label="Использование дневного ориентира" aria-valuemin={0} aria-valuemax={100} aria-valuenow={dailyUsagePercent} className="h-2 bg-[var(--terra-soft)] rounded-full overflow-hidden">
+          <div className={`h-full rounded-full terra-progress ${isOverDailyLimit?'bg-[var(--terra-danger-text)]':'bg-[var(--terra-primary-solid)]'}`} style={{width:dailyUsagePercent+'%'}}/>
+        </div>
+      </div>}
+      {!personalOpeningKnown&&<p className="text-xs text-[var(--terra-muted)]">Укажите начальный остаток для расчёта ориентира.</p>}
+    </div>
+  );
+
   return (
     <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
       {/* ========================================================= */}
@@ -746,6 +766,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
             </div>}
           </section>
+
+          {isCurrentCalendarMonth&&<section className={DASHBOARD_CARD+' space-y-3'} data-testid="overview-daily-mobile">
+            {dailySummary}
+            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] pt-2 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+              <span className="text-sm text-[var(--terra-muted)]">{personalOnly?'Личный резерв':'Семейный резерв'}</span><span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-[var(--terra-ink)]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
+            </button>
+          </section>}
 
           {/* 2. Динамика расходов Card */}
           <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
@@ -1028,7 +1055,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             onOpenAIChat={onOpenAIChat}
           />
         {/* ALERT BANNER: Daily Limit Exceeded (Terra Warning) */}
-        {isOverDailyLimit && (
+        {isCurrentCalendarMonth&&!settings.privacyMode&&isOverDailyLimit && (
           <section 
             aria-label="Предупреждение о бюджете"
             className="rounded-2xl bg-[var(--terra-offline-soft)] border border-[var(--terra-border)] p-4"
@@ -1073,7 +1100,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section data-testid="overview-metrics-desktop" className="terra-overview-metrics grid gap-4">
+        <section data-testid="overview-metrics-desktop" className="terra-overview-metrics grid gap-3" data-current-period={isCurrentCalendarMonth}>
           {/* Card 1: ОБЩИЙ БАЛАНС */}
           <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1106,74 +1133,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>}
           </div>
 
-          {/* Card 2: На день */}
-          <div className={`${DASHBOARD_CARD} flex flex-col justify-between ${isOverDailyLimit ? 'ring-1 ring-[#C2410C]/40' : ''}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className={`text-sm font-semibold flex items-center gap-1.5 ${
-                isOverDailyLimit ? 'text-[#C2410C] dark:text-orange-400' : 'text-graphite dark:text-gray-200'
-              }`}>
-                <TrendingUp size={14} className={isOverDailyLimit ? 'text-[#C2410C]' : 'text-primary'} />
-                На день
-              </span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
-                isOverDailyLimit 
-                  ? 'bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] dark:text-orange-400 border-[#FDBA74] dark:border-transparent' 
-                  : 'bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 border-[#D5E5D9] dark:border-transparent'
-              }`}>
-                {!personalOpeningKnown?'Укажите остаток':isOverDailyLimit ? 'Превышен' : 'В норме'}
-              </span>
-            </div>
-            <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
-                isOverDailyLimit ? 'text-[#9A3412] dark:text-orange-400' : 'text-graphite dark:text-white'
-              }`}>
-                {personalOpeningKnown?formatAmount(dailyLimit):'—'} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
-              </span>
-            </div>
-            <div>
-              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span>Лимит дня</span>
-                <span className="font-mono">{dailyUsagePercent}%</span>
-              </div>
-              <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full terra-progress ${isOverDailyLimit ? 'bg-[#EA580C]' : 'bg-primary'}`}
-                  style={{ width: `${settings.privacyMode?0:Math.min(100, dailyUsagePercent)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: ТРАТЫ СЕГОДНЯ */}
-          <div className={`${DASHBOARD_CARD} flex flex-col justify-between`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-graphite dark:text-gray-200 flex items-center gap-1.5">
-                <ArrowDownRight size={14} className="text-clay" />
-                Траты сегодня
-              </span>
-            </div>
-            <div className="my-3 flex items-baseline">
-              <span className={`text-2xl lg:text-3xl font-headline font-bold tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1 ${
-                isOverDailyLimit ? 'text-[#B25E41]' : 'text-graphite dark:text-white'
-              }`}>
-                {formatAmount(spentToday)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
-              </span>
-            </div>
-            <div>
-              <div className="flex flex-wrap justify-between gap-1 text-xs text-graphite-muted dark:text-gray-400 mb-1 font-medium">
-                <span className="min-w-0 break-words">{personalOpeningKnown?`План: до ${formatAmount(dailyLimit)} ₽`:'Начальный остаток не задан'}</span>
-                {isOverDailyLimit && (
-                  <span className="text-xs font-mono font-bold text-clay">+{formatAmount(overLimitDelta)} ₽</span>
-                )}
-              </div>
-              <div className="w-full bg-[#EFEBE3] dark:bg-[#2C2C2E] h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-clay h-full rounded-full terra-progress" 
-                  style={{ width: `${settings.privacyMode?0:Math.min(100, dailyUsagePercent)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
+          {/* Daily comparison: one surface and one progress indicator. */}
+          {isCurrentCalendarMonth&&<div className={`${DASHBOARD_CARD} flex flex-col justify-between gap-3`} data-testid="overview-daily-desktop">
+            {dailySummary}
+          </div>}
 
           {/* Card 4: Семейный резерв */}
           <button type="button"

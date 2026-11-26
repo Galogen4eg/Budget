@@ -63,7 +63,7 @@ html.dark {
 .terra-overview-columns {grid-template-columns:minmax(0,1fr);}
 .terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
 @container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
-@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.55fr) repeat(3,minmax(0,1fr));}}
+@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.35fr) minmax(0,1.25fr) minmax(0,1fr);}.terra-overview-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);}}
 @container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
 
 /* Width belongs to the working area, not the browser viewport. */
@@ -127,3 +127,10 @@ html.dark {
 @media(min-width:1200px){.terra-plans-desktop{grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:16px;padding:20px;}}
 .terra-settings-body{max-width:900px;margin-inline:0;}
 .terra-settings-body input:not([type=checkbox]):not([type=radio]),.terra-settings-body select{min-height:44px;}
+
+/* Financial hierarchy: one daily comparison, aligned monthly totals. */
+.terra-daily-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.terra-daily-pair>div+div{border-left:1px solid var(--terra-border);padding-left:12px;}
+.terra-month-totals>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:baseline;padding:8px 0;}
+.terra-month-totals dt{font-size:13px;color:var(--terra-muted);}
+.terra-month-totals dd{margin:0;text-align:right;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}

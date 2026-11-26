@@ -157,7 +157,11 @@ if(process.argv.includes('--navigation')){
   const beforeLedger=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
   assert.ok(beforeLimits.food>0,'Expected populated food limit');
   const planning=page=>visible(page.getByTestId('budget-planning'));
-  const food=page=>planning(page).getByRole('button',{name:'Изменить лимит: Продукты',exact:true});
+  const food=page=>planning(page).locator('button[data-limit-category="food"]');
+  for(const page of [a,b]){
+   await visible(page.locator('nav').getByRole('button',{name:'Бюджет',exact:true})).click();
+   await planning(page).waitFor({state:'visible'});
+  }
   const amount=page=>planning(page).getByRole('textbox',{name:/Лимит в месяц/});
   const select=page=>planning(page).getByRole('combobox',{name:'Категория',exact:true});
   const close=page=>planning(page).getByRole('button',{name:'Закрыть',exact:true});
@@ -166,6 +170,7 @@ if(process.argv.includes('--navigation')){
    await planning(page).getByRole('button',{name:'Сохранить лимит',exact:true}).click();
    await amount(page).waitFor({state:'hidden',timeout:20000});
   };
+  await food(b).waitFor({state:'visible',timeout:20000}).catch(async error=>{console.error('TERRA planning evidence',await planning(b).innerText().catch(()=>''));throw error;});
   await food(b).click();
   assert.equal(await select(b).inputValue(),'food');
   assert.equal(Number(await amount(b).inputValue()),beforeLimits.food);

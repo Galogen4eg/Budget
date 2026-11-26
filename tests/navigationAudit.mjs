@@ -289,6 +289,45 @@ async function checkButtons(){
   const body=first(page.getByText('Финансовые операции и детальный баланс дня',{exact:true}));await expectVisible(body);
   action='close day details';await first(page.getByTitle('Закрыть',{exact:true})).click();await body.waitFor({state:'hidden'});
  });
+ await buttonScenario('BUD-history-shared-filters',async()=>{
+  await nav('budget','Бюджет');const p=panel('budget');
+  const history=p.getByTestId(mobile()?'budget-history-mobile':'budget-history-desktop');
+  await expectVisible(history);
+  const controls=history.getByTestId('budget-history-controls');
+  const period=controls.getByRole('group',{name:'Период истории операций'});
+  action='select full month';await clickPressed(button(period,'Весь месяц'));
+  const search=controls.getByRole('searchbox',{name:'Поиск по истории операций'});
+  const type=controls.getByRole('combobox',{name:'Тип операций в истории'});
+  const category=controls.getByRole('combobox',{name:'Категория операций в истории'});
+  const reset=button(controls,'Сбросить фильтры истории');
+  const rows=history.locator('[data-history-row]');
+  const total=await rows.count();
+  for(const control of [search,type,category,button(period,'Весь месяц')]){
+   const rect=await control.boundingBox();check(rect&&rect.height>=44&&rect.width>=44,'History filter too small');
+  }
+  action='search empty result';await search.fill('QA_NO_MATCH_98473201');
+  await expectVisible(history.getByText('По заданным фильтрам операций нет.',{exact:true}));
+  check(await rows.count()===0,'Search did not filter');
+  action='reset search';await reset.click();check(await search.inputValue()==='','Search retained');
+  check(await rows.count()===total,'Reset did not restore month rows');
+  action='filter expense type';await type.selectOption('expense');
+  check(await rows.evaluateAll(nodes=>nodes.every(row=>row.dataset.historyType==='expense')),'Wrong transaction type in filtered result');
+  await reset.click();
+  const options=await category.locator('option').evaluateAll(nodes=>nodes.map(node=>node.value).filter(Boolean));
+  if(options.length){
+   action='filter actual category';await category.selectOption(options[0]);
+   check(await rows.count()>0,'Category present in month but no rows returned');
+   check(await rows.evaluateAll((nodes,value)=>nodes.every(row=>row.dataset.historyCategory===value),options[0].slice('category:'.length)),'Wrong category in filtered result');
+   await reset.click();check(await rows.count()===total,'Category reset did not restore rows');
+  }
+  check(await reset.count()===0,'Reset visible when no filters active');
+  action='preserve history context';await search.fill('QA_NO_MATCH_98473201');
+  await nav('overview','Обзор');await nav('budget','Бюджет');
+  check(await search.inputValue()==='QA_NO_MATCH_98473201','Search lost on tab return');
+  check(await button(period,'Весь месяц').getAttribute('aria-pressed')==='true','Period lost on tab return');
+  await reset.click();
+  await clickPressed(button(period,/^День ·/,false));
+ });
  await buttonScenario('BUD-16-new-payment-cancel',async()=>{
   await nav('budget','Бюджет');action='open mandatory payment editor';await button(panel('budget'),'Добавить обязательный платёж').click();
   const h=page.getByRole('heading',{name:'Новый обязательный платёж',exact:true});await expectVisible(h);

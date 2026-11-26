@@ -1007,6 +1007,8 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               </form>
             </div>
             
+            {beforeContent}
+
             {groupedDepartments.length > 0 ? (
               groupedDepartments.map(({ dept, items: deptItems }, deptIdx) => (
                 <section key={`dept-sec-${dept.id || deptIdx}`} className="flex flex-col gap-3">
@@ -1024,8 +1026,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                     </div>
                   </div>
 
-                  {beforeContent}
-            {/* Department Item Rows */}
+                  {/* Department Item Rows */}
                   <div className="rounded-2xl border border-[var(--terra-border)] bg-[var(--terra-surface)] divide-y divide-[var(--terra-border)]">
                     {deptItems.map((item, itemIdx) => {
                       return (

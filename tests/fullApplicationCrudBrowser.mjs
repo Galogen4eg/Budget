@@ -1,3 +1,4 @@
+import {runTerraV2Pilot} from './terraV2PilotBrowser.mjs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
@@ -151,6 +152,7 @@ if(process.argv.includes('--navigation')){
   assert.equal(legacyAfter.date,legacyBefore.date);
   await edit(b,legacyAfter.note).waitFor({state:'visible',timeout:20000});
   console.log('PASS legacy transaction edit with missing optional metadata');
+  await runTerraV2Pilot(b,{settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),transactionsRef:rows});
  }
  const result=await runNavigationAudit(b,{includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;

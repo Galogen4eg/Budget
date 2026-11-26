@@ -181,13 +181,13 @@ export default function App() {
     let sent=false;
     const finish=async(summary:{created:number;existing:number;unverified:number;deferred:number})=>{
       if(sent)return {status:'already-called'};
-      if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid||window.sessionStorage.getItem('alfaSyncReviewQueue')!=='1')throw new Error('ALFA_REVIEW_AUTH');
+      if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid||(window as any).__budgetAlfaReviewRun!==true)throw new Error('ALFA_REVIEW_AUTH');
       if(!summary||![summary.created,summary.existing,summary.unverified,summary.deferred].every(n=>Number.isSafeInteger(n)&&n>=0))throw new Error('ALFA_REVIEW_SUMMARY');
       sent=true;
       const pending=await readAlfaReviewCount(familyId,uid);
       if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');
       if(!pending&&!summary.unverified&&!summary.deferred)return {status:'not-needed',pending};
-      const text='Budget · Импорт Альфа-Банка\\n\\nДобавлено: '+summary.created+' операций.\\nСовпадений с сохранёнными: '+summary.existing+'.\\nНа разбор: '+pending+'.'+(summary.unverified?'\\nСтрок без подтверждения: '+summary.unverified+'.':'')+(summary.deferred?'\\nВыписок с ошибкой: '+summary.deferred+'.':'')+'\\n\\nОткройте Budget: https://budget-omega-jade.vercel.app/';
+      const text='Budget · Импорт Альфа-Банка\n\nДобавлено: '+summary.created+' операций.\nСовпадений с сохранёнными: '+summary.existing+'.\nНа разбор: '+pending+'.'+(summary.unverified?'\nСтрок без подтверждения: '+summary.unverified+'.':'')+(summary.deferred?'\nВыписок с ошибкой: '+summary.deferred+'.':'')+'\n\nОткройте Budget: https://budget-omega-jade.vercel.app/';
       const result=await dispatchTelegramMessage({config:{botToken:settings.telegramBotToken,chatId:settings.telegramChatId,apiUrl:settings.telegramApiUrl},text});
       return {status:result.success?'sent':'failed',pending};
     };
@@ -541,24 +541,30 @@ export default function App() {
   const handleImport = async (file: File) => {
     if(importingRef.current||importPreview)return;
     setImportReport(null);setImportIssue(null);setAlfaReviewOpen(false);
+    // Consume a one-file opt-in before any await. A stale browser session must not auto-confirm a later manual upload.
+    const reviewRequest=(window as any).__budgetAlfaReviewRequest;
+    delete (window as any).__budgetAlfaReviewRequest;
+    let reviewWriteStarted=false;
     importingRef.current=true;
     setIsImporting(true);
     importFileDigestRef.current = null;
     importFileRef.current = file;
     try {
         const memberId = resolveImportMemberId(members, user?.uid);
-        if(window.sessionStorage.getItem('alfaSyncReviewQueue')==='1'){
+        if(reviewRequest!==undefined){
           if(!alfaReviewReady||!importSourcesReady||!familyId||!user?.uid)throw new Error('ALFA_REVIEW_NOT_READY');
           const uid=user.uid,scope=tabScope;
           const assertScope=()=>{if(alfaScopeRef.current!==scope||auth.currentUser?.uid!==uid)throw new Error('ALFA_REVIEW_AUTH');};
-          const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport);
-          const plan=planAlfaReview(allRows,categories,memberId);
           const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
           const fileSha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+          if((window as any).__budgetAlfaReviewRun!==true||reviewRequest?.fileSha256!==fileSha256)throw new Error('ALFA_REVIEW_FILE_MISMATCH');
+          const allRows=await parseAlfaStatement(file,settings.alfaMapping,memberId,learnedRules,categories,[],setImportReport);
+          const plan=planAlfaReview(allRows,categories,memberId);
           assertScope();
           // Preserve legacy duplicate detection. Do not turn approximate matches into
           // confirmed server IDs or create replacements merely to acknowledge a file.
           const candidates=plan.filter(({row})=>!isAlfaOperationDuplicate(transactions,row));
+          reviewWriteStarted=true;
           const created=await stageAlfaReview(familyId,uid,memberId,candidates,assertScope);
           assertScope();
           const result={...await verifyAlfaReview(familyId,uid,memberId,allRows.map(row=>row.id),new Set(created.map(row=>row.id)),assertScope),fileSha256};
@@ -574,8 +580,15 @@ export default function App() {
         importFileDigestRef.current = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
         setImportPreview(data);
     } catch (err: any) {
+        if(reviewRequest!==undefined){
+          const message=err instanceof Error?err.message:'';
+          const code=reviewWriteStarted?'WRITE_UNVERIFIED':err instanceof AlfaStatementRowsError?'PARSE_ROWS':message==='Новых уникальных операций не найдено.'?'EMPTY_STATEMENT':message.startsWith('Неизвестное или неоднозначное значение столбца')||message.startsWith('Не удалось определить направление операции')?'DIRECTION':message==='Не удалось прочитать файл'?'READ_ERROR':'IMPORT_BLOCKED';
+          window.dispatchEvent(new CustomEvent('budget:import-review-error',{detail:{fileSha256:reviewRequest?.fileSha256,code}}));
+          if(err instanceof AlfaStatementRowsError)setImportIssue(err.report);
+          else toast.error('Автоимпорт остановлен. XLSX сохранён. '+code);
+          return;
+        }
         if(err instanceof AlfaStatementRowsError){setImportIssue(err.report);return;}
-        if(window.sessionStorage.getItem('alfaSyncReviewQueue')==='1'){toast.error('Автоимпорт остановлен. XLSX сохранён. '+(err instanceof Error?err.message:'Ошибка чтения'));return;}
         if (err?.message === 'Новых уникальных операций не найдено.' && familyId) {
           try {
             const memberId = resolveImportMemberId(members, user?.uid);

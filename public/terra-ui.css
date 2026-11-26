@@ -117,3 +117,13 @@ html.dark {
 .terra-history-toolbar {display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;}
 @container (min-width:560px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr);}.terra-history-filters{grid-column:1/-1;}}
 @container (min-width:780px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr) minmax(0,1fr);}.terra-history-filters{grid-column:auto;}}
+
+/* UX workspace geometry: actual available width determines layout. */
+.terra-service-grid{display:grid;grid-template-columns:minmax(0,1fr);background:var(--terra-surface);border:1px solid var(--terra-border);border-radius:12px;}
+.terra-service-row+.terra-service-row{border-top:1px solid var(--terra-border);}
+.terra-plans-desktop{grid-template-columns:minmax(0,1fr);gap:12px;padding:12px;}
+.terra-plans-desktop>main{padding:0;}
+.terra-wallet-grid,.terra-debt-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));}
+@media(min-width:1200px){.terra-plans-desktop{grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:16px;padding:20px;}}
+.terra-settings-body{max-width:900px;margin-inline:0;}
+.terra-settings-body input:not([type=checkbox]):not([type=radio]),.terra-settings-body select{min-height:44px;}

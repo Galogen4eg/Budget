@@ -563,11 +563,11 @@ export const EventModal: React.FC<EventModalProps> = ({
                   Дата и время
                 </span>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="terra-event-timing grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {/* Unified Date Field - 100% surface click target */}
                   <div 
                     onClick={handleOpenDate}
-                    className="relative bg-[#F5F2EB]/80 dark:bg-[#252528] hover:bg-[#EAE4D6]/70 dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between cursor-pointer transition min-h-[58px] group"
+                    className="col-span-2 sm:col-span-1 min-w-0 relative bg-[#F5F2EB]/80 dark:bg-[#252528] hover:bg-[#EAE4D6]/70 dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between cursor-pointer transition min-h-[58px] group"
                   >
                     <div className="flex items-center justify-between text-stone-400 dark:text-gray-400 pointer-events-none">
                       <div className="flex items-center gap-1">
@@ -579,6 +579,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     <div className="relative mt-1">
                       <input 
                         ref={dateInputRef}
+                        aria-label="Дата события"
                         type="date"
                         value={date}
                         onChange={e => setDate(e.target.value)}
@@ -601,6 +602,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     <div className="relative mt-1">
                       <input 
                         ref={timeInputRef}
+                        aria-label="Время начала"
                         type="time"
                         value={time}
                         onChange={e => setTime(e.target.value)}

@@ -229,11 +229,11 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
     <div className="w-full h-full flex-1 flex bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-on-surface dark:text-white font-body antialiased relative rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[var(--terra-border)] dark:md:border-white/10 min-h-0">
       
       {/* LEFT COLUMN: CHAT FOLDERS / TOPICS LIST (Always visible on desktop md+, toggleable on mobile) */}
-      <aside className={`w-full lg:w-72 xl:w-80 border-r border-outline-variant/30 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] flex-col shrink-0 h-full ${
-        mobileView === 'list' ? 'flex' : 'hidden lg:flex'
+      <aside className={`w-full md:w-[216px] xl:w-[280px] border-r border-outline-variant/30 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] flex-col shrink-0 h-full ${
+        mobileView === 'list' ? 'flex' : 'hidden md:flex'
       }`}>
         {/* Sidebar Header */}
-        <header data-terra-mobile-header className="min-h-16 px-4 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
+        <header data-terra-mobile-header className="min-h-[60px] px-3 border-b border-[var(--terra-border)] dark:border-white/10 flex items-center justify-between shrink-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)]">
           <div>
             <h1 className="font-headline font-bold text-xl tracking-tight text-[var(--terra-ink)] dark:text-white">Семейные беседы</h1>
             <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
@@ -241,7 +241,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               <span>{members.length} участников семьи</span>
             </p>
           </div>
-          <div className="flex items-center gap-1 shrink-0">{onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}<button type="button" disabled aria-label="Создать тему" title="Создание тем пока недоступно" className="w-11 h-11 rounded-xl bg-[var(--terra-soft)] opacity-50 flex items-center justify-center cursor-not-allowed"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span></button></div>
+          <div className="flex items-center gap-1 shrink-0">{onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}</div>
         </header>
 
         {/* Topics List */}
@@ -253,9 +253,9 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 key={t.id}
                 type="button"
                 onClick={() => handleSelectTopic(t.id)}
-                className={`w-full p-3 rounded-2xl text-left flex items-start gap-3 transition-colors cursor-pointer ${
+                className={`w-full min-h-[64px] p-2.5 rounded-xl text-left flex items-start gap-2.5 transition-colors cursor-pointer ${
                   isActive 
-                    ? 'bg-surface dark:bg-[var(--terra-soft)] border border-primary/40 shadow-sm' 
+                    ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-border)]' 
                     : 'hover:bg-surface-container/60 dark:hover:bg-white/5 border border-transparent'
                 }`}
               >
@@ -281,12 +281,12 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
 
       {/* RIGHT COLUMN: ACTIVE CHAT FEED (Always visible on desktop md+, toggleable on mobile) */}
       <section className={`flex-1 flex flex-col h-full bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] min-w-0 relative ${
-        mobileView === 'chat' ? 'flex' : 'hidden lg:flex'
+        mobileView === 'chat' ? 'flex' : 'hidden md:flex'
       }`}>
         
         {/* Chat Header */}
         <header data-terra-mobile-header className="sticky top-0 w-full z-40 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] border-b border-[var(--terra-border)] dark:border-white/10 shrink-0">
-          <div className="min-h-16 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-h-[60px] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
             
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Back Button for Mobile View */}
@@ -294,7 +294,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 type="button"
                 aria-label="К спискам чатов" 
                 onClick={() => setMobileView('list')}
-                className="lg:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
+                className="md:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
               </button>
@@ -367,7 +367,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             ref={messagesContainerRef}
             onScroll={e=>{const el=e.currentTarget;followChat.current=shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop);}}
             data-testid="chat-messages-scroll-container"
-            className="px-4 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-4 min-h-0 custom-scrollbar"
+            className="px-3 md:px-6 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-3 min-h-0 custom-scrollbar"
           >
             {(loadError||chatStale)&&<div role="status" className="rounded-xl p-3 bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)]">{loadError?'Не удалось обновить сообщения':'Сообщения не подтверждены сервером'}. <button type="button" onClick={retryChat} className="min-h-[44px] px-3 text-[var(--terra-primary-text)] font-semibold">Повторить загрузку</button></div>}
             {/* Date Separator */}
@@ -526,7 +526,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
         </main>
 
         {/* Composer Bar */}
-        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] rounded-t-2xl border-t border-outline-variant/20 dark:border-white/10 pb-4 md:pb-3">
+        <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] border-t border-[var(--terra-border)] pb-1 md:pb-2">
           <form className="p-2 sm:p-3 flex items-end gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
             <input 
               ref={fileInputRef}
@@ -543,7 +543,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               <span className="material-symbols-outlined text-[20px] sm:text-[22px]">attach_file</span>
             </button>
 
-            <div className="flex-1 bg-surface-container-low dark:bg-[var(--terra-canvas)] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
+            <div className="flex-1 min-w-0 bg-surface-container-low dark:bg-[var(--terra-canvas)] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
               <textarea ref={composerRef} rows={1} value={inputText}
                 onChange={e=>setInputText(e.target.value)}
                 onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229&&!window.matchMedia('(pointer:coarse)').matches){e.preventDefault();void handleSendMessage();}}}
@@ -555,7 +555,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               type="submit"
               aria-label="Отправить сообщение"
               disabled={isSendingMessage || !inputText.trim() || !familyId || !user || loadError || chatStale || loadedScope!==scope}
-              className="h-11 px-3 sm:px-4 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] font-body font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors terra-press shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
+              className="h-11 min-w-[44px] px-3 sm:px-4 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] font-body font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors terra-press shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
             >
               <span className="hidden sm:inline text-white">Отправить</span>
               <span className="material-symbols-outlined text-[17px] text-white">send</span>

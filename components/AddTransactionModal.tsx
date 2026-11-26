@@ -405,7 +405,7 @@ export default function AddTransactionModal({
                 
                 {/* Top Row: Segmented Toggle & Sum Card */}
                 <fieldset disabled={isSubmitting||saveConfirmed} className="min-w-0 border-0 p-0 space-y-3 sm:space-y-3.5">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-3 items-center">
                   {/* Segmented Toggle */}
                   <div className="md:col-span-5 p-1 rounded-xl bg-[#EAE6DE] dark:bg-[#2C2C2E] flex items-center gap-1 border border-surface-border/60 dark:border-white/5">
                     <button 
@@ -543,7 +543,7 @@ export default function AddTransactionModal({
                 </div>
 
                 {/* Main Grid: 2 Columns of Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                   
                   {/* Left Block: Name & Rules & Category */}
                   <div className="space-y-3">

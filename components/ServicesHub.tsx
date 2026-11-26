@@ -118,42 +118,25 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         />
       </div>
 
-      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-[1280px] mx-auto px-4 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-4 md:pb-8 space-y-4">
+      <div ref={scrollRef} data-testid="services-scroll-container" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain no-scrollbar w-full max-w-[1440px] mx-auto px-4 py-2.5 sm:p-6 md:p-8 pt-2 sm:pt-4 md:pt-6 pb-4 md:pb-8 space-y-4">
         {activeService === 'menu' ? (
           <div className="flex flex-col space-y-3 sm:space-y-5">
             <h1 className={`hidden md:block ${PAGE_HEADING}`}>Сервисы</h1>
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
-            <div className="terra-service-grid grid gap-3 sm:gap-4" data-purpose="service-cards-grid">
+            <div className="terra-service-grid" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <button
                   type="button"
                   key={app.id}
                   onClick={() => setActiveService(app.id as ServiceType)}
-                  className={`${SURFACE_CARD} relative flex min-h-[124px] flex-col justify-between text-left transition-colors terra-press hover:border-[var(--terra-primary-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] group cursor-pointer`}
+                  className="terra-service-row min-h-[76px] flex items-center gap-3 px-3 py-3 text-left hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors terra-press"
                 >
-                  <div>
-                    {/* Card Top Bar: Icon and Arrow */}
-                    <div className="flex items-start justify-between mb-2 sm:mb-3.5">
-                      {/* Icon with Sage/Mint Rounded Container */}
-                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[var(--terra-primary-soft)] flex items-center justify-center text-[var(--terra-primary-text)]  shrink-0 [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
-                        {app.icon}
-                      </div>
-
-                      <div className="text-[var(--terra-muted)] group-hover:text-[var(--terra-primary-text)] transition-colors p-0.5 sm:p-1">
-                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 " />
-                      </div>
-                    </div>
-
-                    {/* Title and Description */}
-                    <div>
-                      <h2 className="text-sm sm:text-base font-semibold text-[var(--terra-ink)] dark:text-white leading-snug break-words">
-                        {app.label}
-                      </h2>
-                      <p className="text-sm text-[var(--terra-muted)] mt-1 leading-relaxed break-words">
-                        {app.desc}
-                      </p>
-                    </div>
-                  </div>
+                  <span className="w-11 h-11 rounded-xl bg-[var(--terra-primary-soft)] flex items-center justify-center text-[var(--terra-primary-text)] shrink-0" aria-hidden="true">{app.icon}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-base font-semibold leading-snug break-words">{app.label}</span>
+                    <span className="block text-sm text-[var(--terra-muted)] mt-0.5 break-words">{app.desc}</span>
+                  </span>
+                  <ChevronRight className="w-5 h-5 shrink-0 text-[var(--terra-muted)]" aria-hidden="true"/>
                 </button>
               ))}
             </div>
@@ -162,7 +145,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         ) : (
           <div className="flex flex-col space-y-4">
             {activeService !== 'debts' && (
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 

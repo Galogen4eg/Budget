@@ -225,6 +225,17 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  assert.deepEqual([empty.requested,empty.created,empty.existing,empty.queued,empty.unverified,empty.emptyVerified],[0,0,0,0,0,true]);
  assert.equal((await rows.get()).size,beforeEmpty);
  assert.equal((await inbox.get()).size,0);
+ phase='verified actual bank export layout';
+ const realBook=XLSX.utils.book_new();
+ const realHeader=['Дата операции','Дата проводки','Название счета','Номер счета','Название карты','Номер карты','Описание операции','Сумма','Валюта','Статус','Категория','MCC код','Тип','','Комментарий','Кэшбэк','Тип кэшбэка'];
+ const realSheet=XLSX.utils.aoa_to_sheet([realHeader,['',...Array(12).fill(null)]]);
+ realSheet['!ref']='A1:Q2';
+ XLSX.utils.book_append_sheet(realBook,realSheet,'Выписка');
+ const realEmpty=await send(XLSX.write(realBook,{type:'buffer',bookType:'xlsx'}),{acceptEmpty:true});
+ assert.deepEqual([realEmpty.requested,realEmpty.created,realEmpty.existing,realEmpty.queued,realEmpty.unverified,realEmpty.emptyVerified],[0,0,0,0,0,true]);
+ assert.equal((await rows.get()).size,beforeEmpty);
+ assert.equal((await inbox.get()).size,0);
+ console.log('PASS ALFA actual export layout verified empty');
  phase='old client still defers empty';
  const old=await send(makeFile([]),{expectError:true});
  assert.equal(old.code,'EMPTY_STATEMENT');

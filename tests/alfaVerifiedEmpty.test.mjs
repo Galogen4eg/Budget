@@ -16,3 +16,16 @@ test('a zero-row acknowledgment needs explicit verified-empty proof and matching
  assert.throws(()=>assertAlfaReviewResult({...zero,emptyVerified:true,requested:1,existing:1},sha));
  assert.throws(()=>assertAlfaReviewResult({...zero,emptyVerified:true,created:1},sha));
 });
+
+test('real Alfa export layout A1:Q2 with empty second row is safe to acknowledge',()=>{
+ const actual=['Дата операции','Дата проводки','Название счета','Номер счета','Название карты','Номер карты','Описание операции','Сумма','Валюта','Статус','Категория','MCC код','Тип','','Комментарий','Кэшбэк','Тип кэшбэка'];
+ assert.equal(isVerifiedEmptyAlfaSheets([[actual,Array(13).fill('')]]),true);
+ assert.equal(isVerifiedEmptyAlfaSheets([[actual,Array(17).fill('')]]),true);
+ const wrong=actual.slice();wrong[13]='Неизвестная колонка';
+ assert.equal(isVerifiedEmptyAlfaSheets([[wrong]]),false);
+ const data=Array(17).fill('');data[7]=0;
+ assert.equal(isVerifiedEmptyAlfaSheets([[actual,data]]),false);
+ const comment=Array(17).fill('');comment[14]='Неизвестная строка';
+ assert.equal(isVerifiedEmptyAlfaSheets([[actual,comment]]),false);
+ assert.equal(isVerifiedEmptyAlfaSheets([[actual], [['Неизвестный лист']]]),false);
+});

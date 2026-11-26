@@ -1,4 +1,6 @@
-import React,{useMemo,useState} from 'react';
+import React,{useId,useMemo,useRef,useState} from 'react';
+import { categoriesForType } from '../utils/categoryCatalog';
+import { SURFACE_CARD, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE, TOOLBAR_ACTION_PRIMARY, SECTION_HEADING } from './filterUiTokens';
 import { toast } from 'sonner';
 import type { AppSettings, Category, Transaction } from '../types';
 import { useData } from '../contexts/DataContext';
@@ -23,7 +25,10 @@ export default function BudgetPlanningPanel({
  const [amount,setAmount]=useState('');
  const [saving,setSaving]=useState(false);
  const [editing,setEditing]=useState(false);
- const expenseCategories=useMemo(()=>categories.filter(c=>c.transactionType!=='income'),[categories]);
+ const formId=useId(),categoryInputId=useId(),amountId=useId();
+ const mutationPending=useRef(false);
+ const [error,setError]=useState('');
+ const expenseCategories=useMemo(()=>categoriesForType(categories,'expense'),[categories]);
  const categoryNames=useMemo(()=>new Map(categories.map(c=>[c.id,c.label])),[categories]);
  const limits=settings.categoryBudgets||{};
  const rows=useMemo(()=>buildCategoryBudgetRows(monthTransactions,categories,limits),
@@ -34,13 +39,16 @@ export default function BudgetPlanningPanel({
    transactions,now:new Date(),daysRemaining:daysToSalary,totalBalance,reservedAmount
  }),[transactions,daysToSalary,totalBalance,reservedAmount]);
  const currency=(value:number)=>settings.privacyMode?'•••':formatBudgetMoney(value)+' ₽';
+ const openLimit=(id:string)=>{if(mutationPending.current)return;setCategoryId(id);setAmount(id&&limits[id]?String(limits[id]):'');setError('');setEditing(true);};
  const save=async()=>{
-   if(saving||!categoryId)return;
+   if(mutationPending.current||!categoryId)return;
+   setError('');
    const limit=amount.trim()?parseCategoryBudgetInput(amount):null;
    if(amount.trim()&&limit===null){
-     toast.error('Укажите положительный лимит с точностью до копейки.');
+     setError('Укажите положительный лимит с точностью до копейки.');
      return;
    }
+   mutationPending.current=true;
    setSaving(true);
    try{
      const next={...limits};
@@ -49,59 +57,60 @@ export default function BudgetPlanningPanel({
      setEditing(false);
      setAmount('');
      toast.success(limit===null?'Лимит удалён':'Лимит сохранён');
-   }catch(error){toast.error('Не удалось сохранить лимит');}
-   finally{setSaving(false);}
+   }catch{setError('Не удалось сохранить лимит. Введённые данные сохранены в форме.');}
+   finally{mutationPending.current=false;setSaving(false);}
  };
  return (
-  <section className="rounded-2xl border border-surface-border dark:border-white/10 bg-white dark:bg-[#1C1C1E] p-4 space-y-3 min-w-0">
+  <section data-testid="budget-planning" className={SURFACE_CARD+" space-y-4 min-w-0"}>
    <div className="flex justify-between items-start gap-2">
      <div>
-       <h3 className="text-sm font-bold text-graphite dark:text-white">Лимиты по категориям</h3>
+       <h3 className={SECTION_HEADING}>Лимиты по категориям</h3>
        <p className="text-xs text-graphite-muted dark:text-gray-400">{personalOnly?'Личные лимиты на календарный месяц':'Общие семейные лимиты на календарный месяц'}</p>
      </div>
-     <button type="button" onClick={()=>setEditing(x=>!x)}
+     <button type="button" onClick={()=>editing?(setEditing(false),setError('')):openLimit('')}
        aria-expanded={editing}
        disabled={saving}
-       aria-controls="budget-category-limit-form"
-       className="min-h-[44px] px-3 text-xs font-semibold text-primary dark:text-green-400 rounded-lg border border-surface-border dark:border-white/15">
+       aria-controls={formId}
+       className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}>
        {editing?'Закрыть':'+ Лимит'}
      </button>
    </div>
    {editing&&(
-    <div id="budget-category-limit-form" className="flex flex-col gap-2 rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
-      <label htmlFor="budget-limit-category" className="text-xs font-semibold">Категория</label>
-      <select id="budget-limit-category" value={categoryId} disabled={saving} onChange={e=>{
-       const id=e.target.value;setCategoryId(id);setAmount(limits[id]?String(limits[id]):'');
-      }} className="min-h-[44px] w-full rounded-lg border border-surface-border dark:border-white/15 bg-white dark:bg-[#202024] px-2 text-sm">
+    <div id={formId} className="flex flex-col gap-2 rounded-xl bg-[var(--terra-soft)] p-3">
+      <label htmlFor={categoryInputId} className="text-xs font-semibold">Категория</label>
+      <select id={categoryInputId} value={categoryId} disabled={saving} onChange={e=>{
+       const id=e.target.value;openLimit(id);
+      }} className="min-h-[44px] min-w-0 w-full rounded-lg border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] px-2 text-sm">
        <option value="">Выберите категорию</option>
        {expenseCategories.map(cat=><option key={cat.id} value={cat.id}>{cat.parentId ? `${categoryNames.get(cat.parentId) || 'Категория'} / ${cat.label}` : cat.label}</option>)}
       </select>
-      <label htmlFor="budget-limit-amount" className="text-xs font-semibold">Лимит в месяц, ₽ (пустое поле — удалить)</label>
-      <p className="text-[11px] text-graphite-muted dark:text-gray-400">{personalOnly?'Устанавливается для личного бюджета.':'Устанавливается для всей семьи.'} Можно задать лимит и для подкатегории; в общем плане она не дублируется.</p>
-      <input id="budget-limit-amount" type="text" inputMode="decimal" disabled={saving} value={amount}
-        placeholder="Например, 30000,50" onChange={e=>setAmount(e.target.value)}
-        className="min-h-[44px] w-full rounded-lg border border-surface-border dark:border-white/15 bg-white dark:bg-[#202024] px-3 text-sm"/>
-      <button type="button" onClick={save} disabled={saving||!categoryId}
-       className="min-h-[44px] rounded-lg bg-primary disabled:opacity-40 text-white text-sm font-semibold">
+      <label htmlFor={amountId} className="text-xs font-semibold">Лимит в месяц, ₽ (пустое поле — удалить)</label>
+      <p className="text-xs text-[var(--terra-muted)]">{personalOnly?'Устанавливается для личного бюджета.':'Устанавливается для всей семьи.'} Можно задать лимит и для подкатегории; в общем плане она не дублируется.</p>
+      <input id={amountId} type="text" inputMode="decimal" disabled={saving} value={amount}
+        placeholder="Например, 30000,50" onChange={e=>{setAmount(e.target.value);setError('');}}
+        className="min-h-[44px] min-w-0 w-full rounded-lg border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] px-3 text-sm"/>
+      <button type="button" onClick={save} disabled={saving||!categoryId||(!amount.trim()&&!limits[categoryId])} aria-busy={saving}
+       className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}>
        {saving?'Сохранение…':amount.trim()?'Сохранить лимит':'Удалить лимит'}
       </button>
+      {error&&<p role="alert" className="text-sm text-[var(--terra-danger-text)]">{error}</p>}
     </div>
    )}
    {rows.length===0?<p className="text-sm text-graphite-muted dark:text-gray-400">Лимитов пока нет. Добавьте первый, чтобы отслеживать расходы.</p>:
     <div className="space-y-3">
      {rows.map(row=><div key={row.categoryId} className="space-y-1.5">
-      <div className="flex justify-between gap-2 text-xs">
-       <span className="font-medium text-graphite dark:text-white truncate">{row.label}</span>
-       <span className={row.overLimit?'font-semibold text-red-600 dark:text-red-400':'text-graphite-muted dark:text-gray-400'}>
+      <div className="flex flex-wrap justify-between items-center gap-2 text-sm">
+       <button type="button" disabled={saving} onClick={()=>openLimit(row.categoryId)} aria-label={"Изменить лимит: "+row.label} className="min-h-[44px] min-w-0 text-left font-semibold text-[var(--terra-ink)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] break-words">{row.label}</button>
+       <span className={"tabular-nums break-words "+(!settings.privacyMode&&row.overLimit?'font-semibold text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]')}>
         {currency(row.spent)} / {currency(row.limit)}
        </span>
       </div>
-      <div className="h-2 w-full bg-[#EAE6DE] dark:bg-white/10 rounded-full overflow-hidden">
-       <div className={row.overLimit?'h-full rounded-full bg-red-500':'h-full rounded-full bg-[#4A7C59]'}
+      {!settings.privacyMode&&<div data-testid="category-limit-progress" role="progressbar" aria-label={"Использование лимита: "+row.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.percentage} className="h-2 w-full bg-[var(--terra-soft)] rounded-full overflow-hidden">
+       <div className={"h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none "+(row.overLimit?'bg-[var(--terra-danger-text)]':'bg-[var(--terra-primary-solid)]')}
         style={{width:row.percentage+'%'}}/>
-      </div>
-      <p className="text-[11px] text-graphite-muted dark:text-gray-400">
-       {row.overLimit?'Лимит превышен на '+currency(row.spent-row.limit):'Осталось '+currency(row.remaining)}
+      </div>}
+      <p className="text-xs text-[var(--terra-muted)]">
+       {settings.privacyMode?'Суммы скрыты':row.overLimit?'Лимит превышен на '+currency(row.spent-row.limit):'Осталось '+currency(row.remaining)}
       </p>
      </div>)}
     </div>
@@ -112,13 +121,13 @@ export default function BudgetPlanningPanel({
        {currentMonth.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · фактические операции из бюджета, без событий календаря
      </p>
      <div className="grid grid-cols-2 gap-2">
-       <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
-         <p className="text-[11px] text-graphite-muted dark:text-gray-400">Доходы</p>
-         <p className="text-base font-bold tabular-nums">{currency(monthlyReport.income)}</p>
+       <div className="rounded-xl bg-[var(--terra-soft)] p-3">
+         <p className="text-xs text-[var(--terra-muted)]">Доходы</p>
+         <p className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{currency(monthlyReport.income)}</p>
        </div>
-       <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252528] p-3">
-         <p className="text-[11px] text-graphite-muted dark:text-gray-400">Расходы</p>
-         <p className="text-base font-bold tabular-nums">{currency(monthlyReport.expense)}</p>
+       <div className="rounded-xl bg-[var(--terra-soft)] p-3">
+         <p className="text-xs text-[var(--terra-muted)]">Расходы</p>
+         <p className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{currency(monthlyReport.expense)}</p>
        </div>
      </div>
      <div className="flex justify-between gap-2 text-sm">
@@ -138,7 +147,7 @@ export default function BudgetPlanningPanel({
          <span>Осталось по лимитам</span>
          <span>{currency(monthlyReport.plannedRemaining)}</span>
        </div>
-       {monthlyReport.overBudget > 0 && (
+       {!settings.privacyMode&&monthlyReport.overBudget > 0 && (
          <p className="text-xs font-semibold text-red-600 dark:text-red-400">
            Превышение отдельных лимитов: {currency(monthlyReport.overBudget)}
          </p>
@@ -153,7 +162,7 @@ export default function BudgetPlanningPanel({
          Для сравнения плана с фактом добавьте лимит хотя бы одной категории.
        </p>
      )}
-     {monthlyReport.unplannedSpent>0 && (
+     {!settings.privacyMode&&monthlyReport.unplannedSpent>0 && (
        <p className="text-xs text-graphite-muted dark:text-gray-400">
          Расходы вне категорий с лимитами: {currency(monthlyReport.unplannedSpent)}
        </p>
@@ -161,7 +170,7 @@ export default function BudgetPlanningPanel({
      <div className="border-t border-surface-border dark:border-white/10 pt-2">
        <p className="text-xs text-graphite-muted dark:text-gray-400">
          Прошлый месяц: {currency(monthlyReport.previousMonthExpense)} расходов.
-         {monthlyReport.expenseChangePercent===null
+         {settings.privacyMode?'':monthlyReport.expenseChangePercent===null
            ? ' Нет базы для процентного сравнения.'
            : ` Изменение: ${monthlyReport.expenseChangePercent>0?'+':''}${monthlyReport.expenseChangePercent}%.`}
        </p>
@@ -176,7 +185,7 @@ export default function BudgetPlanningPanel({
        <div className="flex justify-between text-sm"><span>Средний расход за день</span><b>{currency(forecast.averageDaily)}</b></div>
        <div className="flex justify-between text-sm"><span>Ожидаемые расходы</span><b>{currency(forecast.projectedSpending!)}</b></div>
        <div className="flex justify-between text-sm"><span>Прогноз свободного остатка</span><b>{currency(forecast.projectedFreeBalance!)}</b></div>
-       <p className="text-[11px] text-graphite-muted dark:text-gray-400">
+       <p className="text-xs text-[var(--terra-muted)]">
          Оценка по прошлым тратам без будущих доходов. Уже учтённые резервы не вычитаются повторно.
        </p>
       </>

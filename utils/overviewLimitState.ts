@@ -1,4 +1,4 @@
-import {cents,money} from './budgetFinancialMath';
+import {cents,money} from './budgetFinancialMath.ts';
 /** Presentation-only status of the existing monthly limit, in exact kopecks. */
 export function overviewLimitState(spent:number,limit:number){
  const used=Math.max(0,cents(spent)),target=cents(limit);

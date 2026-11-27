@@ -311,9 +311,9 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
     const manage=button(categoryCard,'Управление категориями');await manage.click();
     const managementPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
-    await managementPicker.waitFor({state:'visible'});const search=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
-    await targetSize(search,label+' category search');await search.fill('терра-нет-категории');
-    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear search');await button(managementPicker,'Очистить поиск').click();
+    await managementPicker.waitFor({state:'visible'});const overviewCategorySearch=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
+    await targetSize(overviewCategorySearch,label+' category overviewCategorySearch');await overviewCategorySearch.fill('терра-нет-категории');
+    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear overviewCategorySearch');await button(managementPicker,'Очистить поиск').click();
     await noOverflow(managementPicker,label+' category management');await capture(page,'overview-category-picker-'+label);
     await page.keyboard.press('Escape');await managementPicker.waitFor({state:'hidden'});
     assert.equal(await manage.evaluate(el=>document.activeElement===el),true,label+' category management focus return');

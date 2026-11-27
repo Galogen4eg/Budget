@@ -1,6 +1,8 @@
-import { DASHBOARD_CARD, FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE } from './filterUiTokens';
+import { DASHBOARD_CARD, SECTION_HEADING } from './filterUiTokens';
+import DrillDownAnalyticsChart from './drilldown/DrillDownAnalyticsChart';
+import type {AnalyticsPoint,AnalyticsSeriesFilter} from '../utils/analyticsPresentation';
 import { chartBarPercent } from '../utils/analyticsPresentation';
-import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { formatBudgetMoney, sumMoney } from '../utils/budgetFinancialMath';
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -55,13 +57,11 @@ interface DrillDownMobileProps {
   setViewMode: (v: 'inspector' | 'analytics') => void;
   chartGranularity: 'daily' | 'weekly';
   setChartGranularity: (g: 'daily' | 'weekly') => void;
-  chartData: {
-    id: string;
-    label: string;
-    dayNum?: number;
-    expense: number;
-    income: number;
-  }[];
+  chartData:AnalyticsPoint[];
+  chartSeriesFilter:AnalyticsSeriesFilter;
+  setChartSeriesFilter:(value:AnalyticsSeriesFilter)=>void;
+  familyTransactions:Transaction[];
+  monthLabel:string;
   currentMember?: FamilyMember | null;
   categories?: Category[];
 }
@@ -97,30 +97,16 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
   chartGranularity,
   setChartGranularity,
   chartData,
+  chartSeriesFilter,
+  setChartSeriesFilter,
+  familyTransactions,
+  monthLabel,
   currentMember,
   categories = []
 }) => {
   const formatAmount=(value:number)=>privacyMode?'•••':formatBudgetMoney(value);
   const [showFilterOptions, setShowFilterOptions] = useState(false);
   const surface=useModalSurface(()=>{if(viewMode==='analytics')setViewMode('inspector');else onClose();},{initialSelector:'[aria-label="Закрыть или вернуться назад"]'});
-
-  const peakInfo = useMemo(() => chartData.reduce<{label:string;maxVal:number}|null>((peak,item)=>{
-    const volume=item.expense+item.income;
-    return volume>0&&(!peak||volume>peak.maxVal)?{label:item.label,maxVal:volume}:peak;
-  },null),[chartData]);
-
-  // Chart max value for scaling
-  const chartMax = useMemo(() => {
-    let max = 1;
-    chartData.forEach(item => {
-      if (item.expense > max) max = item.expense;
-      if (item.income > max) max = item.income;
-    });
-    return max;
-  }, [chartData]);
-
-  // Render all periods; do not sample away transaction days.
-  const mobileBars=chartData;
 
   // Progress towards monthly limit
   const limitProgress = useMemo(() => {
@@ -553,10 +539,10 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
             {/* Key KPI Metrics Grid */}
             <div className="grid grid-cols-2 gap-3">
               {/* Card 1: Расходы (Span 2) */}
-              <div className="col-span-2 bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 flex flex-col justify-between shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 relative overflow-hidden">
+              <div className={DASHBOARD_CARD+" col-span-2 flex flex-col justify-between"}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-[#4A4E4A] dark:text-stone-400 uppercase tracking-wide">
-                    Всего расходов
+                  <span className="text-sm font-medium text-[var(--terra-muted)]">
+                    Расходы
                   </span>
                   {!privacyMode&&trendPercent !== 0 && (
                     <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -569,8 +555,8 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-baseline justify-between mt-1">
-                  <div className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 mt-1">
+                  <div className="text-2xl font-semibold tabular-nums text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                     {formatAmount(totalExpense)} <span className="text-lg font-normal text-[#4A4E4A] dark:text-stone-400">₽</span>
                   </div>
                   <div className="flex items-center text-xs text-[#4A4E4A] dark:text-stone-400 font-medium">
@@ -581,7 +567,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                 {!privacyMode&&categoryLimit && categoryLimit > 0 && (
                   <div className="w-full bg-[#E4E0D8] dark:bg-white/10 rounded-full h-1.5 mt-3 overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
+                      className={`h-full rounded-full terra-progress ${
                         limitProgress > 90 ? 'bg-[#B83230]' : 'bg-[#4A7C59]'
                       }`}
                       style={{ width: `${limitProgress}%` }}
@@ -591,27 +577,27 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               </div>
 
               {/* Card 2: Среднее в день */}
-              <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-3.5 flex flex-col justify-between shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10">
+              <div className={DASHBOARD_CARD+" flex flex-col justify-between"}>
                 <div className="flex items-center gap-1.5 text-[#4A4E4A] dark:text-stone-400 mb-2">
                   <Calendar size={16} className="text-[#6B6358] dark:text-stone-300" />
                   <span className="text-xs font-medium">Среднее в день</span>
                 </div>
                 <div>
-                  <div className="text-lg font-headline font-bold text-[#2E3230] dark:text-white">
+                  <div className="text-xl font-semibold tabular-nums text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                     {formatAmount(avgDaily)} <span className="text-xs font-normal text-[#4A4E4A]">₽</span>
                   </div>
 
                 </div>
               </div>
 
-              {/* Card 3: Пополнения & Баланс */}
-              <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-3.5 flex flex-col justify-between shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10">
+              {/* Card 3: Доходы & Баланс */}
+              <div className={DASHBOARD_CARD+" flex flex-col justify-between"}>
                 <div className="flex items-center gap-1.5 text-[#4A4E4A] dark:text-stone-400 mb-2">
                   <PlusCircle size={16} className="text-[#4A7C59] dark:text-green-400" />
                   <span className="text-xs font-medium">Пополнения</span>
                 </div>
                 <div>
-                  <div className="text-lg font-headline font-bold text-[#4A7C59] dark:text-green-400">
+                  <div className="text-xl font-semibold tabular-nums text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">
                     +{formatAmount(totalIncome)} <span className="text-xs font-normal">₽</span>
                   </div>
                   <p className="text-[11px] text-[#4A4E4A] dark:text-stone-400 font-medium mt-0.5">
@@ -621,106 +607,21 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
               </div>
             </div>
 
-            {/* Chart Section */}
-            {privacyMode?<p role="status" className="p-4 rounded-xl bg-[var(--terra-surface)] text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<div data-testid="drilldown-chart" className={DASHBOARD_CARD+" flex flex-col space-y-3"}>
-              {/* Header & Toggle */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
-                    Доходы и расходы
-                  </h3>
-                  <p className="text-[11px] text-[#4A4E4A] dark:text-stone-400 font-medium">
-                    По выбранному периоду
-                  </p>
-                </div>
-
-                <div role="group" aria-label="Группировка аналитики" className={FILTER_RAIL}>
-                  <button 
-                    type="button"
-                    onClick={() => setChartGranularity('daily')} aria-pressed={chartGranularity==='daily'}
-                    className={FILTER_CHIP+' terra-press '+(chartGranularity==='daily'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}
-                  >
-                    По дням
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setChartGranularity('weekly')} aria-pressed={chartGranularity==='weekly'}
-                    className={FILTER_CHIP+' terra-press '+(chartGranularity==='weekly'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}
-                  >
-                    По неделям
-                  </button>
-                </div>
-              </div>
-
-              {/* Legend */}
-              <div className="flex items-center gap-4 text-xs font-medium pt-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--terra-danger-text)]" />
-                  <span className="text-[#4A4E4A] dark:text-stone-300">Расходы</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--terra-primary-solid)]" />
-                  <span className="text-[#4A4E4A] dark:text-stone-300">Доходы</span>
-                </div>
-              </div>
-
-              {/* Visual Bar Chart */}
-              <div className="w-full pt-4 pb-1 overflow-x-auto" tabIndex={0} aria-label="График по всем периодам">
-                <div className="relative h-40 flex items-end justify-between gap-1.5 px-2" style={{minWidth:Math.max(240,mobileBars.length*(chartGranularity==='daily'?32:56))}}>
-                  {mobileBars.map((bar) => {
-                    const expPercent = chartBarPercent(bar.expense,chartMax);
-                    const incPercent = chartBarPercent(bar.income,chartMax);
-                    const labelText = bar.dayNum ? String(bar.dayNum).padStart(2, '0') : bar.label.split(' ')[0];
-
-                    return (
-                      <div 
-                        key={bar.id}
-                        className="flex-1 min-w-[18px] flex flex-col items-center gap-1 h-full justify-end relative" title={`${bar.label}: расходы ${formatAmount(bar.expense)} ₽, доходы ${formatAmount(bar.income)} ₽`}
-                      >
-                        <div className="w-full flex items-end justify-center gap-0.5 h-full">
-                          <div 
-                            className="w-2 bg-[var(--terra-danger-text)] rounded-t-sm" data-expense-bar={bar.id}
-                            style={{ height: `${expPercent}%` }}
-                          />
-                          {incPercent > 0 && (
-                            <div 
-                              className="w-2 bg-[var(--terra-primary-text)] rounded-t-sm"
-                              style={{ height: `${incPercent}%` }}
-                            />
-                          )}
-                        </div>
-
-                        <span className="text-xs font-medium text-[var(--terra-muted)] tabular-nums whitespace-nowrap">
-                          {labelText}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <details className="border-t border-[var(--terra-border)]"><summary className="min-h-[44px] flex items-center text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer">Значения графика</summary><div className="max-h-64 overflow-y-auto divide-y divide-[var(--terra-border)]">{mobileBars.map(bar=><div key={bar.id} className="flex flex-wrap gap-2 justify-between py-2 text-sm tabular-nums"><span>{bar.label}</span><span className="text-[var(--terra-danger-text)]">−{formatAmount(bar.expense)} ₽</span><span className="text-[var(--terra-primary-text)]">+{formatAmount(bar.income)} ₽</span></div>)}</div></details>
-
-              {peakInfo&&<div className="bg-[#EAE6DE] dark:bg-white/5 rounded-xl p-2.5 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-[#4A7C59] dark:text-green-400" />
-                  <span className="text-[#2E3230] dark:text-white">
-                    Пиковый {chartGranularity==='daily'?'день':'период'}: <strong>{peakInfo.label}</strong>
-                  </span>
-                </div>
-                <span className="text-[#4A4E4A] dark:text-stone-400 text-[11px]">
-                  {formatAmount(peakInfo.maxVal)} ₽
-                </span>
-              </div>}
-            </div>}
+            {/* Shared chart and merchant details */}
+            {privacyMode?<p role="status" className="p-4 rounded-xl bg-[var(--terra-surface)] text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p>:<DrillDownAnalyticsChart
+              familyTransactions={familyTransactions} chartData={chartData}
+              chartGranularity={chartGranularity} setChartGranularity={setChartGranularity}
+              chartSeriesFilter={chartSeriesFilter} setChartSeriesFilter={setChartSeriesFilter}
+              monthLabel={monthLabel} categories={categories} mobile
+            />}
 
             {/* Family Breakdown */}
             {!privacyMode&&memberBreakdown.length > 0 && (
-              <div className="bg-[#F5F1EA] dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border border-[#E4E0D8]/60 dark:border-white/10 space-y-3">
+              <div className={DASHBOARD_CARD+" space-y-3"}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users size={18} className="text-[#705C30] dark:text-amber-400" />
-                    <h3 className="text-sm font-headline font-bold text-[#2E3230] dark:text-white">
+                    <h3 className={SECTION_HEADING}>
                       Участники семьи
                     </h3>
                   </div>
@@ -749,17 +650,17 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
                           <div className="text-right">
                             <span className="font-bold text-[#2E3230] dark:text-white">
-                              {formatAmount(item.expense)} ₽
+                              {formatAmount(sumMoney([item.expense,item.income]))} ₽
                             </span>
                             <span className="text-[#4A4E4A] dark:text-stone-400 text-[11px] ml-1">
-                              ({item.share}%)
+                              ({item.share}% оборота)
                             </span>
                           </div>
                         </div>
 
                         <div className="w-full bg-[#EAE6DE] dark:bg-white/10 rounded-full h-2 overflow-hidden">
                           <div 
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full terra-progress"
                             style={{ 
                               width: `${chartBarPercent(item.share,100)}%`,
                               backgroundColor: item.member?.color || (idx === 0 ? '#4A7C59' : '#C4A66A')

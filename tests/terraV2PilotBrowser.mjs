@@ -320,7 +320,21 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await tab.getAttribute('aria-pressed'),'true');
     }
     await noOverflow(dialog,label+' analytics dialog');
-    if(!mobile)await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    const series=dialog.getByRole('group',{name:'Состав графика'});
+    for(const name of ['Расходы','Доходы','Все']){
+     const tab=button(series,name);await targetSize(tab,label+' series '+name);await tab.click();
+     assert.equal(await tab.getAttribute('aria-pressed'),'true');
+    }
+    await noOverflow(dialog.getByTestId('drilldown-chart'),label+' shared chart');
+    await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    const values=dialog.getByText('Значения графика',{exact:true});await values.click();
+    await dialog.getByTestId('analytics-values').waitFor({state:'visible'});
+    await values.click();
+    const merchant=dialog.getByRole('searchbox',{name:'Поиск магазина или получателя'});
+    await merchant.fill('терра-нет-такого-получателя');
+    await dialog.getByText('Ничего не найдено',{exact:true}).waitFor({state:'visible'});
+    await merchant.fill('');
+    await noOverflow(dialog,label+' merchant search');
     await capture(page,'analytics-'+label);
     await dialog.getByTestId('drilldown-chart').scrollIntoViewIfNeeded();
     await capture(page,'analytics-chart-'+label);

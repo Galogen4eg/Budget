@@ -13,6 +13,18 @@ type ExpenseLike = {
   amount: number;
 };
 
+export function resolveBudgetCategoryRoot(categoryId:string,byId:ReadonlyMap<string,{parentId?:string}>):string {
+ let id=categoryId;
+ const seen=new Set<string>();
+ while(true){
+  const category=byId.get(id);
+  if(!category)return 'uncategorized';
+  if(!category.parentId||!byId.has(category.parentId))return id;
+  if(seen.has(id)||seen.has(category.parentId))return id;
+  seen.add(id);id=category.parentId;
+ }
+}
+
 /**
  * A transaction contributes to exactly one root category (or "Без категории").
  * The UI previously lost third-level descendants and used floating-point totals.
@@ -26,24 +38,11 @@ export function buildBudgetCategoryBreakdown(
   const totals = new Map<string, number>();
   const uncategorizedId = 'uncategorized';
 
-  function rootId(categoryId: string): string {
-    let id = categoryId;
-    const seen = new Set<string>();
-    while (true) {
-      const category = byId.get(id);
-      if (!category) return uncategorizedId;
-      if (!category.parentId || !byId.has(category.parentId)) return id;
-      if (seen.has(id) || seen.has(category.parentId)) return id;
-      seen.add(id);
-      id = category.parentId;
-    }
-  }
-
   for (const tx of transactions) {
     if (tx.type !== 'expense' || !Number.isFinite(tx.amount) || tx.amount <= 0) continue;
     const amount = cents(tx.amount);
     if (amount <= 0) continue;
-    const id = rootId(tx.category);
+    const id = resolveBudgetCategoryRoot(tx.category, byId);
     totals.set(id, (totals.get(id) || 0) + amount);
   }
 

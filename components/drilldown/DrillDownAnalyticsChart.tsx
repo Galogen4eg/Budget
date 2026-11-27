@@ -1,212 +1,42 @@
 import React, { useState, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CHART_TOOLTIP, DASHBOARD_CARD, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, FILTER_RAIL, SECTION_HEADING } from '../filterUiTokens';
-import { formatBudgetMoney } from '../../utils/budgetFinancialMath';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Store, Search, Building2, ShoppingBag } from 'lucide-react';
-import { Transaction, AppSettings, Category } from '../../types';
+import { formatBudgetMoney, sumMoney } from '../../utils/budgetFinancialMath';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { ChevronDown, Search } from 'lucide-react';
+import { Transaction, Category } from '../../types';
+import {buildPayeeAnalytics,type AnalyticsPoint,type AnalyticsGranularity,type AnalyticsSeriesFilter} from '../../utils/analyticsPresentation';
 
 interface DrillDownAnalyticsChartProps {
-  familyTransactions: Transaction[];
-  currentMonth?: Date;
-  settings: AppSettings;
-  activeSubcategoryId?: string | null;
-  monthLabel: string;
-  categories?: Category[];
+  familyTransactions:Transaction[];
+  chartData:AnalyticsPoint[];
+  chartGranularity:AnalyticsGranularity;
+  setChartGranularity:(value:AnalyticsGranularity)=>void;
+  chartSeriesFilter:AnalyticsSeriesFilter;
+  setChartSeriesFilter:(value:AnalyticsSeriesFilter)=>void;
+  monthLabel:string;
+  categories?:Category[];
+  mobile?:boolean;
 }
 
-export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = ({
-  familyTransactions,
-  currentMonth,
-  activeSubcategoryId,
-  monthLabel,
-  categories = []
-}) => {
-  const [chartGranularity, setChartGranularity] = useState<'daily' | 'weekly'>('daily');
-  const [chartSeriesFilter, setChartSeriesFilter] = useState<'all' | 'expense' | 'income'>('all');
-  const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
-  const [payeeSearchQuery, setPayeeSearchQuery] = useState('');
-  const totalExpense = useMemo(() => {
-    return Math.round(
-      familyTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
-  }, [familyTransactions]);
-
-  // Dynamic Aggregated Chart Data (Daily / Weekly & Peak Day)
-  const aggregatedChartData = useMemo(() => {
-    const daysInMonth = currentMonth 
-      ? new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
-      : 30;
-
-    const monthShort = currentMonth 
-      ? currentMonth.toLocaleString('ru-RU', { month: 'short' }).replace('.', '')
-      : 'сен';
-
-    interface ChartAggItem {
-      id: string;
-      label: string;
-      dayNum?: number;
-      expense: number;
-      income: number;
-    }
-
-    let list: ChartAggItem[] = [];
-
-    if (chartGranularity === 'daily') {
-      const map = new Map<number, ChartAggItem>();
-      for (let i = 1; i <= daysInMonth; i++) {
-        map.set(i, { id: `${i}`, label: `${i} ${monthShort}`, dayNum: i, expense: 0, income: 0 });
-      }
-
-      familyTransactions.forEach(t => {
-        const d = new Date(t.date);
-        const dayNum = d.getDate();
-        const existing = map.get(dayNum);
-        if (existing) {
-          if (t.type === 'expense') existing.expense += t.amount;
-          if (t.type === 'income') existing.income += t.amount;
-        }
-      });
-
-      list = Array.from(map.values());
-    } else {
-      const weeksCount = Math.ceil(daysInMonth / 7);
-      const weekMap = new Map<number, ChartAggItem>();
-
-      for (let w = 1; w <= weeksCount; w++) {
-        const startDay = (w - 1) * 7 + 1;
-        const endDay = Math.min(daysInMonth, w * 7);
-        weekMap.set(w, {
-          id: `week_${w}`,
-          label: `${startDay}–${endDay} ${monthShort}`,
-          expense: 0,
-          income: 0
-        });
-      }
-
-      familyTransactions.forEach(t => {
-        const d = new Date(t.date);
-        const dayNum = d.getDate();
-        const weekIndex = Math.min(weeksCount, Math.floor((dayNum - 1) / 7) + 1);
-        const existing = weekMap.get(weekIndex);
-        if (existing) {
-          if (t.type === 'expense') existing.expense += t.amount;
-          if (t.type === 'income') existing.income += t.amount;
-        }
-      });
-
-      list = Array.from(weekMap.values());
-    }
-
-    let peakItem = list[0];
-    let maxVolume = 0;
-
-    list.forEach(item => {
-      let vol = item.expense + item.income;
-      if (chartSeriesFilter === 'expense') vol = item.expense;
-      if (chartSeriesFilter === 'income') vol = item.income;
-
-      if (vol > maxVolume) {
-        maxVolume = vol;
-        peakItem = item;
-      }
-    });
-
-    const activeCount = list.filter(i => i.expense > 0 || i.income > 0).length || 1;
-    const avgDaily = Math.round(totalExpense / (chartGranularity === 'daily' ? activeCount : daysInMonth));
-
-    return { list, peakItem, avgDaily, activeCount };
-  }, [familyTransactions, currentMonth, totalExpense, chartGranularity, chartSeriesFilter]);
-
-  // Group spending by category and nested payees
-  const categoryPayeeGroupedData = useMemo(() => {
-    const totalExp = familyTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0) || 1;
-
-    const catMap = new Map<string, {
-      catId: string;
-      catName: string;
-      catColor: string;
-      catIcon: string;
-      totalSpent: number;
-      percentage: number;
-      payeesMap: Map<string, { name: string; spent: number; txCount: number }>;
-    }>();
-
-    familyTransactions.forEach(t => {
-      if (t.type !== 'expense') return;
-      const catObj = categories.find(c => c.id === t.category);
-      const catId = catObj?.parentId || t.category || 'other';
-      const mainCat = categories.find(c => c.id === catId) || catObj;
-
-      const catName = mainCat?.label || 'Другое';
-      const catColor = mainCat?.color || '#3E6543';
-      const catIcon = mainCat?.icon || 'ShoppingBag';
-
-      const existingCat = catMap.get(catId) || {
-        catId,
-        catName,
-        catColor,
-        catIcon,
-        totalSpent: 0,
-        percentage: 0,
-        payeesMap: new Map()
-      };
-
-      const amt = Math.round(t.amount);
-      existingCat.totalSpent += amt;
-
-      const payeeName = t.payee || t.note || 'Прочее';
-      const existingPayee = existingCat.payeesMap.get(payeeName) || {
-        name: payeeName,
-        spent: 0,
-        txCount: 0
-      };
-
-      existingPayee.spent += amt;
-      existingPayee.txCount += 1;
-      existingCat.payeesMap.set(payeeName, existingPayee);
-
-      catMap.set(catId, existingCat);
-    });
-
-    const query = payeeSearchQuery.trim().toLowerCase();
-
-    return Array.from(catMap.values())
-      .map(catItem => {
-        const catPercent = Math.round((catItem.totalSpent / totalExp) * 100);
-        let payeesList = Array.from(catItem.payeesMap.values())
-          .map(p => ({
-            ...p,
-            percentage: Math.round((p.spent / (catItem.totalSpent || 1)) * 100)
-          }))
-          .sort((a, b) => b.spent - a.spent);
-
-        if (query) {
-          payeesList = payeesList.filter(p => p.name.toLowerCase().includes(query));
-        }
-
-        return {
-          ...catItem,
-          percentage: catPercent,
-          payeesList
-        };
-      })
-      .filter(c => c.payeesList.length > 0 && c.totalSpent > 0)
-      .sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [familyTransactions, categories, payeeSearchQuery]);
-
+export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
+  familyTransactions,chartData,chartGranularity,setChartGranularity,chartSeriesFilter,setChartSeriesFilter,monthLabel,categories=[],mobile=false
+})=>{
+  const [expandedCatIds,setExpandedCatIds]=useState<Record<string,boolean>>({});
+  const [payeeSearchQuery,setPayeeSearchQuery]=useState('');
+  const reduced=useReducedMotion();
+  const categoryPayeeGroupedData=useMemo(()=>buildPayeeAnalytics(familyTransactions,categories,payeeSearchQuery),[familyTransactions,categories,payeeSearchQuery]);
   const showExpense=chartSeriesFilter!=='income';
   const showIncome=chartSeriesFilter!=='expense';
-  const chartHasValues=aggregatedChartData.list.some(item=>(showExpense&&item.expense>0)||(showIncome&&item.income>0));
-  const chartMax=Math.max(0,...aggregatedChartData.list.map(item=>Math.max(showExpense?item.expense:0,showIncome?item.income:0)));
+  const chartHasValues=chartData.some(item=>(showExpense&&item.expense>0)||(showIncome&&item.income>0));
+  const chartMax=Math.max(0,...chartData.map(item=>Math.max(showExpense?item.expense:0,showIncome?item.income:0)));
+  const volume=(item:AnalyticsPoint)=>sumMoney([showExpense?item.expense:0,showIncome?item.income:0]);
+  const peak=chartData.reduce<AnalyticsPoint|null>((best,item)=>volume(item)>0&&(!best||volume(item)>volume(best))?item:best,null);
   const axisAmount=(value:number)=>new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(value);
   
   return (
-    <div data-testid="terra-analytics-desktop" className={DASHBOARD_CARD+" space-y-4"}>
+    <div data-testid={mobile?"terra-analytics-mobile":"terra-analytics-desktop"} className="min-w-0 space-y-3">
+      <section className={DASHBOARD_CARD+" space-y-3"} aria-label="Динамика операций">
       <div className="min-w-0">
         <h3 className={SECTION_HEADING}>Доходы и расходы</h3>
         <p className="mt-1 text-sm text-[var(--terra-muted)]">{monthLabel}</p>
@@ -233,10 +63,10 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
       </div>
       <div className="terra-overview-chart-plot w-full min-w-0" data-testid="drilldown-chart">
         {chartHasValues?<ResponsiveContainer width="100%" height="100%">
-          <BarChart data={aggregatedChartData.list} margin={{top:8,right:8,left:4,bottom:4}} barCategoryGap="18%" accessibilityLayer={false}>
+          <BarChart data={chartData} margin={{top:8,right:8,left:4,bottom:4}} barCategoryGap="18%" accessibilityLayer={false}>
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3"/>
-            <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={18} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
-            <YAxis domain={[0,chartMax]} width={80} axisLine={false} tickLine={false} tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile?16:12} tickFormatter={value=>String(value).split(" ")[0]} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
+            <YAxis domain={[0,chartMax]} width={mobile?62:80} axisLine={false} tickLine={false} tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
             <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.5}} content={({active,payload})=>{
               if(!active||!payload?.length)return null;
               const item=payload[0].payload as {label:string;expense:number;income:number};
@@ -245,150 +75,60 @@ export const DrillDownAnalyticsChart: React.FC<DrillDownAnalyticsChartProps> = (
             {showExpense&&<Bar dataKey="expense" fill="var(--terra-danger-text)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
             {showIncome&&<Bar dataKey="income" fill="var(--terra-primary-solid)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
           </BarChart>
-        </ResponsiveContainer>:<p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период операций нет</p>}
+        </ResponsiveContainer>:<p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период операций этого типа нет</p>}
       </div>
+      {peak&&<p data-testid="analytics-peak" className="flex flex-wrap justify-between gap-2 text-sm text-[var(--terra-muted)]"><span>Пик · {peak.label} · {chartSeriesFilter==='all'?'оборот':chartSeriesFilter==='expense'?'расходы':'доходы'}</span><strong className="text-[var(--terra-ink)] tabular-nums">{formatBudgetMoney(volume(peak))} ₽</strong></p>}
       {chartHasValues&&<details className="border-t border-[var(--terra-border)]">
         <summary className="min-h-[44px] flex items-center text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer">Значения графика</summary>
-        <div className="max-h-64 overflow-y-auto divide-y divide-[var(--terra-border)]">
-          {aggregatedChartData.list.map(item=><div key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm tabular-nums"><span>{item.label}</span>{showExpense&&<span>−{formatBudgetMoney(item.expense)} ₽</span>}{showIncome&&<span>+{formatBudgetMoney(item.income)} ₽</span>}</div>)}
+        <div data-testid="analytics-values" className="max-h-64 overflow-y-auto overscroll-y-contain divide-y divide-[var(--terra-border)]">
+          {chartData.map(item=><div key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm tabular-nums"><span>{item.label}</span>{showExpense&&<span>−{formatBudgetMoney(item.expense)} ₽</span>}{showIncome&&<span>+{formatBudgetMoney(item.income)} ₽</span>}</div>)}
         </div>
       </details>}
 
-      {/* Category Spending Report with Payee Breakdown */}
-      <div className="mt-6 pt-5 border-t border-[#E4E0D8] dark:border-white/10 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h4 className="text-sm font-bold text-[#2E3230] dark:text-white flex items-center gap-2">
-              <Store className="w-4 h-4 text-[#4A7C59]" />
-              <span>Расходы по магазинам</span>
-            </h4>
-            <p className="text-xs text-[var(--terra-muted)] mt-0.5">
-              Детализация расходов по магазинам и получателям платежей за {monthLabel}
-            </p>
-          </div>
-
-          {/* Search Bar for Payee */}
-          <div className="relative flex items-center min-w-0 sm:min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 text-[var(--terra-muted)]" />
-            <input 
-              type="text"
-              value={payeeSearchQuery}
-              onChange={(e) => setPayeeSearchQuery(e.target.value)}
+      </section>
+      <section className={DASHBOARD_CARD+" space-y-3"} aria-label="Расходы по магазинам">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className={SECTION_HEADING}>Расходы по магазинам</h3>
+          <label className="relative min-w-0 w-full sm:max-w-xs">
+            <Search size={16} aria-hidden="true" className="absolute left-3 top-3.5 text-[var(--terra-muted)]"/>
+            <input type="search" value={payeeSearchQuery} onChange={e=>{setPayeeSearchQuery(e.target.value);setExpandedCatIds({});}}
               aria-label="Поиск магазина или получателя" placeholder="Поиск магазина или получателя"
-              className="w-full min-h-[44px] pl-8 pr-3 py-2 rounded-xl bg-[var(--terra-surface)] text-sm border border-[var(--terra-control-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
-            />
-          </div>
+              className="w-full min-h-[44px] pl-9 pr-3 rounded-xl bg-[var(--terra-surface)] text-sm border border-[var(--terra-control-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"/>
+          </label>
         </div>
-
-        {categoryPayeeGroupedData.length === 0 ? (
-          <div className="p-6 text-center text-xs text-[var(--terra-muted)] bg-white dark:bg-[#202225] rounded-2xl border border-[#E4E0D8] dark:border-white/10">
-            Нет транзакций с контрагентами за выбранный период
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {categoryPayeeGroupedData.map(group => {
-              const isExpanded = Boolean(expandedCatIds[group.catId]);
-
-              return (
-                <div 
-                  key={group.catId}
-                  className="bg-white dark:bg-[#202225] rounded-2xl border border-[#E4E0D8] dark:border-white/10 overflow-hidden"
-                >
-                  {/* Category Header Bar */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedCatIds(prev => ({ ...prev, [group.catId]: !prev[group.catId] }))} aria-expanded={isExpanded}
-                    className="w-full p-3.5 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div 
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs"
-                        style={{ backgroundColor: group.catColor }}
-                      >
-                        {group.catName.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#2E3230] dark:text-white truncate">
-                            {group.catName}
-                          </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#EAF2EC] dark:bg-green-950/40 text-[#2A4C34] dark:text-green-300">
-                            {group.payeesList.length}
-                          </span>
-                        </div>
-                        <div className="w-32 bg-[#EAE6DE] dark:bg-stone-800 h-1.5 rounded-full overflow-hidden mt-1">
-                          <div 
-                            className="h-full rounded-full terra-progress" 
-                            style={{ width: `${group.percentage}%`, backgroundColor: group.catColor }} 
-                          />
-                        </div>
-                      </div>
+        {categoryPayeeGroupedData.length===0?<p role="status" className="py-4 text-sm text-center text-[var(--terra-muted)]">{payeeSearchQuery.trim()&&familyTransactions.some(t=>t.type==='expense'&&t.amount>0)?'Ничего не найдено':'За выбранный период расходов нет'}</p>:
+          <div className="divide-y divide-[var(--terra-border)]">
+            {categoryPayeeGroupedData.map(group=>{
+              const open=expandedCatIds[group.catId]??Boolean(payeeSearchQuery.trim());
+              return <div key={group.catId}>
+                <button type="button" aria-expanded={open} onClick={()=>setExpandedCatIds(old=>({...old,[group.catId]:!open}))}
+                  className="w-full min-h-[56px] py-3 flex items-center gap-3 text-left rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">
+                  <span aria-hidden="true" className="w-2.5 h-2.5 shrink-0 rounded-full" style={{backgroundColor:group.catColor}}/>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-sm text-[var(--terra-ink)] [overflow-wrap:anywhere]">{group.catName}</span>
+                    <span className="block text-xs text-[var(--terra-muted)]">{payeeSearchQuery.trim()?`Найдено: ${group.payeesList.length} из ${group.payeeCount}`:`Получателей: ${group.payeeCount}`}</span>
+                    <span aria-hidden="true" className="block mt-2 h-1.5 rounded-full bg-[var(--terra-soft)] overflow-hidden"><span className="block h-full rounded-full terra-progress" style={{width:group.percentage+'%',backgroundColor:group.catColor}}/></span>
+                  </span>
+                  <span className="text-right min-w-0 max-w-[46%]">
+                    <span className="block font-semibold text-sm tabular-nums [overflow-wrap:anywhere]">{formatBudgetMoney(group.totalSpent)} ₽</span>
+                    <span className="text-xs text-[var(--terra-muted)]">{Math.round(group.percentage)}%</span>
+                  </span>
+                  <ChevronDown size={16} aria-hidden="true" className={'shrink-0 text-[var(--terra-muted)] motion-reduce:transition-none transition-transform '+(open?'rotate-180':'')}/>
+                </button>
+                <AnimatePresence initial={false}>
+                  {open&&<motion.div initial={reduced?false:{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:reduced?0:.18}} className="overflow-hidden">
+                    <div className="divide-y divide-[var(--terra-border)] border-t border-[var(--terra-border)] pl-4">
+                      {group.payeesList.map(payee=><div key={payee.name} className="py-3 flex gap-3 items-center">
+                        <div className="flex-1 min-w-0"><p className="text-sm font-medium [overflow-wrap:anywhere]">{payee.name}</p><p className="text-xs text-[var(--terra-muted)]">Операций: {payee.txCount}</p></div>
+                        <div className="min-w-0 max-w-[48%] text-right"><p className="text-sm font-semibold tabular-nums [overflow-wrap:anywhere]">{formatBudgetMoney(payee.spent)} ₽</p><p className="text-xs text-[var(--terra-muted)]">{Math.round(payee.percentage)}% категории</p></div>
+                      </div>)}
                     </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-[#2E3230] dark:text-white block tabular-nums">
-                          {group.totalSpent.toLocaleString('ru-RU')} ₽
-                        </span>
-                        <span className="text-[10px] text-[var(--terra-muted)] font-medium">
-                          {group.percentage}% от всех трат
-                        </span>
-                      </div>
-                      {isExpanded ? <ChevronUp className="w-4 h-4 text-[var(--terra-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--terra-muted)]" />}
-                    </div>
-                  </button>
-
-                  {/* Expanded Payee Rows */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="border-t border-[#E4E0D8]/60 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#1A1A1C] p-3 space-y-2"
-                      >
-                        {group.payeesList.map(payee => (
-                          <div 
-                            key={payee.name}
-                            className="p-2.5 rounded-xl bg-white dark:bg-[#242428] border border-[#E4E0D8]/50 dark:border-white/5 flex items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div className="w-7 h-7 rounded-lg bg-[#F5F1EA] dark:bg-[#2C2C2E] flex items-center justify-center text-[#4A7C59] font-bold text-[11px] shrink-0 border border-[#E4E0D8]/40">
-                                <Building2 className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-bold text-[#2E3230] dark:text-white truncate">
-                                    {payee.name}
-                                  </span>
-                                  <span className="text-[11px] font-bold text-[#2E3230] dark:text-white tabular-nums shrink-0">
-                                    {payee.spent.toLocaleString('ru-RU')} ₽
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-[10px] text-[var(--terra-muted)] mt-0.5">
-                                  <span>{payee.txCount} {payee.txCount === 1 ? 'операция' : payee.txCount < 5 ? 'операции' : 'операций'}</span>
-                                  <span>{payee.percentage}% категории</span>
-                                </div>
-                                <div className="w-full bg-[#EAE6DE] dark:bg-stone-800 h-1 rounded-full overflow-hidden mt-1">
-                                  <div 
-                                    className="h-full rounded-full bg-[#4A7C59]" 
-                                    style={{ width: `${payee.percentage}%` }} 
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
+                  </motion.div>}
+                </AnimatePresence>
+              </div>;
             })}
-          </div>
-        )}
-      </div>
+          </div>}
+      </section>
     </div>
   );
 };

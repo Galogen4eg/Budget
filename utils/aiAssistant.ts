@@ -150,7 +150,7 @@ export const calculateFinancialSummary = (
 /**
  * Формирует компактное текстовое описание финансового контекста для промпта Gemini.
  */
-const buildSystemPrompt = (context: AssistantContext): string => {
+export const buildSystemPrompt = (context: AssistantContext): string => {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
   const daysOfWeek = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];

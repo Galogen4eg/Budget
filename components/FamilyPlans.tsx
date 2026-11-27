@@ -47,6 +47,10 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'list'>('month');
   const [listTab, setListTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [filterMemberId,setFilterMemberId]=useState<string>('all');
+  useEffect(()=>{
+    if(filterMemberId!=='all'&&(filterMemberId==='common'?members.length<2:!members.some(m=>m.id===filterMemberId)))setFilterMemberId('all');
+  },[members,filterMemberId]);
   const [isDesktop, setIsDesktop] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
   );
@@ -444,6 +448,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       setViewMode,
       listTab,
       setListTab,
+      filterMemberId,setFilterMemberId,
       calendarData,
       selectedDayEvents,
       onOpenEvent: (event: FamilyEvent | null | undefined, prefill?: any) => setActiveEvent({ event: event || null, prefill }),
@@ -457,7 +462,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y" data-testid="plans-scroll-container">
+    <div className="terra-layout-context flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y" data-terra-layout={isDesktop?"desktop":"mobile"} data-testid="plans-scroll-container">
         <div className="flex-none min-w-0">
         {isDesktop ? (
             <FamilyPlansDesktop 

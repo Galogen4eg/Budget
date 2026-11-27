@@ -85,3 +85,15 @@ export function formatCalendarWeekRange(start:Date,end:Date,includeYear=false):s
  const left=sameMonth?String(start.getDate()):fmt(start,!sameYear);
  return left+' — '+fmt(end,includeYear||!sameYear);
 }
+
+
+/** A standalone month name, without removing letters from its stem. */
+export function formatCalendarMonthTitle(date:Date):string {
+ const month=date.toLocaleString('ru-RU',{month:'long'});
+ return month.charAt(0).toUpperCase()+month.slice(1)+' '+date.getFullYear();
+}
+const eventPlural=new Intl.PluralRules('ru-RU');
+export function calendarEventCountLabel(count:number):string {
+ const form=eventPlural.select(count);
+ return count+' '+(form==='one'?'событие':form==='few'?'события':'событий');
+}

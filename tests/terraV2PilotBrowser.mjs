@@ -107,6 +107,61 @@ async function budgetGeometryPilot(page,settingsRef){
  }
 }
 
+async function plansGeometryPilot(page,settingsRef){
+ const plans=page.locator('[data-tab-panel="plans"]');
+ for(const theme of ['light','dark']){
+  await settingsRef.set({theme,privacyMode:false},{merge:true});
+  await page.waitForFunction(t=>document.documentElement.classList.contains('dark')===(t==='dark'),theme);
+  for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[768,1024],[1024,768],[1440,900],[1920,1080]]){
+   const label='plans-'+theme+'-'+width,mobile=width<1024;
+   await page.setViewportSize({width,height});
+   await button(page.locator('nav'),'Планы').click();
+   const scroll=plans.getByTestId('plans-scroll-container');
+   await scroll.locator(mobile?'.terra-plans-mobile-content':'.terra-plans-desktop').waitFor({state:'visible'});
+   const views=plans.getByRole('group',{name:'Вид календаря'});
+   await button(views,'Месяц').click();
+   await button(plans,'Сегодня').click();
+   const grid=plans.getByTestId('plans-month-grid');
+   await noOverflow(scroll,label+' page');
+   await noOverflow(grid,label+' month grid');
+   const geometry=await grid.evaluate(el=>({tracks:getComputedStyle(el).gridTemplateColumns.split(/\s+/).length,buttons:[...el.querySelectorAll('button[aria-label^="Выбрать"]')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height}))}));
+   assert.equal(geometry.tracks,7,label+' calendar columns');
+   assert.ok(geometry.buttons.length>=28,label+' missing dates');
+   for(const cell of geometry.buttons)assert.ok(cell.h>=44&&cell.w>=Math.min(44,width<375?32:44)-1,label+' day target '+JSON.stringify(cell));
+   await scroll.evaluate(el=>{el.scrollTop=0;});
+   await capture(page,'plans-reaudit-month-'+theme+'-'+width);
+   await button(views,'Неделя').click();
+   await noOverflow(plans.getByTestId('plans-week-grid'),label+' week grid');
+   await button(views,'Месяц').click();
+   await button(plans,'Добавить событие').click();
+   const editor=page.getByTestId('event-editor');
+   await editor.waitFor({state:'visible'});
+   const timing=editor.locator('.terra-event-timing');
+   await noOverflow(editor,label+' editor');
+   await noOverflow(timing,label+' timing');
+   for(const input of [editor.locator('#event-title-input'),editor.locator('[aria-label="Дата события"]'),editor.locator('[aria-label="Время начала"]'),editor.locator('[aria-label="Длительность события"]')])await targetSize(input,label+' date/title field');
+   const footer=await editor.getByTestId('event-editor-footer').boundingBox();
+   assert.ok(footer&&footer.y+footer.height<=height+1,label+' footer clipped');
+   await editor.locator('[aria-label="Время начала"]').fill('23:45');
+   await editor.locator('[aria-label="Длительность события"]').selectOption('0.5');
+   assert.equal(await editor.getByTestId('event-end-time').innerText(),'00:15 (+1 дн.)');
+   await editor.getByTestId('event-editor-scroll').evaluate(el=>{el.scrollTop=0;});
+   await capture(page,'plans-reaudit-editor-'+theme+'-'+width);
+   if(width===390){
+    await editor.locator('#event-title-input').focus();
+    await page.setViewportSize({width:390,height:520});
+    const short=await editor.getByTestId('event-editor-footer').boundingBox();
+    assert.ok(short&&short.y+short.height<=521,label+' footer clipped at reduced viewport');
+    await capture(page,'plans-reaudit-editor-reduced-'+theme);
+    await page.setViewportSize({width,height});
+   }
+   await button(editor,'Закрыть редактор события').click();
+   await editor.waitFor({state:'hidden'});
+   console.log('PASS TERRA PLANS GEOMETRY '+label);
+  }
+ }
+}
+
 async function overviewGeometryPilot(page,settingsRef){
  const overview=page.locator('[data-tab-panel="overview"]');
  const visibleInOverview=selector=>overview.locator(selector).filter({visible:true});
@@ -428,6 +483,29 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const participants=plans.getByRole('group',{name:mobile?'Фильтр участников планов':'Участник планов'});
     await noOverflow(participants,label+' participants');
     for(const choice of await participants.getByRole('button').all())await targetSize(choice,label+' participant');
+    const chosen=participants.locator('[data-member-filter]').nth(1);
+    if(await chosen.count()){
+     const chosenId=await chosen.getAttribute('data-member-filter');
+     await chosen.click();
+     assert.equal(await chosen.getAttribute('aria-pressed'),'true');
+     await page.setViewportSize(mobile?{width:1440,height:900}:{width:390,height:844});
+     const alternate=plans.getByRole('group',{name:mobile?'Участник планов':'Фильтр участников планов'});
+     await alternate.waitFor({state:'visible'});
+     assert.equal(await alternate.locator('[data-member-filter]').evaluateAll((buttons,id)=>buttons.find(b=>b.getAttribute('data-member-filter')===id)?.getAttribute('aria-pressed'),chosenId),'true',label+' participant scope lost on resize');
+     await page.setViewportSize({width,height});
+     await participants.waitFor({state:'visible'});
+     await participants.locator('[data-member-filter="all"]').click();
+    }
+    await button(plans,'Сегодня').click();
+    const monthGrid=plans.getByTestId('plans-month-grid');
+    await monthGrid.waitFor({state:'visible'});
+    await noOverflow(monthGrid,label+' month grid');
+    assert.equal(await monthGrid.locator('[aria-current=date]').count(),1,label+' current date marker');
+    const todayCell=monthGrid.locator('[aria-current=date]');
+    assert.equal(await todayCell.getAttribute('aria-pressed'),'true',label+' today not selected');
+    await button(plans,'Следующий месяц').click();
+    await button(plans,'Предыдущий месяц').click();
+    await button(plans,'Сегодня').click();
     await scroll.evaluate(el=>{el.scrollTop=0;});
     await capture(page,'plans-month-'+label);
     const selectedDay=plans.getByTestId('plans-selected-day');
@@ -465,6 +543,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.ok(contrast(colors.bg,colors.fg)>=4.5,label+' unreadable editor text '+JSON.stringify(colors));
      assert.ok(contrast(colors.bg,colors.placeholder)>=4.5,label+' unreadable editor placeholder '+JSON.stringify(colors));
     }
+    const reminderOpen=button(editor,"+ Своё");
+    await reminderOpen.click();
+    const reminderQuantity=editor.getByRole("spinbutton",{name:"Количество для напоминания"});
+    const reminderUnit=editor.getByRole("combobox",{name:"Единица времени напоминания"});
+    for(const control of [reminderQuantity,reminderUnit,button(editor,"Закрыть настройку напоминания"),button(editor,"Добавить напоминание")])await targetSize(control,label+" reminder control");
+    await reminderQuantity.fill("7");await reminderUnit.selectOption("min");await button(editor,"Добавить напоминание").click();
+    const removeReminder=button(editor,"Удалить напоминание: 7 мин");await targetSize(removeReminder,label+" remove custom reminder");await removeReminder.click();
+    await removeReminder.waitFor({state:"hidden"});
     await titleInput.fill('QA — проверка читаемости');
     await noteInput.fill('Тестовая заметка, без сохранения');
     await capture(page,'plans-editor-filled-'+label);
@@ -657,6 +743,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
   }
   await overviewGeometryPilot(page,settingsRef);
   await budgetGeometryPilot(page,settingsRef);
+  await plansGeometryPilot(page,settingsRef);
   assert.equal(await ledger(),before,'UI pilot changed transaction records');
  }finally{
   await page.emulateMedia({reducedMotion:'no-preference'});

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {terraTransition} from '../utils/uiMotion';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import {useMobileViewport} from '../hooks/useMobileViewport';
 import {ICON_ACTION,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY} from './filterUiTokens';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import { 
@@ -74,9 +75,12 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   currency = '₽',period
 }) => {
   useBodyScrollLock(isOpen ?? true);
-  useModalBackHandler(isOpen??true,onClose);
   const reduced=Boolean(useReducedMotion());
-  const surface=useModalSurface(onClose,{enabled:isOpen??true,initialSelector:'[aria-label="Закрыть"]'});
+  const viewport=useMobileViewport();
+  const pending=useRef(false);
+  const requestClose=()=>{if(!pending.current)onClose();};
+  useModalBackHandler(isOpen??true,requestClose);
+  const surface=useModalSurface(requestClose,{enabled:isOpen??true,initialSelector:'[aria-label="Закрыть"]'});
 
   const currentMonthName = useMemo(() => {
     const raw = new Date().toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
@@ -85,7 +89,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
 
   const [manualInput, setManualInput] = useState<string>(() => String(manualReserved || 0));
   const [busy,setBusy]=useState(false);
-  const pending=useRef(false);
+  const manualChanged=manualInput!==String(manualReserved || 0);
   const [actionError,setActionError]=useState('');
 
   const rawBillsList=futureExpenses;
@@ -113,7 +117,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
       setManualInput(raw);
     }finally{pending.current=false;setBusy(false);}
   }
-  const handleManualBlur=()=>{void saveManual(manualInput);};
+  const saveManualDraft=()=>{if(manualChanged)void saveManual(manualInput);};
 
   const handleToggleBill = (id: string) => {
     setSelectedBillIds(prev => {
@@ -153,13 +157,13 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={()=>{if(!pending.current)onClose();}}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" style={viewport.height===null?undefined:{height:viewport.height,bottom:'auto'}} onClick={requestClose}>
       <motion.div {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-reserve-heading" data-testid="terra-reserve-dialog"
         initial={reduced?false:{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={terraTransition(reduced,.20)}
-        className="terra-overview-dialog w-full max-w-4xl bg-[var(--terra-surface)] text-[var(--terra-ink)] border border-[var(--terra-border)] sm:rounded-2xl shadow-lg flex flex-col min-h-0 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]" onClick={e=>e.stopPropagation()}>
+        className="terra-overview-dialog w-full max-w-4xl bg-[var(--terra-surface)] text-[var(--terra-ink)] border border-[var(--terra-border)] sm:rounded-2xl shadow-lg flex flex-col min-h-0 h-full sm:h-auto max-h-full sm:max-h-[90dvh] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]" onClick={e=>e.stopPropagation()}>
         <header className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 border-b border-[var(--terra-border)] shrink-0">
           <h2 id="terra-reserve-heading" className="text-lg font-headline font-semibold min-w-0">Структура резерва</h2>
-          <button type="button" onClick={onClose} aria-label="Закрыть" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><X size={18}/></button>
+          <button type="button" onClick={requestClose} disabled={busy} aria-label="Закрыть" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><X size={18}/></button>
         </header>
         <div data-testid="terra-reserve-scroll" className="terra-reserve-content flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-4 space-y-3">
           <section aria-label="Состав резерва" className="rounded-xl border border-[var(--terra-border)] p-3 space-y-3">
@@ -173,13 +177,15 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
               <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Обязательные платежи</dt><dd className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{formatMoney(unpaidMandatoryTotal)} {!privacyMode&&currency}</dd></div>
               <div className="min-w-0 col-span-2 sm:col-span-1"><dt className="text-xs text-[var(--terra-muted)]">Ручной резерв</dt><dd className="min-w-0">{privacyMode?<span>••••</span>:<div className="flex items-center gap-2 mt-1">
                 <input type="text" inputMode="decimal" disabled={busy||!onUpdateManualSavings} value={manualInput} onChange={e=>setManualInput(e.target.value)}
-                  onBlur={handleManualBlur} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}} aria-label="Сумма вручную"
+                  onKeyDown={e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing){e.preventDefault();saveManualDraft();}}} aria-label="Сумма вручную"
                   className="w-full min-w-0 min-h-[44px] bg-[var(--terra-surface)] rounded-lg border border-[var(--terra-control-border)] px-2 text-base tabular-nums focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"/>
                 <span className="text-sm text-[var(--terra-muted)]">{currency}</span>
+                <button type="button" aria-label="Сохранить ручной резерв" disabled={busy||!manualChanged||!onUpdateManualSavings} onClick={saveManualDraft}
+                  className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' shrink-0'}>Сохранить</button>
               </div>}</dd></div>
               <div className="min-w-0 col-span-2 sm:col-span-1"><dt className="text-xs text-[var(--terra-muted)]">Свободно после резервов</dt><dd className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{formatMoney(availableBalance)} {!privacyMode&&currency}</dd></div>
             </dl>
-            <button type="button" disabled={busy||privacyMode||!onUpdateManualSavings||availableBalance<=0} onClick={()=>void saveManual(String(Math.round((manualReserved+availableBalance)*100)/100))}
+            <button type="button" disabled={busy||manualChanged||privacyMode||!onUpdateManualSavings||availableBalance<=0} onClick={()=>void saveManual(String(Math.round((manualReserved+availableBalance)*100)/100))}
               className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' max-w-full h-auto min-h-[44px] whitespace-normal py-2 text-left'}>Добавить свободную сумму в резерв</button>
             <p className="text-xs text-[var(--terra-muted)]">Свободная сумма — расчётный остаток по текущим данным, не гарантия достаточности средств.</p>
           </section>

@@ -24,3 +24,11 @@ test('editors and confirmation avoid viewport-scale animation and use shared key
  const confirm=read('components/ConfirmationModal.tsx');assert.doesNotMatch(confirm,/scale:\s*0\.95/);assert.match(confirm,/terraTransition\(reduced/);
  const tx=read('components/AddTransactionModal.tsx');assert.match(tx,/<button type="button" aria-label="Исполнитель"/);assert.match(tx,/<button type="button" aria-label="Привязать к платежу"/);
 });
+
+test('manual reserve has explicit save and no implicit blur commit',()=>{
+ const s=read('components/ReserveDetailsModal.tsx');
+ assert.doesNotMatch(s,/onBlur=\{handleManualBlur\}/);
+ assert.match(s,/aria-label="Сохранить ручной резерв"/);
+ assert.match(s,/onClick=\{saveManualDraft\}/);
+ assert.match(s,/useMobileViewport\(/);
+});

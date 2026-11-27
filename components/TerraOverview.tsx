@@ -28,6 +28,7 @@ import { getIconById } from '../constants';
 import { fixPrepositions } from '../utils/typography';
 import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney, cents, money } from '../utils/budgetFinancialMath';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
+import {overviewLimitState} from '../utils/overviewLimitState';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { toast } from 'sonner';
 
@@ -333,7 +334,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const isPositive = diff <= 0; // Less spending is positive for savings
     const sign = diff >= 0 ? '+' : '';
     return {
-      text: `${sign}${diff.toFixed(1)}%`,
+      text: `${sign}${diff.toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1})}%`,
       isPositive
     };
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
@@ -629,6 +630,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const balanceExplanation = personalOnly
     ? (personalOpeningKnown ? null : 'Начальный остаток не задан. Это итог операций, а не остаток на счетах.')
     : budgetMode==='personal' ? 'Баланс и дневной ориентир остаются семейными.' : null;
+  const monthLimit=overviewLimitState(displayMonthSpent,totalMonthlyLimit);
+  const monthlySummary=!settings.privacyMode&&monthLimit?<div data-testid="overview-month-limit" data-limit-status={monthLimit.status} className="space-y-1.5 min-w-0">
+    <div className="flex flex-wrap justify-between items-baseline gap-x-2 gap-y-1 text-xs">
+      <span className="text-[var(--terra-muted)]">Месячный лимит</span>
+      <span className="font-semibold tabular-nums text-[var(--terra-ink)] [overflow-wrap:anywhere]">{formatAmount(displayMonthSpent)} ₽ / {formatAmount(totalMonthlyLimit)} ₽</span>
+    </div>
+    <div className="h-2 rounded-full bg-[var(--terra-soft)] overflow-hidden" role="progressbar" aria-label="Использование месячного лимита" aria-valuemin={0} aria-valuemax={100} aria-valuenow={monthLimit.barWidth} aria-valuetext={monthLimit.percentage.toLocaleString('ru-RU',{maximumFractionDigits:1})+'% использовано'}>
+      <div className={'h-full rounded-full terra-progress '+(monthLimit.status==='over'?'bg-[var(--terra-danger-text)]':monthLimit.status==='near'||monthLimit.status==='exhausted'?'bg-[var(--terra-offline-text)]':'bg-[var(--terra-primary-solid)]')} style={{width:monthLimit.barWidth+'%'}}/>
+    </div>
+    <div className={'flex flex-wrap justify-between gap-x-2 gap-y-1 text-xs tabular-nums '+(monthLimit.status==='over'?'text-[var(--terra-danger-text)]':monthLimit.status==='near'||monthLimit.status==='exhausted'?'text-[var(--terra-offline-text)]':'text-[var(--terra-muted)]')}>
+      <span>{monthLimit.status==='over'?'Превышение: '+formatAmount(monthLimit.difference)+' ₽':monthLimit.status==='exhausted'?'Лимит исчерпан':'Осталось: '+formatAmount(monthLimit.difference)+' ₽'}</span>
+      <span className="font-semibold">{monthLimit.percentage.toLocaleString('ru-RU',{maximumFractionDigits:1})}%</span>
+    </div>
+  </div>:null;
   const dailySummary = (
     <div className="space-y-2 min-w-0" data-testid="overview-daily-summary">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -648,6 +663,40 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {!personalOpeningKnown&&<p className="text-xs text-[var(--terra-muted)]">Укажите начальный остаток для расчёта ориентира.</p>}
     </div>
   );
+
+  const renderHistoryRows=(rows:Transaction[])=>rows.map((tx,idx)=>{
+    const cat=categories.find(c=>c.id===tx.category);
+    const catLabel=cat?.label||'Операция';
+    const title=tx.note||tx.rawNote||catLabel;
+    const date=new Date(tx.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    const member=members.find(m=>m.id===tx.memberId)?.name||'Участник';
+    const isExpense=tx.type==='expense';
+    return <button type="button" key={tx.id||idx} onClick={()=>onEditTransaction(tx)} aria-label={`Редактировать операцию: ${title}`}
+      data-overview-history-row className="terra-overview-history-row min-h-[56px] w-full text-left px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+      <BrandIcon name={title} brandKey={getMerchantBrandKey(title)} category={cat} size="sm" className="w-9 h-9 rounded-xl"/>
+      <span className="min-w-0 flex flex-col gap-1">
+        <span data-overview-history-title className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere] leading-snug">{title}</span>
+        <span data-overview-history-meta className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{date}{!personalOnly&&budgetMode==='family'?' · '+member:''}</span>
+      </span>
+      <span className="min-w-0 flex flex-col gap-1 text-right">
+        <span data-overview-history-amount className={'text-sm font-semibold tabular-nums [overflow-wrap:anywhere] '+(isExpense?'text-[var(--terra-ink)]':'text-[var(--terra-primary-text)]')}>{settings.privacyMode?'•••':(isExpense?'-':'+')+formatAmount(tx.amount)+' ₽'}</span>
+        <span className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{catLabel}</span>
+      </span>
+    </button>;
+  });
+  const renderCategoryRows=()=>mobileCategories.slice(0,OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat,idx)=><button type="button" key={cat.id||idx} onClick={()=>onDrillDown(cat.id||'all')}
+    aria-label={`Аналитика категории: ${cat.name}`} data-overview-category-row
+    className="min-h-[56px] w-full text-left px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] space-y-1.5">
+    <span className="terra-overview-category-row">
+      <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{backgroundColor:cat.bg,color:cat.color}} aria-hidden="true">{cat.icon}</span>
+      <span data-overview-category-title className="text-sm font-medium text-[var(--terra-ink)] min-w-0 [overflow-wrap:anywhere]">{cat.name}</span>
+      <span className="min-w-0 text-right flex flex-col gap-0.5">
+        <span data-overview-category-amount className="text-sm font-semibold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">{formatAmount(cat.amount)} ₽</span>
+        <span data-overview-category-percent className="text-xs text-[var(--terra-muted)] tabular-nums">{settings.privacyMode?'•••':cat.percent+'%'}</span>
+      </span>
+    </span>
+    {!settings.privacyMode&&<span className="block h-1.5 rounded-full bg-[var(--terra-soft)] overflow-hidden"><span className="block h-full rounded-full terra-progress" style={{width:Math.min(100,cat.percent)+'%',backgroundColor:cat.barColor}}/></span>}
+  </button>);
 
   return (
     <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
@@ -752,22 +801,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
               </dl>
             </div>
-            {totalMonthlyLimit>0&&!settings.privacyMode&&<div className="space-y-1 pt-0.5">
-              <div className="flex flex-wrap justify-between items-baseline gap-1.5 text-xs">
-                <span className="text-graphite-muted dark:text-gray-400">Месячный лимит</span>
-                <span className="font-semibold text-graphite dark:text-white tabular-nums break-words">
-                  {settings.privacyMode ? '•••' : totalMonthlyLimit > 0
-                    ? `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽`
-                    : `${formatAmount(displayMonthSpent)} ₽`}
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden" aria-hidden="true">
-                <div 
-                  className="h-full rounded-full bg-[#4A7C59] terra-progress"
-                  style={{ width: `${!settings.privacyMode && totalMonthlyLimit > 0 ? Math.min(100, Math.round((displayMonthSpent / totalMonthlyLimit) * 100)) : 0}%` }}
-                />
-              </div>
-            </div>}
+            {monthlySummary}
             {isCurrentCalendarMonth&&<div className="space-y-2 pt-2.5 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
             {dailySummary}
             <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] pt-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
@@ -815,47 +849,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </button>
                 </div>
               )}
-              {recentMobileTransactions.map((tx, idx) => {
-                const isExpense = tx.type === 'expense';
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Участник', color: '#4A7C59' };
-                const cat = categories.find(c => c.id === tx.category);
-                const catLabel = cat?.label || (tx.category === 'groceries' ? 'Продукты' : tx.category === 'cafe' ? 'Фастфуд' : tx.category === 'subscriptions' ? 'Подписки' : tx.category === 'telecom' ? 'Связь' : 'Операция');
-                const displayTitle = tx.note || tx.rawNote || catLabel;
-                const brandKey = getMerchantBrandKey(displayTitle);
-                const txDate = new Date(tx.date);
-                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleString('ru-RU', { month: 'short' })}`;
-
-                return (
-                  <button type="button"
-                    key={tx.id ? `mob-tx-${tx.id}` : `mob-tx-idx-${idx}`}
-                    onClick={() => onEditTransaction(tx)}
-                    aria-label={`Редактировать операцию: ${displayTitle}`}
-                    className="min-h-[56px] w-full text-left px-1 py-2 flex items-center justify-between gap-2 hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-9 h-9 rounded-xl" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-[var(--terra-ink)] line-clamp-2 [overflow-wrap:anywhere]">
-                          {displayTitle}
-                        </h4>
-                        <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <span>{dateFormatted}</span>
-                          {!personalOnly&&budgetMode==='family'&&<span className="font-medium text-[var(--terra-muted)]">{txMember.name}</span>}
-                          <span>{catLabel}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right min-w-0 max-w-[46%] shrink-0">
-                      <span className={`text-sm font-semibold tabular-nums block [overflow-wrap:anywhere] ${isExpense?'text-[var(--terra-ink)]':'text-[var(--terra-primary-text)]'}`}>
-                        {settings.privacyMode ? '•••' : `${isExpense ? '-' : '+'}${formatAmount(tx.amount)} ₽`}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+              {renderHistoryRows(recentMobileTransactions)}
             </div>
           </section>
           {/* 3. Категории расходов Card */}
@@ -899,36 +893,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   За выбранный период пока нет расходов по категориям.
                 </p>
               )}
-              {mobileCategories.slice(0, OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat, idx) => (
-                <button type="button"
-                  key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`}
-                  onClick={() => onDrillDown(cat.id || 'all')}
-                  aria-label={`Аналитика категории: ${cat.name}`}
-                  className="min-h-[52px] w-full text-left space-y-1.5 px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <span 
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0"
-                        style={{ backgroundColor: cat.bg, color: cat.color }}
-                      >
-                        {cat.icon}
-                      </span>
-                      <span className="text-sm font-medium text-[var(--terra-ink)] line-clamp-2 [overflow-wrap:anywhere] min-w-0">{cat.name}</span>
-                      <span className="text-xs text-graphite-muted dark:text-gray-400 shrink-0">{settings.privacyMode?'•••':`${cat.percent}%`}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-[var(--terra-ink)] tabular-nums min-w-0 max-w-[46%] shrink-0 text-right [overflow-wrap:anywhere]">
-                      {formatAmount(cat.amount)} ₽
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
-                    <div 
-                      className="h-full rounded-full terra-progress"
-                      style={{ width: `${settings.privacyMode?0:Math.min(100, cat.percent)}%`, backgroundColor: cat.barColor }}
-                    />
-                  </div>
-                </button>
-              ))}
+              {renderCategoryRows()}
             </div>
             {mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<div className="flex items-center justify-between flex-wrap gap-1 border-t border-[var(--terra-border)] pt-1">
                 <p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {mobileCategories.length}</p>
@@ -1125,6 +1090,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
                 </dl>
               </div>
+            {monthlySummary&&<div className="border-t border-[var(--terra-border)] pt-2">{monthlySummary}</div>}
             {!settings.privacyMode&&lastMonthComparison.isPositive!==null&&<div className="pt-2 mt-auto border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
                 {lastMonthComparison.isPositive === true ? (
@@ -1138,31 +1104,20 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>}
           </div>
 
-          {/* Daily comparison: one surface and one progress indicator. */}
-          {isCurrentCalendarMonth&&<div className={`${DASHBOARD_CARD} terra-overview-metric-card flex flex-col gap-2`} data-testid="overview-daily-desktop">
-            {dailySummary}
-          </div>}
-
-          {/* Card 4: Семейный резерв */}
-          <button type="button"
-            onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
-            aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
-            className={`${DASHBOARD_CARD} terra-overview-metric-card w-full text-left flex flex-col gap-3 hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer group`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-graphite dark:text-gray-200 flex items-center gap-1.5">
-                <Lock size={14} className="text-warm-amber" />
-                {personalOnly?'Личный резерв':'Семейный резерв'}
+          <div className={DASHBOARD_CARD+' terra-overview-metric-card flex flex-col gap-3 justify-center'} data-testid="overview-daily-reserve-desktop">
+            {isCurrentCalendarMonth&&<div data-testid="overview-daily-desktop">{dailySummary}</div>}
+            <button type="button"
+              onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
+              aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
+              className={'min-h-[44px] w-full min-w-0 text-left flex flex-col gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-soft)] '+(isCurrentCalendarMonth?'border-t border-[var(--terra-border)] pt-3':'')}>
+              <span className="flex flex-wrap items-center justify-between gap-2 w-full">
+                <span className="text-sm font-semibold text-[var(--terra-ink)] inline-flex items-center gap-1.5"><Lock size={14} className="text-[var(--terra-muted)]" aria-hidden="true"/>{personalOnly?'Личный резерв':'Семейный резерв'}</span>
+                <ChevronRight size={18} className="text-[var(--terra-muted)]" aria-hidden="true"/>
               </span>
-              <ChevronRight size={18} className="text-[var(--terra-muted)]" aria-hidden="true"/>
-            </div>
-            <div className="flex items-baseline">
-              <span className="text-2xl lg:text-3xl font-headline font-bold text-graphite dark:text-white tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex items-baseline gap-1">
-                {formatAmount(reservedAmount)} <span className="text-sm text-graphite-muted dark:text-gray-400 font-normal">₽</span>
-              </span>
-            </div>
-            <p className="text-xs text-[var(--terra-muted)]">Обязательства и накопления</p>
-          </button>
+              <span className="text-2xl leading-tight font-headline font-bold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">{formatAmount(reservedAmount)} ₽</span>
+              <span className="text-xs text-[var(--terra-muted)]">Обязательства и накопления</span>
+            </button>
+          </div>
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}
@@ -1218,36 +1173,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                {categoryBreakdown.items.length === 0 && (
-                  <p className="col-span-full py-5 text-sm text-graphite-muted dark:text-gray-400">
-                    За выбранный период расходов по категориям пока нет.
-                  </p>
-                )}
-                {categoryBreakdown.items.slice(0, OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat, idx) => (
-                  <button type="button"
-                    key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`}
-                    onClick={() => onDrillDown(cat.id)}
-                    aria-label={`Аналитика категории: ${cat.name}`}
-                    className="min-h-[44px] w-full text-left p-3 rounded-xl flex flex-col justify-between hover:bg-[var(--terra-soft)] transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <div className="flex items-center justify-between text-xs gap-2">
-                      <span className="font-bold text-[var(--terra-ink)] min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{cat.name}</span>
-                      <span className="text-xs font-semibold tabular-nums text-[var(--terra-ink)] flex-shrink-0">
-                        {settings.privacyMode?'•••':`${cat.percent}%`}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold font-headline text-graphite dark:text-white mt-1 [overflow-wrap:anywhere]">
-                      {formatAmount(cat.amount)} ₽
-                    </p>
-                    <div className="w-full bg-[#EAE5DC] dark:bg-black/40 h-1.5 rounded-full mt-2.5 overflow-hidden">
-                      <div 
-                        className="h-full rounded-full terra-progress" 
-                        style={{ width: `${settings.privacyMode?0:cat.percent}%`, backgroundColor: cat.color || cat.style?.color || '#4A7C59' }}
-                      />
-                    </div>
-                  </button>
-                ))}
+              <div className="terra-overview-category-grid divide-y divide-[var(--terra-border)] pt-2">
+                {mobileCategories.length===0&&<p className="py-4 text-sm text-[var(--terra-muted)]">За выбранный период пока нет расходов по категориям.</p>}
+                {renderCategoryRows()}
               </div>
               {categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<div className="flex items-center justify-between flex-wrap gap-1 border-t border-[var(--terra-border)] pt-1">
                 <p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {categoryBreakdown.items.length}</p>
@@ -1282,62 +1210,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     Нет операций за выбранный период
                   </div>
                 ) : (
-                  recentTransactions.map((tx, idx) => {
-                    const txCat = categories.find(c => c.id === tx.category);
-                    const txDate = new Date(tx.date);
-                    const dateFormatted = txDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-                    const isTxToday = txDate.toDateString() === now.toDateString();
-                    const txMember = members.find(m => m.id === tx.memberId) || {name:'Участник',color:'#4A7C59'};
-                    const catLabel = txCat?.label || 'Прочее';
-                    const displayTitle = tx.note || tx.rawNote || catLabel;
-                    const brandKey = getMerchantBrandKey(displayTitle);
-                    const isExpense = tx.type === 'expense';
-
-                    return (
-                      <button type="button"
-                        key={tx.id ? `desk-tx-${tx.id}` : `desk-tx-idx-${idx}`}
-                        onClick={() => onEditTransaction(tx)}
-                        aria-label={`Редактировать операцию: ${displayTitle}`}
-                        className={`min-h-[56px] w-full text-left flex items-center justify-between px-1 py-2 gap-2 transition-colors group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          isTxToday && isExpense && isOverDailyLimit && idx === 0
-                            ? 'bg-[#FFF7ED] dark:bg-[#2A1E17] hover:bg-[#FFEDD5] dark:hover:bg-[#3D251A]'
-                            : 'hover:bg-[var(--terra-soft)]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="shrink-0">
-                            <BrandIcon 
-                              name={displayTitle} 
-                              brandKey={brandKey} 
-                              category={txCat} 
-                              size="md" 
-                              className="rounded-xl"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-semibold text-graphite dark:text-white group-hover:text-primary transition-colors truncate">
-                              {displayTitle}
-                            </h4>
-                            <p className="text-xs text-graphite-muted dark:text-gray-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
-                              <span>{dateFormatted}</span>
-                              {!personalOnly&&budgetMode==='family'&&<span className="font-medium text-[var(--terra-muted)]">{txMember.name}</span>}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right min-w-0 max-w-[46%] shrink-0">
-                          <span className={`text-sm font-semibold tabular-nums [overflow-wrap:anywhere] block transition-colors ${
-                            isExpense 
-                              ? 'text-[var(--terra-ink)]'
-                              : 'text-[var(--terra-primary-text)]'
-                          }`}>
-                            {isExpense ? '-' : '+'}{formatAmount(tx.amount)} ₽
-                          </span>
-                          <p className="text-xs text-graphite-muted dark:text-gray-400 break-words">{catLabel}</p>
-                        </div>
-                      </button>
-                    );
-                  })
+                  renderHistoryRows(recentTransactions)
                 )}
               </div>
             </div>

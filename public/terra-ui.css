@@ -63,7 +63,7 @@ html.dark {
 .terra-overview-columns {grid-template-columns:minmax(0,1fr);}
 .terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
 @container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
-@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.35fr) minmax(0,1.25fr) minmax(0,1fr);}.terra-overview-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);}}
+@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);}}
 @container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
 
 /* Width belongs to the working area, not the browser viewport. */
@@ -201,3 +201,9 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-overview-balance-card .terra-daily-pair dd{font-size:20px;line-height:1.25;}
 .terra-overview-balance-card .terra-daily-pair{gap:10px;}
 .terra-overview-metric-card{padding:16px;}
+
+/* Overview: stable numeric column and a shared row structure at every width. */
+.terra-overview-history-row{display:grid;grid-template-columns:36px minmax(0,1fr) minmax(0,42%);gap:8px;align-items:start;min-width:0;}
+.terra-overview-category-row{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,42%);gap:8px;align-items:start;min-width:0;}
+.terra-overview-category-grid{display:grid;grid-template-columns:minmax(0,1fr);}
+@container (min-width:1120px){.terra-overview-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;}.terra-overview-category-grid>button{border-top:0;border-bottom:1px solid var(--terra-border);}.terra-overview-category-grid>button:nth-last-child(-n+2){border-bottom:0;}}

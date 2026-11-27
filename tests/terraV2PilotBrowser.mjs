@@ -27,6 +27,59 @@ async function axisFits(locator,label){
  assert.ok(bounds.count>=2,label+' missing Y-axis ticks');
  assert.deepEqual(bounds.clipped,[],label+' clipped Y-axis labels');
 }
+
+// Full-width visual acceptance of the overview, with actual populated emulator data.
+async function overviewGeometryPilot(page,settingsRef){
+ const overview=page.locator('[data-tab-panel="overview"]');
+ const visibleInOverview=selector=>overview.locator(selector).filter({visible:true});
+ for(const theme of ['light','dark']){
+  await settingsRef.set({theme,privacyMode:false},{merge:true});
+  await page.waitForFunction(t=>document.documentElement.classList.contains('dark')===(t==='dark'),theme);
+  for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[768,1024],[1024,768],[1440,900],[1920,1080]]){
+   const label=theme+'-'+width;
+   await page.setViewportSize({width,height});
+   await button(page.locator('nav'),'Обзор').click();
+   const limit=overview.getByTestId('overview-month-limit').filter({visible:true}).first();
+   await limit.waitFor({state:'visible',timeout:20000});
+   assert.equal(await limit.getAttribute('data-limit-status'),'over',label+' known dense expense exceeds limit');
+   assert.match(await limit.innerText(),/Превышение:/);
+   const progress=limit.getByRole('progressbar');
+   assert.equal(await progress.getAttribute('aria-valuenow'),'100');
+   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(253, 164, 160)':'rgb(168, 50, 44)',label+' limit danger token');
+   await noOverflow(limit,label+' limit');
+   await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
+   await capture(page,'overview-reaudit-main-'+label);
+   for(const kind of ['history','category']){
+    const rows=visibleInOverview('[data-overview-'+kind+'-row]');
+    assert.ok(await rows.count()>=4,label+' '+kind+' rows');
+    const boxes=await rows.evaluateAll((els,kind)=>els.map(row=>{
+      const rect=el=>el.getBoundingClientRect().toJSON();
+      const title=row.querySelector('[data-overview-'+kind+'-title]');
+      const amount=row.querySelector('[data-overview-'+kind+'-amount]');
+      const secondary=row.querySelector(kind==='history'?'[data-overview-history-meta]':'[data-overview-category-percent]');
+      return {row:rect(row),title:rect(title),amount:rect(amount),secondary:rect(secondary),overflow:row.scrollWidth-row.clientWidth,titleOverflow:title.scrollWidth-title.clientWidth,amountOverflow:amount.scrollWidth-amount.clientWidth};
+    }),kind);
+    const first=boxes[0];
+    for(const box of boxes){
+     assert.ok(Math.max(box.overflow,box.titleOverflow,box.amountOverflow)<=2,label+' '+kind+' overflow '+JSON.stringify(box));
+     assert.ok(box.title.right<=box.amount.left+1,label+' '+kind+' text overlaps amount');
+     assert.ok(Math.abs((box.row.right-box.amount.right)-(first.row.right-first.amount.right))<=1,label+' '+kind+' amount right axis');
+     assert.ok(Math.abs((box.title.left-box.row.left)-(first.title.left-first.row.left))<=1,label+' '+kind+' title left axis');
+     if(kind==='history')assert.ok(Math.abs(box.secondary.left-box.title.left)<=1&&box.secondary.top>=box.title.bottom-1,label+' history author/date alignment');
+     else assert.ok(Math.abs(box.secondary.right-box.amount.right)<=1&&box.secondary.top>=box.amount.bottom-1,label+' category percentage alignment');
+    }
+    await rows.first().scrollIntoViewIfNeeded();
+    await capture(page,'overview-reaudit-'+kind+'-'+label);
+    await rows.last().scrollIntoViewIfNeeded();
+    await capture(page,'overview-reaudit-'+kind+'-end-'+label);
+   }
+   console.log('PASS TERRA OVERVIEW GEOMETRY '+label+' limit, row axes, metadata and overflow');
+  }
+ }
+ await settingsRef.set({theme:'light',privacyMode:false},{merge:true});
+ await page.setViewportSize({width:1440,height:900});
+}
+
 export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Pilot requires isolated emulator');
  await mkdir(out,{recursive:true});
@@ -456,6 +509,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     console.log('PASS TERRA ACCOUNT PILOT '+label+' actual login, invalid input, masked password and responsive form');
    }
   }
+  await overviewGeometryPilot(page,settingsRef);
   assert.equal(await ledger(),before,'UI pilot changed transaction records');
  }finally{
   await page.emulateMedia({reducedMotion:'no-preference'});

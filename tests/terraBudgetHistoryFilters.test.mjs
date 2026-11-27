@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {filterBudgetHistory} from '../utils/budgetHistory.ts';
+import {filterBudgetHistory,budgetHistoryWindow,BUDGET_HISTORY_PAGE_SIZE} from '../utils/budgetHistory.ts';
 const categories=[{id:'food',label:'Продукты'},{id:'fuel',label:'Топливо'},{id:'salary',label:'Зарплата'}];
 const members=[{id:'a',name:'Анна'},{id:'b',name:'Борис'}];
 const rows=Object.freeze([
@@ -26,4 +26,17 @@ test('search matches payee, raw note and category, but does not search monetary 
 test('reset preserves descending date order and does not mutate any ledger row or amount',()=>{
  assert.deepEqual(find(),['4','3','2','1']);
  assert.deepEqual(rows.map(t=>[t.id,t.amount]),[['1',123.45],['2',50.01],['3',5000],['4',0.01]]);
+});
+
+
+test('500-row history displays a bounded prefix after filtering; more rows never change the source or order',()=>{
+ const ledger=Object.freeze(Array.from({length:500},(_,i)=>Object.freeze({id:String(i),date:new Date(2026,10,1,0,i).toISOString(),type:'expense',category:i===0?'fuel':'food',memberId:'a',amount:123.45})));
+ const full=filterBudgetHistory(ledger,'all','',categories,members);
+ assert.equal(BUDGET_HISTORY_PAGE_SIZE,20);
+ assert.equal(budgetHistoryWindow(full).length,20);
+ assert.deepEqual(budgetHistoryWindow(full,40).slice(0,20),budgetHistoryWindow(full));
+ assert.equal(budgetHistoryWindow(full,500).length,500);
+ assert.deepEqual(budgetHistoryWindow(filterBudgetHistory(ledger,'all','',categories,members,'fuel')).map(row=>row.id),['0']);
+ assert.equal(ledger.length,500);assert.equal(ledger[0].id,'0');assert.equal(ledger[0].amount,123.45);
+ assert.deepEqual(budgetHistoryWindow([]),[]);
 });

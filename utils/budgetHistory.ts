@@ -26,3 +26,9 @@ export function filterBudgetHistory<T extends Pick<Transaction,
     return (Number.isFinite(b)?b:0)-(Number.isFinite(a)?a:0)||left.id.localeCompare(right.id);
   });
 }
+
+/** Presentation-only window, applied after filtering and sorting. */
+export const BUDGET_HISTORY_PAGE_SIZE=20;
+export function budgetHistoryWindow<T>(rows:readonly T[],limit:number=BUDGET_HISTORY_PAGE_SIZE):T[]{
+ return rows.slice(0,Math.max(BUDGET_HISTORY_PAGE_SIZE,Number.isFinite(limit)?Math.floor(limit):BUDGET_HISTORY_PAGE_SIZE));
+}

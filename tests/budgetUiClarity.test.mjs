@@ -21,3 +21,12 @@ test('desktop section labels remain readable, no 8–9px text',()=>{
 test('desktop add-operation action uses accessible touch target',()=>{
  assert.match(source,/aria-label="Добавить операцию"[\s\S]*?min-h-\[44px\]/);
 });
+
+
+test('budget mobile section shortcuts fit without an overflowing rail and desktop summary stays compact',()=>{
+ const shortcuts=source.match(/<div role="group" aria-label="Разделы бюджета"[^>]*>/)?.[0]||'';
+ assert.match(shortcuts,/grid-cols-4/);
+ assert.doesNotMatch(shortcuts,/FILTER_RAIL/);
+ assert.match(desktop,/Итоги месяца/);
+ assert.equal((desktop.match(/!p-3\.5/g)||[]).length,3);
+});

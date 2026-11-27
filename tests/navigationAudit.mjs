@@ -346,6 +346,14 @@ async function checkButtons(){
   const reset=button(controls,'Сбросить фильтры истории');
   const rows=history.locator('[data-history-row]');
   const total=await rows.count();
+  const more=history.getByRole('button',{name:/^Показать ещё /});
+  if(await more.count()){
+   check(total===20,'Dense history must initially show 20 rows');
+   const firstIds=await rows.evaluateAll(nodes=>nodes.map(row=>row.dataset.historyRow));
+   action='reveal next 20 local rows';await more.click();
+   check(await rows.count()===40,'More history did not reveal next page');
+   check(JSON.stringify((await rows.evaluateAll(nodes=>nodes.map(row=>row.dataset.historyRow))).slice(0,20))===JSON.stringify(firstIds),'History order changed');
+  }
   for(const control of [search,type,category,button(period,'Весь месяц')]){
    const rect=await control.boundingBox();check(rect&&rect.height>=44&&rect.width>=44,'History filter too small');
   }
@@ -371,6 +379,17 @@ async function checkButtons(){
   check(await button(period,'Весь месяц').getAttribute('aria-pressed')==='true','Period lost on tab return');
   await reset.click();
   await clickPressed(button(period,/^День ·/,false));
+  const all=button(p,'Все категории расходов');
+  if(await all.count()){
+   action='open full budget category breakdown';await all.click();
+   const dialog=page.getByTestId('budget-all-categories');
+   await expectVisible(dialog);
+   const categories=dialog.locator('[data-category-id]');
+   check(await categories.count()>6,'Full category breakdown lost hidden categories');
+   await categories.last().scrollIntoViewIfNeeded();
+   action='close full budget category breakdown';await page.keyboard.press('Escape');
+   await dialog.waitFor({state:'hidden'});
+  }
  });
  await buttonScenario('BUD-16-new-payment-cancel',async()=>{
   await nav('budget','Бюджет');action='open mandatory payment editor';await button(panel('budget'),'Добавить обязательный платёж').click();

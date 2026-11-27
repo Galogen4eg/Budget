@@ -273,7 +273,7 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string} | null>(null);
+  const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string, budgetMemberId?:string, budgetMonthScope?:boolean} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   useEffect(()=>{
     setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
@@ -1162,7 +1162,7 @@ export default function App() {
                     onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
                     onImportClick={() => {if(!importingRef.current)document.getElementById('import-input')?.click();}}
                     onToggleMandatoryPaid={handleToggleMandatoryPaid}
-                    onSelectCategory={(catId) => setDrillDownState({ categoryId: catId })}
+                    onSelectCategory={(catId,memberId) => setDrillDownState({ categoryId: catId, budgetMemberId:memberId,budgetMonthScope:true })}
                     onAddMandatoryExpense={() => {
                         setSelectedMandatoryExpense(null);
                         setIsMandatoryModalOpen(true);
@@ -1371,7 +1371,7 @@ export default function App() {
                 categoryId={drillDownState.categoryId} 
                 merchantName={drillDownState.merchantName} 
                 onClose={() => setDrillDownState(null)} 
-                transactions={filteredTransactions} 
+                transactions={drillDownState.budgetMonthScope?displayTransactions.filter(tx=>!drillDownState.budgetMemberId||tx.memberId===drillDownState.budgetMemberId):filteredTransactions} 
                 setTransactions={setTransactions} 
                 settings={financialSettings} 
                 members={members} 
@@ -1379,7 +1379,7 @@ export default function App() {
                 onLearnRule={handleLearnRule} 
                 onEditTransaction={handleEditTransaction}
                 currentMonth={currentMonth}
-                selectedDate={selectedDate}
+                selectedDate={drillDownState.budgetMonthScope?null:selectedDate}
             />}
             {importPreview && (
               <ImportModal 

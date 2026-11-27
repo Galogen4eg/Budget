@@ -706,6 +706,7 @@ await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
  await b.keyboard.press('Escape');
  await paymentEditor.waitFor({state:'hidden'});
  await dialog.waitFor({state:'visible'});
+ await b.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Редактировать обязательный платеж: QA резерв',null,{timeout:3000});
  assert.equal(await editPayment.evaluate(el=>document.activeElement===el),true,'reserve edit focus return');
  phase='confirm reserve payment';
  await checkbox.check();

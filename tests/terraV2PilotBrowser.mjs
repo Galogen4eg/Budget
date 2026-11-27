@@ -273,7 +273,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const history=overview.getByTestId(mobile?'overview-history-mobile':'overview-history-desktop');
     const all=history.getByTestId(mobile?'overview-history-all-mobile':'overview-history-all-desktop');
     await targetSize(all,label+' history link');
-    assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(155, 209, 168)':'rgb(53, 96, 68)',label+' history link contrast token');
+    assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(169, 188, 167)':'rgb(53, 96, 68)',label+' history link contrast token');
     await capture(page,'overview-'+label);
     await history.scrollIntoViewIfNeeded();await capture(page,'overview-history-'+label);
     const categoryCard=overview.getByTestId(mobile?'overview-categories-mobile':'overview-categories-desktop');

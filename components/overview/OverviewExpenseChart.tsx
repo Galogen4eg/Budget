@@ -72,7 +72,7 @@ export function OverviewExpenseChart({
                 const point = payload[0].payload as Point;
                 return <div className={CHART_TOOLTIP}><div>{point.fullLabel || point.label}</div><strong className="tabular-nums">{amount(point.amount)}</strong></div>;
               }} />
-            <Bar dataKey="amount" name="Расходы" fill="var(--terra-primary-solid)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
+            <Bar dataKey="amount" name="Расходы" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
           </BarChart>
         </ResponsiveContainer>}
     </div>

@@ -26,3 +26,6 @@ A failing / cancelled / missing required check means **do not merge**. A local s
 Verify **exact PR head SHA** against the passing workflow run and run summary, not against an earlier commit or a preview build. Confirm the Vercel production deployment is `READY`, its `githubCommitSha` matches the actual `main` merge commit, and the production alias points to that deployment. Check browser UI and two-account/financial scenarios separately; CI does not replace user-data end-to-end verification.
 
 Issue: https://github.com/Galogen4eg/Budget/issues/53
+
+## Visual acceptance (Terra v2.1)
+For UI changes, reread docs/ui-design-contract.md VA-01–VA-08 before starting and before release. Review all reachable modified screen/dialog/menu/editor/transition states, not just page screenshots. Require measured geometry, contrast, actual before/after screenshot review and functional browser scenarios with synthetic family data, on the exact candidate SHA. Record missing coverage explicitly; do not merge on a red required check or unaccepted visual scope. This is a review requirement, not a claim that CI can judge subjective visual quality.

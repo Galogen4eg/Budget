@@ -58,8 +58,8 @@ export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
       </div>
       </div>
       <div className="flex flex-wrap gap-4 text-sm text-[var(--terra-muted)]">
-        {showExpense&&<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[var(--terra-danger-text)]" aria-hidden="true"/>Расходы</span>}
-        {showIncome&&<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[var(--terra-primary-solid)]" aria-hidden="true"/>Доходы</span>}
+        {showExpense&&<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[var(--terra-expense-chart)]" aria-hidden="true"/>Расходы</span>}
+        {showIncome&&<span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[var(--terra-income-chart)]" aria-hidden="true"/>Доходы</span>}
       </div>
       <div className="terra-overview-chart-plot w-full min-w-0" data-testid="drilldown-chart">
         {chartHasValues?<ResponsiveContainer width="100%" height="100%">
@@ -72,8 +72,8 @@ export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
               const item=payload[0].payload as {label:string;expense:number;income:number};
               return <div className={CHART_TOOLTIP}><div>{item.label}</div>{showExpense&&<div>Расходы: −{formatBudgetMoney(item.expense)} ₽</div>}{showIncome&&<div>Доходы: +{formatBudgetMoney(item.income)} ₽</div>}</div>;
             }}/>
-            {showExpense&&<Bar dataKey="expense" fill="var(--terra-danger-text)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
-            {showIncome&&<Bar dataKey="income" fill="var(--terra-primary-solid)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
+            {showExpense&&<Bar dataKey="expense" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
+            {showIncome&&<Bar dataKey="income" fill="var(--terra-income-chart)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
           </BarChart>
         </ResponsiveContainer>:<p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период операций этого типа нет</p>}
       </div>

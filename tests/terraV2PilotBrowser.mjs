@@ -1,3 +1,4 @@
+import {meetsTouchTarget} from './touchTargetGeometry.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 
@@ -6,7 +7,7 @@ const out='artifacts/terra-v2-pilot';
 const visible=locator=>locator.filter({visible:true}).first();
 const button=(root,name,exact=true)=>visible(root.getByRole('button',{name,exact}));
 async function targetSize(locator,label){
- const rect=await locator.boundingBox();assert.ok(rect&&rect.width>=44&&rect.height>=44,label+' too small '+JSON.stringify(rect));
+ const rect=await locator.boundingBox();assert.ok(meetsTouchTarget(rect),label+' too small '+JSON.stringify(rect));
 }
 async function capture(page,name){
  await page.evaluate(async()=>{await document.fonts.ready;});
@@ -130,7 +131,7 @@ async function overviewGeometryPilot(page,settingsRef){
    await noOverflow(toolbar,label+' controls');
    const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));
    assert.ok(controlBoxes.length>=3,label+' missing controls');
-   for(const box of controlBoxes)assert.ok(box.height>=44&&box.width>=44,label+' too small control '+JSON.stringify(box));
+   for(const box of controlBoxes)assert.ok(meetsTouchTarget(box),label+' too small control '+JSON.stringify(box));
    if(width>=375&&width<768||width>=1024)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
    if(width>=768){
     const summary=overview.getByTestId('overview-metrics-desktop');
@@ -312,8 +313,8 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const manage=button(categoryCard,'Управление категориями');await manage.click();
     const managementPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
     await managementPicker.waitFor({state:'visible'});const overviewCategorySearch=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
-    await targetSize(overviewCategorySearch,label+' category overviewCategorySearch');await overviewCategorySearch.fill('терра-нет-категории');
-    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear overviewCategorySearch');await button(managementPicker,'Очистить поиск').click();
+    await targetSize(overviewCategorySearch,label+' category search');await overviewCategorySearch.fill('терра-нет-категории');
+    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear category search');await button(managementPicker,'Очистить поиск').click();
     await noOverflow(managementPicker,label+' category management');await capture(page,'overview-category-picker-'+label);
     await page.keyboard.press('Escape');await managementPicker.waitFor({state:'hidden'});
     assert.equal(await manage.evaluate(el=>document.activeElement===el),true,label+' category management focus return');

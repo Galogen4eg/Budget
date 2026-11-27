@@ -1,3 +1,4 @@
+import {meetsTouchTarget} from './touchTargetGeometry.mjs';
 import {runTerraV2Pilot} from './terraV2PilotBrowser.mjs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
@@ -324,7 +325,7 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  const all=filters.getByRole('button',{name:'Все 1',exact:true});
  const search=dialog.getByRole('searchbox',{name:'Поиск по выписке'});
  for(const control of [without,all,search]){
-  const rect=await control.boundingBox();assert.ok(rect&&rect.height>=44&&rect.width>=44,'Import control target too small');
+  const rect=await control.boundingBox();assert.ok(meetsTouchTarget(rect),'Import control target too small');
  }
  await without.click();
  assert.equal(await without.getAttribute('aria-pressed'),'true');
@@ -428,7 +429,7 @@ await scenario('SHP Terra filtered clear, template preview and pantry transfer',
  assert.equal((await shopping.doc(ids[2]).get()).exists,true);
  phase='pantry move on desktop';await search.fill(titles[2]);
  const move=btn(p,'В кладовку: '+titles[2]);await move.waitFor({state:'visible'});
- const box=await move.boundingBox();assert.ok(box&&box.width>=44&&box.height>=44);
+ const box=await move.boundingBox();assert.ok(meetsTouchTarget(box));
  await move.evaluate(button=>{button.click();button.click();});
  await currentDoc(shopping.doc(ids[2]),snap=>!snap.exists,'moved source removed');
  const moved=await findOne('pantry','title',titles[2]);assert.equal(moved.data().amount,'2.5');assert.equal(moved.data().unit,'л');

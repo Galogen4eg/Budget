@@ -29,3 +29,6 @@ Issue: https://github.com/Galogen4eg/Budget/issues/53
 
 ## Visual acceptance (Terra v2.1)
 For UI changes, reread docs/ui-design-contract.md VA-01–VA-08 before starting and before release. Review all reachable modified screen/dialog/menu/editor/transition states, not just page screenshots. Require measured geometry, contrast, actual before/after screenshot review and functional browser scenarios with synthetic family data, on the exact candidate SHA. Record missing coverage explicitly; do not merge on a red required check or unaccepted visual scope. This is a review requirement, not a claim that CI can judge subjective visual quality.
+
+### Browser geometry precision
+The nominal touch target remains 44 × 44 CSS px. For DOMRect/bounding-box measurements, use `tests/touchTargetGeometry.mjs` with a 1/1024 CSS px numerical epsilon (smaller than a Chromium layout unit). Do not use this to accept real shrinking transitions or undersized controls. Regression cases include the observed 43.999996 px floating-point error and actual 43.89/41.72 px undersized targets. Keep checking both dimensions and preserve real interaction tests.

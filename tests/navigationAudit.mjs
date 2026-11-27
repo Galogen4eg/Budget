@@ -1,3 +1,4 @@
+import {meetsTouchTarget,TOUCH_TARGET_MEASURED_MIN_PX} from './touchTargetGeometry.mjs';
 /** Shared UI scenarios. Caller owns browser, data and network isolation. */
 import {mkdir} from 'node:fs/promises';
 export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,captureScreens=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
@@ -42,15 +43,15 @@ async function inventory(id){
  const geometry=await page.evaluate(section=>{const shell=document.querySelector('[data-terra-shell]'),tab=document.querySelector('[data-terra-tabbar]'),p=document.querySelector('[data-tab-panel="'+section+'"]');if(!shell||!p)return null;const shown=el=>!!el?.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';return {overflow:shell.scrollWidth>shell.clientWidth+1,headerCount:[...p.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,mobile:innerWidth<768,overlap:shown(tab)&&p.getBoundingClientRect().bottom>tab.getBoundingClientRect().top+2};},id);
  if(geometry){if(geometry.overflow)throw new Error('Shell horizontal overflow');if(geometry.overlap)throw new Error('Tabbar overlaps content');if(geometry.mobile&&geometry.headerCount!==1)throw new Error('Expected one mobile section header, got '+geometry.headerCount);}
  if(['shopping','budget','plans','chat','services'].includes(id)){
-  const ux=await panel(id).evaluate((el,section)=>{
+  const ux=await panel(id).evaluate((el,{section,min})=>{
    const mobile=innerWidth<768,rect=x=>x?.getBoundingClientRect();
    const find=key=>[...el.querySelectorAll('[data-testid="'+key+'"]')].find(x=>x.getClientRects().length);
    if(section==='budget'){const suffix=mobile?'mobile':'desktop';const h=find('budget-history-'+suffix),c=find('budget-calendar-'+suffix);return {ok:!!h&&!!c&&Boolean(h.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING),detail:'history before calendar'};}
-   if(section==='shopping'){const library=find('shopping-library'),tools=library?.querySelector('.terra-shopping-tools');const buttons=[...(tools?.children??[])];const input=[...el.querySelectorAll('[aria-label="Быстрое добавление товаров"]')].find(x=>x.getClientRects().length);const search=[...el.querySelectorAll('[aria-label="Поиск по товарам в семейном списке"]')].find(x=>x.getClientRects().length);const sameRow=buttons.length===3&&buttons.every(x=>Math.abs(rect(x).top-rect(buttons[0]).top)<2&&rect(x).height>=44&&rect(x).width>=44);return {ok:sameRow&&(!mobile||!!input&&!!search&&rect(input).top<rect(search).top),detail:'compact tools and quick input before search'};}
-   if(section==='services'){const rows=[...el.querySelectorAll('.terra-service-row')];return {ok:rows.length===3&&rows.every(x=>rect(x).height>=44&&Math.abs(rect(x).left-rect(rows[0]).left)<2),detail:'aligned service list'};}
-   if(section==='chat'){const input=el.querySelector('[aria-label="Сообщение семье"]'),send=el.querySelector('[aria-label="Отправить сообщение"]');return {ok:!!input&&!!send&&rect(send).width>=44&&rect(send).height>=44&&rect(input).width>0,detail:'chat composer geometry'};}
-   const modes=[...el.querySelectorAll('.terra-calendar-views')].find(x=>x.getClientRects().length);return {ok:!mobile||!!modes&&[...modes.children].every(x=>Math.abs(rect(x).top-rect(modes.firstElementChild).top)<2&&rect(x).height>=44&&rect(x).width>=44),detail:'calendar modes on one row'};
-  },id);
+   if(section==='shopping'){const library=find('shopping-library'),tools=library?.querySelector('.terra-shopping-tools');const buttons=[...(tools?.children??[])];const input=[...el.querySelectorAll('[aria-label="Быстрое добавление товаров"]')].find(x=>x.getClientRects().length);const search=[...el.querySelectorAll('[aria-label="Поиск по товарам в семейном списке"]')].find(x=>x.getClientRects().length);const sameRow=buttons.length===3&&buttons.every(x=>Math.abs(rect(x).top-rect(buttons[0]).top)<2&&rect(x).height>=min&&rect(x).width>=min);return {ok:sameRow&&(!mobile||!!input&&!!search&&rect(input).top<rect(search).top),detail:'compact tools and quick input before search'};}
+   if(section==='services'){const rows=[...el.querySelectorAll('.terra-service-row')];return {ok:rows.length===3&&rows.every(x=>rect(x).height>=min&&Math.abs(rect(x).left-rect(rows[0]).left)<2),detail:'aligned service list'};}
+   if(section==='chat'){const input=el.querySelector('[aria-label="Сообщение семье"]'),send=el.querySelector('[aria-label="Отправить сообщение"]');return {ok:!!input&&!!send&&rect(send).width>=min&&rect(send).height>=min&&rect(input).width>0,detail:'chat composer geometry'};}
+   const modes=[...el.querySelectorAll('.terra-calendar-views')].find(x=>x.getClientRects().length);return {ok:!mobile||!!modes&&[...modes.children].every(x=>Math.abs(rect(x).top-rect(modes.firstElementChild).top)<2&&rect(x).height>=min&&rect(x).width>=min),detail:'calendar modes on one row'};
+  },{section:id,min:TOUCH_TARGET_MEASURED_MIN_PX});
   if(!ux.ok)throw new Error('UX composition: '+ux.detail);
  }
  if(id==='overview'&&includeInventoryDetails){
@@ -232,7 +233,7 @@ async function checkSections(){
   }
   if(geometry.section==='budget'){
    const days=content.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');if(await days.count()!==31)throw new Error('Salary day controls missing');
-   if(!(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44&&e.hasAttribute('aria-pressed');}))))throw new Error('Salary grid geometry or selection semantics');
+   if(!(await days.evaluateAll((nodes,min)=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=min&&r.height>=min&&e.hasAttribute('aria-pressed');}),TOUCH_TARGET_MEASURED_MIN_PX)))throw new Error('Salary grid geometry or selection semantics');
   }
   if(geometry.section==='data'){await expectVisible(content.getByLabel('Начало периода'));await expectVisible(content.getByLabel('Конец периода'));}
   if(includeInventoryDetails){await mkdir('artifacts/terra-v2-pilot/settings',{recursive:true});await page.screenshot({path:'artifacts/terra-v2-pilot/settings/'+label+'-'+geometry.section+'.png',animations:'disabled'});}
@@ -355,7 +356,7 @@ async function checkButtons(){
    check(JSON.stringify((await rows.evaluateAll(nodes=>nodes.map(row=>row.dataset.historyRow))).slice(0,20))===JSON.stringify(firstIds),'History order changed');
   }
   for(const control of [search,type,category,button(period,'Весь месяц')]){
-   const rect=await control.boundingBox();check(rect&&rect.height>=44&&rect.width>=44,'History filter too small');
+   const rect=await control.boundingBox();check(meetsTouchTarget(rect),'History filter too small');
   }
   action='search empty result';await search.fill('QA_NO_MATCH_98473201');
   await expectVisible(history.getByText('По заданным фильтрам операций нет.',{exact:true}));

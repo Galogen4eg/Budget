@@ -18,8 +18,11 @@ test('analytics passes privacy to mobile and suppresses raw financial chart and 
  assert.match(mobile,/privacyMode\?'•••':formatBudgetMoney/);
  assert.match(desktop,/График скрыт в режиме приватности/);
  assert.match(mobile,/График скрыт в режиме приватности/);
- assert.match(list,/settings.privacyMode\?'•••':group.totalSpent/);
+ assert.match(list,/settings.privacyMode\?'•••':`Итого:/);
  assert.doesNotMatch(mobile,/const sampled|Math.max\(12,|Math.max\(15,/);
- assert.match(mobile,/const mobileBars=chartData/);
+ assert.match(mobile,/<DrillDownAnalyticsChart/);
+ assert.match(desktop,/<DrillDownAnalyticsChart/);
+ assert.match(mobile,/chartData=\{chartData\}/);
+ assert.match(desktop,/buildAnalyticsSeries\(familyTransactions/);
  assert.doesNotMatch(read('components/TerraOverview.tsx'),/targetReserveGoal|reservePercent/);
 });

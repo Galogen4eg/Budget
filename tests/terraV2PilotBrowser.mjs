@@ -320,7 +320,29 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await tab.getAttribute('aria-pressed'),'true');
     }
     await noOverflow(dialog,label+' analytics dialog');
-    if(!mobile)await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    const series=dialog.getByRole('group',{name:'Состав графика'});
+    for(const name of ['Расходы','Доходы','Все']){
+     const tab=button(series,name);await targetSize(tab,label+' series '+name);await tab.click();
+     assert.equal(await tab.getAttribute('aria-pressed'),'true');
+    }
+    await noOverflow(dialog.getByTestId('drilldown-chart'),label+' shared chart');
+    await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    const analyticsValues=dialog.locator('summary').filter({hasText:'Значения графика'});await analyticsValues.click();
+    await dialog.getByTestId('analytics-values').waitFor({state:'visible'});
+    await analyticsValues.click();
+    const merchant=dialog.getByRole('searchbox',{name:'Поиск магазина или получателя'});
+    const categoryToggle=dialog.getByTestId('analytics-category-toggle').first();
+    await categoryToggle.click();
+    assert.equal(await categoryToggle.getAttribute('aria-expanded'),'true');
+    const payeeRow=dialog.getByTestId('analytics-payee-row').first();
+    await payeeRow.waitFor({state:'visible'});
+    const payeeName=await payeeRow.locator('p').first().innerText();
+    await merchant.fill(payeeName);
+    await dialog.getByTestId('analytics-payee-row').first().waitFor({state:'visible'});
+    await merchant.fill('терра-нет-такого-получателя');
+    await dialog.getByText('Ничего не найдено',{exact:true}).waitFor({state:'visible'});
+    await merchant.fill('');
+    await noOverflow(dialog,label+' merchant search');
     await capture(page,'analytics-'+label);
     await dialog.getByTestId('drilldown-chart').scrollIntoViewIfNeeded();
     await capture(page,'analytics-chart-'+label);
@@ -335,6 +357,16 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await daily.getByRole('progressbar').count(),0,label+' private daily progress visible');
      for(const value of await daily.locator('dl dd').allTextContents())assert.match(value,/^(?:—|•+\s*₽)$/u,label+' daily amount visible in privacy mode');
     }
+    await button(overview,'Аналитика всех категорий').click();
+    await dialog.waitFor({state:'visible'});
+    await button(dialog,mobile?'Аналитика и график трат':'Аналитика и графики трат').click();
+    await dialog.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'visible'});
+    assert.equal(await dialog.getByTestId('drilldown-chart').count(),0);
+    assert.equal(await dialog.getByTestId('analytics-peak').count(),0);
+    assert.equal(await dialog.getByRole('searchbox',{name:'Поиск магазина или получателя'}).count(),0);
+    await button(dialog,mobile?'Назад к операциям':'Реестр операций').click();
+    await button(dialog,mobile?'Закрыть или вернуться назад':'Закрыть').click();
+    await dialog.waitFor({state:'hidden'});
     await button(overview,'Показать суммы').click();
     await chart.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'hidden'});
     console.log('PASS TERRA V2 PILOT '+label+' overview/analytics, period, targets, chart geometry and privacy');

@@ -77,7 +77,7 @@ import {
 import { useAuth } from './contexts/AuthContext';
 import { useData, DEFAULT_SETTINGS } from './contexts/DataContext';
 
-import { MENU_TABS, visibleMenuTabs } from './utils/menuNavigation';
+import { MENU_TABS, visibleMenuTabs, resolvedStartTab } from './utils/menuNavigation';
 
 const TAB_ICONS = {overview:LayoutDashboard,budget:Wallet,plans:Calendar,shopping:ShoppingBag,chat:MessageSquare,services:AppWindow};
 const TAB_CONFIG=MENU_TABS.map(tab=>({...tab,icon:TAB_ICONS[tab.id]}));
@@ -236,7 +236,7 @@ export default function App() {
     if(initialTabApplied.current===key)return;
     if(familyId&&!settingsReady)return;
     initialTabApplied.current=key;
-    setActiveTab(visibleTabs.some(t=>t.id===settings.startTab)?settings.startTab!:'overview');
+    setActiveTab(resolvedStartTab(settings.enabledTabs,settings.startTab));
   },[isAuthLoading,user?.uid,familyId,settingsReady,settings.startTab,settings.enabledTabs]);
   // Hidden menu entries remain reachable through explicit overview shortcuts.
   // Visibility preferences do not control authorization.
@@ -1125,7 +1125,7 @@ export default function App() {
                     onOpenAIChat={() => setIsAIChatOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onEditTransaction={handleEditTransaction}
-                    onNavigateTab={(tabId) => setActiveTab(tabId)}
+                    onNavigateTab={navigateMenu}
                     onDrillDown={(catId) => setDrillDownState({ categoryId: catId })}
                     onEditMandatoryExpense={(expense) => {
                         setSelectedMandatoryExpense(expense);

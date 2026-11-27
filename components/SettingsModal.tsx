@@ -24,7 +24,7 @@ import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
-import { MENU_TABS, visibleMenuTabs, menuPreferencePatch, settingsSearchMatches } from '../utils/menuNavigation';
+import { MENU_TABS, visibleMenuTabs, menuPreferencePatch, settingsSearchMatches, resolvedStartTab } from '../utils/menuNavigation';
 import MembersSettingsSection from './MembersSettingsSection';
 import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
 import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus, syncOwnMemberEmail } from '../utils/db';
@@ -682,13 +682,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="terra-appearance-grid terra-menu-settings-grid terra-settings-two-up">
             <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Навигация</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Скрытые вкладки не отображаются в меню, но доступны по ссылкам из обзора. Данные и права доступа не меняются.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Скрытые вкладки доступны на главном экране в блоке «Другие разделы». Данные и права доступа не меняются.</p>
               <div className="divide-y divide-[var(--terra-border)]">
                 {MENU_TABS.map(({id,label})=>{
                   const checked=visibleMenuTabs(settings.enabledTabs).includes(id);
                   return <label key={id} className="terra-settings-row flex min-h-[44px] items-center justify-between gap-3 text-sm cursor-pointer">
-                    <span>{label}</span>
-                    <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
+                    <span>{label}{id==='overview'&&<span id="overview-always-visible" className="block text-xs text-[var(--terra-muted)]">Всегда доступен</span>}</span>
+                    <input type="checkbox" aria-label={label} aria-describedby={id==='overview'?'overview-always-visible':undefined} checked={checked} disabled={id==='overview'} onChange={e=>{
                       const patch=menuPreferencePatch(settings.enabledTabs,settings.startTab,id,e.target.checked);
                       void saveSettingsPatch(patch);
                     }} className="h-5 w-5 accent-[#2D5A43]"/>
@@ -697,7 +697,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               <label className="block space-y-2 text-sm font-semibold">
                 <span>Стартовый раздел</span>
-                <select value={settings.startTab??'overview'} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2">
+                <select value={resolvedStartTab(settings.enabledTabs,settings.startTab)} onChange={e=>handleChange('startTab',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] p-2 text-base focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
                   {MENU_TABS.filter(({id})=>visibleMenuTabs(settings.enabledTabs).includes(id)).map(({id,label})=><option key={id} value={id}>{label}</option>)}
                 </select>
               </label>

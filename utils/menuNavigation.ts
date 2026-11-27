@@ -13,10 +13,20 @@ export function visibleMenuTabs(enabled?:readonly string[]):MenuTab[]{
 export function menuPreferencePatch(enabled:readonly string[]|undefined,startTab:string|undefined,id:MenuTab,checked:boolean){
  const current=visibleMenuTabs(enabled);
  const next=visibleMenuTabs(checked?[...current,id]:current.filter(tab=>tab!==id));
- return {enabledTabs:next,startTab:next.includes(startTab as MenuTab)?startTab as MenuTab:'overview' as const};
+ return {enabledTabs:next,startTab:resolvedStartTab(next,startTab)};
 }
 export function settingsSearchMatches(item:{label:string;subtitle:string;keywords:string},query:string):boolean{
  const normalize=(value:string)=>value.toLocaleLowerCase('ru-RU').replace(/ё/g,'е').trim();
  const haystack=normalize(item.label+' '+item.subtitle+' '+item.keywords);
  return normalize(query).split(/\s+/).every(word=>haystack.includes(word));
+}
+/** Hidden navigation entries remain reachable independently of widget visibility. */
+export function hiddenMenuTabs(enabled?:readonly string[]):MenuTab[]{
+ const visible=visibleMenuTabs(enabled);
+ return MENU_TABS.filter(tab=>!visible.includes(tab.id)).map(tab=>tab.id);
+}
+/** Keep malformed or hidden startup preferences from producing a blank selection. */
+export function resolvedStartTab(enabled:readonly string[]|undefined,startTab:string|undefined):MenuTab{
+ const visible=visibleMenuTabs(enabled);
+ return visible.includes(startTab as MenuTab)?startTab as MenuTab:'overview';
 }

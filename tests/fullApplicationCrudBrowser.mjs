@@ -534,6 +534,46 @@ await scenario('SET-02 personal theme persistence and isolation',async()=>{
  await btn(theme,'Светлая').click();await currentDoc(ref,x=>x.exists&&x.data().theme==='light','personal light theme');
  await btn(d,'Закрыть настройки').click();
 });
+await scenario('MENU hidden sections remain reachable and startup is personal',async()=>{
+ const ids=['overview','budget','plans','shopping','chat','services'];
+ const own=family.collection('members').doc(users[1].uid).collection('config').doc('settings');
+ const other=family.collection('members').doc(users[0].uid).collection('config').doc('settings');
+ const prior=(await own.get()).data(),otherBefore=(await other.get()).data();
+ try{
+  phase='hide all except overview';await nav(b,'overview','Обзор');await btn(b,'Настройки').click();
+  const dialog=b.getByRole('dialog',{name:'Настройки',exact:true});
+  await btn(dialog,/^Меню и обзор/,false).click();
+  const section=dialog.locator('[data-settings-section="navigation"]');
+  const start=section.getByRole('combobox',{name:'Стартовый раздел'});
+  await start.selectOption('chat');await currentDoc(own,x=>x.data()?.startTab==='chat','startup chat');
+  for(const name of ['Чат','Сервисы','Планы','Покупки','Бюджет']){
+   const checkbox=section.getByRole('checkbox',{name,exact:true});
+   await checkbox.uncheck();
+   await currentDoc(own,x=>Array.isArray(x.data()?.enabledTabs)&&!x.data().enabledTabs.includes(({Чат:'chat',Сервисы:'services',Планы:'plans',Покупки:'shopping',Бюджет:'budget'})[name]),'hide '+name);
+  }
+  await currentDoc(own,x=>x.data()?.startTab==='overview','hidden startup fallback');
+  for(const name of ['Список покупок','События недели'])await section.getByRole('checkbox',{name,exact:true}).uncheck();
+  await btn(dialog,'Закрыть настройки').click();
+  assert.deepEqual((await other.get()).data(),otherBefore,'other user preferences changed');
+  for(const [width,height] of [[1440,900],[390,844]]){
+   await b.setViewportSize({width,height});await reset(b);
+   await panel(b,'overview').waitFor({state:'visible'});
+   const hidden=panel(b,'overview').getByTestId('overview-hidden-sections').filter({visible:true}).first();
+   await hidden.waitFor({state:'visible'});
+   for(const [id,name] of [['budget','Бюджет'],['plans','Планы'],['shopping','Покупки'],['chat','Чат'],['services','Сервисы']]){
+    phase='open hidden '+name+' '+width;
+    assert.equal(await b.locator('nav').getByRole('button',{name,exact:true}).filter({visible:true}).count(),0);
+    const link=btn(hidden,name);const box=await link.boundingBox();assert.ok(box&&box.width>=44&&box.height>=44);
+    await link.click();await panel(b,id).waitFor({state:'visible'});
+    if(id==='services')await panel(b,id).locator('[data-purpose="service-cards-grid"]').waitFor({state:'visible'});
+    await nav(b,'overview','Обзор');
+   }
+  }
+ }finally{
+  await own.set({enabledTabs:prior.enabledTabs??ids,startTab:prior.startTab??'overview',widgets:prior.widgets??[]},{merge:true});
+  await b.setViewportSize({width:1440,height:900});await reset(b);
+ }
+});
 await scenario('OVR-drilldown privacy on desktop and mobile',async()=>{
  const refs=users.map(u=>family.collection('members').doc(u.uid).collection('config').doc('settings'));
  const record=rows.doc('qa-privacy-amount');
@@ -722,7 +762,7 @@ await scenario('ACCOUNT actual login and password changes preserve family identi
  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),beforeLedger);
  await btn(settings,'Закрыть настройки').click();
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:11,passed:11-failures.length}));
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:12,passed:12-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

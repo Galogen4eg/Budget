@@ -39,7 +39,7 @@
         var root=document.documentElement,mode='compact';
         try {
           var navigation=performance.getEntriesByType('navigation')[0];
-          if(!sessionStorage.getItem('terra:opened')&&(!navigation||navigation.type==='navigate'))mode='illustrated';
+          if(matchMedia('(max-width: 767px) and (orientation: portrait)').matches&&!sessionStorage.getItem('terra:opened')&&(!navigation||navigation.type==='navigate'))mode='illustrated';
           sessionStorage.setItem('terra:opened','1');
         } catch (_) {}
         root.dataset.terraStartupMode=mode;
@@ -119,7 +119,7 @@
   </head>
   <body class="text-[#1C1C1E] dark:text-white">
     <div id="root"><div class="terra-splash" data-terra-boot>
-      <div class="terra-splash-art" aria-hidden="true"><div class="terra-splash-image"></div><div class="terra-splash-dots"><i></i><i></i><i></i></div></div><div class="terra-splash-compact" aria-hidden="true"><span>Загружаем данные…</span><div class="terra-splash-dots"><i></i><i></i><i></i></div></div>
+      <div class="terra-splash-art" aria-hidden="true"><div class="terra-splash-image"></div><div class="terra-splash-dots"><i></i><i></i><i></i></div></div><div class="terra-splash-compact" aria-hidden="true"><img class="terra-splash-logo" src="/icons/terra-icon.svg" alt="" width="56" height="56"/><span class="terra-splash-brand">Terra</span><span class="terra-splash-caption">Загружаем данные…</span><div class="terra-splash-dots"><i></i><i></i><i></i></div></div>
       <span class="terra-splash-status" role="status">Terra. Загружаем данные…</span>
     </div></div>
   <script type="module" src="/index.tsx"></script>

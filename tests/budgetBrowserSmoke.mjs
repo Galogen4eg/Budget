@@ -119,23 +119,35 @@ try{
       assert.equal(response?.status(),200,label+': page did not return 200');
       const boot=page.locator('[data-terra-boot]');
       await boot.waitFor({state:'visible',timeout:30000});
-      const expected=height>=width?'terra-mobile.webp':'terra-desktop.webp';
       const art=boot.locator('.terra-splash-art');
-      await art.waitFor({state:'visible',timeout:15000});
-      const loaded=await art.locator('.terra-splash-image').evaluate(async el=>{
-        const url=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
-        if(!url)return null;
-        const img=new Image();img.src=url;await img.decode();
-        return {url,width:img.naturalWidth,height:img.naturalHeight};
-      });
-      assert.ok(loaded?.url.endsWith(expected),label+': wrong artwork');
-      const geometry=await art.boundingBox();
-      assert.ok(geometry&&geometry.x>=-1&&geometry.y>=-1&&geometry.x+geometry.width<=width+1&&geometry.y+geometry.height<=height+1,label+': artwork clipped '+JSON.stringify(geometry));
-      assert.ok(Math.abs(geometry.width/geometry.height-loaded.width/loaded.height)<0.02,label+': artwork distorted');
-      assert.equal(await art.locator('.terra-splash-dots i').first().evaluate(el=>getComputedStyle(el).animationName),'terra-dot-pulse');
-      assert.equal(await art.locator('.terra-splash-dots i').count(),3);
+      const compact=boot.locator('.terra-splash-compact');
+      if(width<768&&height>=width){
+        await art.waitFor({state:'visible',timeout:15000});
+        const loaded=await art.locator('.terra-splash-image').evaluate(async el=>{
+          const url=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
+          if(!url)return null;
+          const img=new Image();img.src=url;await img.decode();
+          return {url,width:img.naturalWidth,height:img.naturalHeight};
+        });
+        assert.ok(loaded?.url.endsWith('terra-mobile.webp'),label+': wrong portrait artwork');
+        const geometry=await art.boundingBox();
+        assert.ok(geometry&&geometry.x>=-1&&geometry.y>=-1&&geometry.x+geometry.width<=width+1&&geometry.y+geometry.height<=height+1,label+': artwork clipped');
+        assert.ok(Math.abs(geometry.width/geometry.height-loaded.width/loaded.height)<0.02,label+': artwork distorted');
+        assert.equal(await art.locator('.terra-splash-dots i').count(),3);
+      }else{
+        await compact.waitFor({state:'visible',timeout:15000});
+        assert.equal(await art.isVisible(),false,label+': artwork visible on desktop/tablet');
+        assert.equal(await art.locator('.terra-splash-image').evaluate(el=>getComputedStyle(el).backgroundImage),'none');
+        const logo=compact.locator('img');
+        assert.ok(await logo.evaluate(async el=>{await el.decode();return el.naturalWidth>0;}));
+        const bounds=await compact.boundingBox(),icon=await logo.boundingBox();
+        assert.ok(bounds&&icon&&icon.width===56&&icon.height===56&&Math.abs(bounds.x+bounds.width/2-width/2)<=2&&Math.abs(bounds.y+bounds.height/2-height/2)<=2,label+': compact startup geometry');
+      }
+      const visibleDots=boot.locator('.terra-splash-dots i').filter({visible:true});
+      assert.equal(await visibleDots.count(),3);
+      assert.equal(await visibleDots.first().evaluate(el=>getComputedStyle(el).animationName),'terra-dot-pulse');
       await page.screenshot({path:'artifacts/budget-browser/'+label+'-startup.png',animations:'disabled',timeout:15000});
-      console.log('PASS',label,'responsive startup artwork',expected);
+      console.log('PASS',label,'responsive startup',width<768&&height>=width?'portrait artwork':'compact brand');
     }finally{releaseBoot();}
 
     await page.getByRole('button',{name:/Войти/i}).waitFor({state:'visible',timeout:30000});
@@ -181,6 +193,17 @@ try{
       label+': horizontal overflow '+JSON.stringify(widthInfo));
     assert.deepEqual(errors,[],label+': JavaScript page errors');
     await page.screenshot({path:'artifacts/budget-browser/'+label+'.png',fullPage:true,animations:'disabled'});
+    // Ordinary browser login must not offer local/autonomous mode.
+    assert.equal(await page.getByRole('button',{name:/Локальный демо-режим|Открыть в автономном режиме/}).count(),0,label+': browser offers local mode');
+    // Existing isolated demo tests now exercise the installed PWA launch surface.
+    // Override only display-mode detection; do not bypass authentication or use external data.
+    await page.addInitScript(()=>{
+      const original=window.matchMedia.bind(window);
+      window.matchMedia=query=>{const result=original(query);return query==='(display-mode: standalone)'?new Proxy(result,{get(target,key){const value=key==='matches'?true:Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}}):result;};
+    });
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.getByRole('button',{name:/Локальный демо-режим/}).waitFor({state:'visible',timeout:30000});
+    console.log('PASS',label,'local mode only in installed application');
     if(label==='desktop-1920'){
       // The local demo is isolated from family Firestore; exercise the real
       // Overview UI on Full HD, not just the unauthenticated login page.

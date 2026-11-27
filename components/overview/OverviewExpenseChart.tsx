@@ -58,7 +58,7 @@ export function OverviewExpenseChart({
       {privacyMode ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
         !hasExpenses ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 4}} accessibilityLayer={false}
+          <BarChart data={points} margin={{top: 8, right: 4, bottom: 0, left: 4}} accessibilityLayer={false}
             onClick={selectFromChart} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
@@ -76,7 +76,8 @@ export function OverviewExpenseChart({
           </BarChart>
         </ResponsiveContainer>}
     </div>
-    {!privacyMode && hasExpenses && <details className="border-t border-[var(--terra-border)]">
+    <div className="terra-overview-chart-footer border-t border-[var(--terra-border)]">
+    {!privacyMode && hasExpenses && <details className="terra-overview-chart-disclosure">
       <summary className="min-h-[44px] flex items-center cursor-pointer rounded-lg text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Значения графика</summary>
       <div data-testid="overview-chart-values" className="max-h-64 overflow-y-auto overscroll-y-contain divide-y divide-[var(--terra-border)]">
         {points.map((point,index) => <button key={index} type="button" onClick={() => onPointSelect(point)}
@@ -85,11 +86,10 @@ export function OverviewExpenseChart({
         </button>)}
       </div>
     </details>}
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--terra-border)] text-sm text-[var(--terra-muted)] pt-1">
-      {!privacyMode && <span className="flex-1 min-w-[120px]">{complianceText}</span>}
-      <button type="button" onClick={onOpenBudget} className="min-h-[44px] px-2 inline-flex items-center gap-1 font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+    <button type="button" onClick={onOpenBudget} className="terra-overview-chart-budget min-h-[44px] px-2 inline-flex items-center justify-end gap-1 text-sm font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
         К бюджету<ChevronRight size={15} aria-hidden="true"/>
       </button>
+      {!privacyMode && <p className="terra-overview-chart-note text-xs text-[var(--terra-muted)]">{complianceText}</p>}
     </div>
   </>;
 }

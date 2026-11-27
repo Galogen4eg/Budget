@@ -57,8 +57,23 @@ async function overviewGeometryPilot(page,settingsRef){
     const summary=overview.getByTestId('overview-metrics-desktop');
     const headings=summary.locator('[data-overview-summary-heading]');
     const axes=await headings.evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().top));
-    if(width>=1024&&axes.length===2)assert.ok(Math.abs(axes[0]-axes[1])<=1,label+' summary headings not aligned');
+    if(width>=1440){
+     assert.equal(axes.length,3,label+' missing summary zones');
+     assert.ok(Math.max(...axes)-Math.min(...axes)<=1,label+' summary headings not aligned');
+     const bounds=await summary.boundingBox();
+     assert.ok(bounds.height<=212,label+' financial summary unnecessarily tall '+bounds.height);
+     const zones=await summary.locator('[data-overview-summary-zone]').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
+     assert.ok(zones[0].right<=zones[1].left+1&&zones[1].right<=zones[2].left+1,label+' zones overlap');
+    }
     await noOverflow(summary,label+' financial summary');
+    const chartCard=overview.getByTestId('overview-chart-desktop');
+    const plot=chartCard.getByTestId('overview-chart-plot');
+    const plotBounds=await plot.boundingBox();
+    assert.ok(plotBounds.height<=224,label+' chart plot too tall');
+    const footer=chartCard.locator('.terra-overview-chart-footer');
+    const controls=await footer.locator('summary, .terra-overview-chart-budget').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
+    if(controls.length===2)assert.ok(Math.abs(controls[0].top-controls[1].top)<=1,label+' chart footer actions misaligned');
+    if(width>=1440)assert.ok((await chartCard.boundingBox()).height<=440,label+' graph card unnecessarily tall');
    }
    for(const header of await visibleInOverview('[data-overview-section-head]').all()){
     await noOverflow(header,label+' section header');

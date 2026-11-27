@@ -82,9 +82,9 @@ html.dark {
 .terra-boot-error button{min-height:44px;padding:10px 20px;border:0;border-radius:12px;background:var(--terra-primary-solid);color:var(--terra-on-primary);font-weight:600;cursor:pointer;}
 
 /* Shared chart geometry: stable across periods, empty and private states. */
-.terra-overview-chart-plot {height:208px;}
-@media(min-width:768px){.terra-overview-chart-plot{height:248px;}}
-@media(min-width:1024px){.terra-overview-chart-plot{height:264px;}}
+.terra-overview-chart-plot {height:184px;}
+@media(min-width:768px){.terra-overview-chart-plot{height:208px;}}
+@media(min-width:1024px){.terra-overview-chart-plot{height:224px;}}
 
 /* Chart toolbars fit available content, not the outer window; narrow cards keep full-width scrollable rails. */
 .terra-chart-toolbar{container-type:inline-size;}
@@ -219,9 +219,33 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-overview-mobile-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}
 @media(min-width:390px){.terra-overview-mobile-controls{grid-template-columns:minmax(124px,.85fr) minmax(0,1.15fr);}.terra-overview-mobile-controls>.terra-overview-month-open{grid-column:1/-1;}.terra-overview-mobile-controls>.terra-overview-month-open+div{grid-column:1/-1;}.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
 .terra-overview-main-amount[data-negative="true"]{color:var(--terra-danger-text);}
-.terra-overview-summary{gap:20px;}
-.terra-overview-summary-side{border-left:1px solid var(--terra-border);padding-left:20px;align-self:stretch;}
-@container(max-width:519px){.terra-overview-summary-side{border-left:0;padding-left:0;border-top:1px solid var(--terra-border);padding-top:16px;}}
+.terra-overview-summary{gap:12px;padding:16px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;}
+.terra-overview-summary-zone{min-width:0;}
+.terra-overview-summary-period{border-left:1px solid var(--terra-border);padding-left:16px;}
+.terra-overview-summary-side{grid-column:1/-1;border-top:1px solid var(--terra-border);padding-top:12px;}
+@container(min-width:1040px){
+ .terra-overview-summary[data-current-period="true"]{grid-template-columns:minmax(0,.95fr) minmax(0,1.35fr) minmax(0,1fr);column-gap:20px;}
+ .terra-overview-summary-side{grid-column:auto;border-top:0;padding-top:0;border-left:1px solid var(--terra-border);padding-left:16px;}
+ .terra-overview-summary[data-current-period="false"]{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);}
+}
+@container(max-width:519px){
+ .terra-overview-summary{grid-template-columns:minmax(0,1fr);}
+ .terra-overview-summary-period{border-left:0;padding-left:0;border-top:1px solid var(--terra-border);padding-top:12px;}
+}
+.terra-overview-summary-value{font-size:16px;line-height:1.35;}
+.terra-overview-reserve-link{padding-block:4px;}
+.terra-overview-balance-card .terra-daily-pair dd{font-size:16px;line-height:1.35;}
+.terra-overview-chart-card{padding:16px;}
+.terra-overview-chart-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 8px;padding-top:2px;}
+.terra-overview-chart-disclosure{min-width:0;}
+.terra-overview-chart-disclosure[open]{grid-column:1/-1;}
+.terra-overview-chart-budget{grid-column:2;grid-row:1;justify-self:end;}
+.terra-overview-chart-disclosure[open]+.terra-overview-chart-budget{grid-row:auto;}
+.terra-overview-chart-note{grid-column:1/-1;line-height:1.4;padding-bottom:2px;}
+.terra-overview-layout .terra-overview-columns{gap:16px;}
+.terra-overview-layout .terra-overview-columns>div{gap:16px;}
+@media(max-width:767px){.terra-overview-chart-card{padding:12px;}.terra-overview-balance-card{padding:12px;}}
+
 .terra-overview-section-head{min-height:44px;}
 .terra-overview-link:hover{background:var(--terra-soft);}
 .terra-overview-chart-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}

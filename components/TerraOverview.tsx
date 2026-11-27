@@ -634,7 +634,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const monthlySummary=!settings.privacyMode&&monthLimit?<div data-testid="overview-month-limit" data-limit-status={monthLimit.status} className="space-y-1.5 min-w-0">
     <div className="flex flex-wrap justify-between items-baseline gap-x-2 gap-y-1 text-xs">
       <span className="text-[var(--terra-muted)]">Месячный лимит</span>
-      <span className="font-semibold tabular-nums text-[var(--terra-ink)] [overflow-wrap:anywhere]">{formatAmount(displayMonthSpent)} ₽ / {formatAmount(totalMonthlyLimit)} ₽</span>
+      <span className="font-semibold tabular-nums text-[var(--terra-ink)] [overflow-wrap:anywhere]">{formatAmount(totalMonthlyLimit)} ₽</span>
     </div>
     <div className="h-2 rounded-full bg-[var(--terra-soft)] overflow-hidden" role="progressbar" aria-label="Использование месячного лимита" aria-valuemin={0} aria-valuemax={100} aria-valuenow={monthLimit.barWidth} aria-valuetext={monthLimit.percentage.toLocaleString('ru-RU',{maximumFractionDigits:1})+'% использовано'}>
       <div className={'h-full rounded-full terra-progress '+(monthLimit.status==='over'?'bg-[var(--terra-danger-text)]':monthLimit.status==='near'||monthLimit.status==='exhausted'?'bg-[var(--terra-offline-text)]':'bg-[var(--terra-primary-solid)]')} style={{width:monthLimit.barWidth+'%'}}/>
@@ -645,8 +645,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     </div>
   </div>:null;
   const monthMoneyPair = <dl data-overview-month-money className="terra-overview-money-pair grid grid-cols-2 gap-3 tabular-nums">
-    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные доходы':'Доходы за месяц'}</dt><dd className="text-base leading-snug font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
-    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные расходы':'Расходы за месяц'}</dt><dd className="text-base leading-snug font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные доходы':'Доходы за месяц'}</dt><dd className="terra-overview-summary-value text-base leading-snug font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные расходы':'Расходы за месяц'}</dt><dd className="terra-overview-summary-value text-base leading-snug font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
   </dl>;
   const dailySummary = (
     <div className="space-y-1.5 min-w-0" data-testid="overview-daily-summary">
@@ -655,8 +655,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&isOverDailyLimit&&<span className="text-xs font-semibold text-[var(--terra-danger-text)]">Выше ориентира</span>}
       </div>
       <dl className="terra-daily-pair">
-        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Ориентир на день</dt><dd className="mt-1 text-xl font-headline font-semibold tabular-nums [overflow-wrap:anywhere]">{personalOpeningKnown?formatAmount(dailyLimit)+' ₽':'—'}</dd></div>
-        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Потрачено</dt><dd className={`mt-1 text-xl font-headline font-semibold tabular-nums [overflow-wrap:anywhere] ${!settings.privacyMode&&isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatAmount(spentToday)} ₽</dd></div>
+        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Ориентир на день</dt><dd className="terra-overview-summary-value text-base leading-snug font-semibold tabular-nums [overflow-wrap:anywhere]">{personalOpeningKnown?formatAmount(dailyLimit)+' ₽':'—'}</dd></div>
+        <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Потрачено</dt><dd className={`terra-overview-summary-value text-base leading-snug font-semibold tabular-nums [overflow-wrap:anywhere] ${!settings.privacyMode&&isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatAmount(spentToday)} ₽</dd></div>
       </dl>
       {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&<div className="space-y-1.5">
         <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><span className={isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}>{isOverDailyLimit?'Превышение: '+formatAmount(overLimitDelta)+' ₽':'Использовано'}</span><span className="tabular-nums font-semibold">{dailyUsagePercent}%</span></div>
@@ -802,7 +802,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             {monthlySummary}
             {isCurrentCalendarMonth&&<div className="space-y-1.5 pt-2 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
             {dailySummary}
-            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] pt-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="terra-overview-reserve-link min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               <span className="text-sm text-[var(--terra-muted)]">{personalOnly?'Личный резерв':'Семейный резерв'}</span><span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-[var(--terra-ink)]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
             </button>
             </div>}
@@ -1021,95 +1021,32 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             onOpenAddModal={onOpenAddModal}
             onOpenAIChat={onOpenAIChat}
           />
-        {/* ALERT BANNER: Daily Limit Exceeded (Terra Warning) */}
-        {isCurrentCalendarMonth&&!settings.privacyMode&&isOverDailyLimit && (
-          <section 
-            aria-label="Предупреждение о бюджете"
-            className="rounded-2xl bg-[var(--terra-offline-soft)] border border-[var(--terra-border)] p-4"
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#FEEBC8] dark:bg-[#3D251A] border border-[#FBD38D] dark:border-[#C2410C]/40 text-[#C2410C] flex items-center justify-center flex-shrink-0 shadow-xs mt-0.5">
-                  <AlertTriangle size={20} className="text-[#C2410C]" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#FFEDD5] dark:bg-[#432314] text-[#C2410C] border border-[#FDBA74] dark:border-[#EA580C]/40">
-                      Внимание: Превышение лимита дня
-                    </span>
-                    <span className="text-xs font-mono font-bold text-[#9A3412] dark:text-[#FB923C]">
-                      +{formatAmount(overLimitDelta)} ₽ сверх плана
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-[#7C2D12] dark:text-[#FED7AA] leading-relaxed">
-                    Сегодня потрачено <strong className="font-mono font-bold text-[#9A3412] dark:text-orange-400">{formatAmount(spentToday)} ₽</strong> при плановом лимите <strong className="font-mono">{formatAmount(dailyLimit)} ₽</strong>.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 sm:self-start md:self-center flex-shrink-0 pl-13 md:pl-0">
-                <button 
-                  type="button"
-                  onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
-                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1C1E] hover:bg-[#FFF4E5] dark:hover:bg-[#2C2C2E] border border-[#FDBA74] text-xs font-bold text-[#9A3412] dark:text-[#FB923C] transition shadow-xs whitespace-nowrap active:scale-[0.98]"
-                >
-                  Покрыть из Резерва
-                </button>
-                <button 
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="px-3.5 py-2 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-xs font-bold text-white transition shadow-sm shadow-[#C2410C]/25 whitespace-nowrap active:scale-[0.98]"
-                >
-                  Скорректировать лимит
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
+        {isCurrentCalendarMonth&&!settings.privacyMode&&isOverDailyLimit&&dailyLimit>0&&<div role="status" aria-label="Предупреждение о бюджете" className="terra-overview-warning flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-danger-soft)] px-3 py-1 text-sm">
+          <span className="font-medium text-[var(--terra-danger-text)]">Сегодня сверх ориентира: {formatAmount(overLimitDelta)} ₽</span>
+          <button type="button" onClick={onOpenSettings} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}>Настройки бюджета</button>
+        </div>}
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
         <section data-testid="overview-metrics-desktop" className={DASHBOARD_CARD+' terra-overview-metrics terra-overview-summary grid items-start'} data-current-period={isCurrentCalendarMonth}>
-          {/* Card 1: ОБЩИЙ БАЛАНС */}
-          <div className="terra-overview-summary-main min-w-0 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center text-[var(--terra-muted)] font-semibold text-sm">
-                <h2 data-overview-summary-heading className="text-[var(--terra-ink)]">{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</h2>
-              </div>
-            </div>
-            <div className="flex items-baseline">
-              <span className="terra-overview-balance terra-overview-main-amount font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0" data-negative={!settings.privacyMode&&sharedLedger<0}>
-                {formatAmount(sharedLedger)} ₽
-              </span>
-            </div>
+          <div className="terra-overview-summary-main terra-overview-summary-zone min-w-0 flex flex-col gap-2" data-overview-summary-zone="balance">
+            <h2 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</h2>
+            <div className="terra-overview-balance terra-overview-main-amount font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0" data-negative={!settings.privacyMode&&sharedLedger<0}>{formatAmount(sharedLedger)} ₽</div>
             {balanceExplanation&&<p className="text-xs text-[var(--terra-muted)]">{balanceExplanation}</p>}
-            <div className="pt-2 border-t border-[var(--terra-border)]">{monthMoneyPair}</div>
-            {monthlySummary&&<div className="border-t border-[var(--terra-border)] pt-2">{monthlySummary}</div>}
-            {!settings.privacyMode&&lastMonthComparison.isPositive!==null&&<div className="pt-2 mt-auto border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
-              <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
-                {lastMonthComparison.isPositive === true ? (
-                  <TrendingDown size={14} className="mr-0.5" />
-                ) : lastMonthComparison.isPositive === false ? (
-                  <TrendingUp size={14} className="mr-0.5" />
-                ) : null}
-                {lastMonthComparison.text}
-              </span>
-              <span className="text-xs">К прошлому полному месяцу</span>
-            </div>}
-          </div>
-
-          <div className="terra-overview-summary-side min-w-0 flex flex-col gap-3 justify-start" data-testid="overview-daily-reserve-desktop">
-            {isCurrentCalendarMonth&&<div data-testid="overview-daily-desktop">{dailySummary}</div>}
-            <button type="button"
-              onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
-              aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
-              className={'min-h-[44px] w-full min-w-0 text-left flex flex-col gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-soft)] '+(isCurrentCalendarMonth?'border-t border-[var(--terra-border)] pt-3':'')}>
-              <span className="flex flex-wrap items-center justify-between gap-2 w-full">
-                <span className="text-sm font-semibold text-[var(--terra-ink)] inline-flex items-center gap-1.5"><Lock size={14} className="text-[var(--terra-muted)]" aria-hidden="true"/>{personalOnly?'Личный резерв':'Семейный резерв'}</span>
-                <ChevronRight size={18} className="text-[var(--terra-muted)]" aria-hidden="true"/>
-              </span>
-              <span className="text-2xl leading-tight font-headline font-bold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">{formatAmount(reservedAmount)} ₽</span>
-              <span className="text-xs text-[var(--terra-muted)]">Обязательства и накопления</span>
+            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
+              className="terra-overview-reserve-link min-h-[44px] w-full text-left flex flex-wrap items-center justify-between gap-1 border-t border-[var(--terra-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-soft)]">
+              <span className="text-xs text-[var(--terra-muted)] inline-flex items-center gap-1"><Lock size={14} aria-hidden="true"/>{personalOnly?'Личный резерв':'Семейный резерв'}</span>
+              <span className="text-sm font-semibold text-[var(--terra-ink)] tabular-nums flex items-center gap-1 [overflow-wrap:anywhere]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
             </button>
           </div>
+          <div className="terra-overview-summary-period terra-overview-summary-zone min-w-0 flex flex-col gap-2" data-overview-summary-zone="period">
+            <h3 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">{!personalOnly&&budgetMode==='personal'?'Личные операции':'За месяц'}</h3>
+            {monthMoneyPair}
+            {monthlySummary&&<div className="border-t border-[var(--terra-border)] pt-2">{monthlySummary}</div>}
+            {!settings.privacyMode&&lastMonthComparison.isPositive!==null&&<p className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--terra-muted)]"><span className={'font-semibold tabular-nums '+(lastMonthComparison.isPositive?'text-[var(--terra-primary-text)]':'text-[var(--terra-danger-text)]')}>{lastMonthComparison.text}</span><span>к прошлому полному месяцу</span></p>}
+          </div>
+          {isCurrentCalendarMonth&&<div className="terra-overview-summary-side terra-overview-summary-zone min-w-0" data-overview-summary-zone="today" data-testid="overview-daily-reserve-desktop">
+            <div data-testid="overview-daily-desktop">{dailySummary}</div>
+            {!settings.privacyMode&&personalOpeningKnown&&dailyLimit<=0&&<p className="mt-2 text-xs text-[var(--terra-muted)]">Дневной ориентир сейчас равен нулю.</p>}
+          </div>}
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}

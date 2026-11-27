@@ -12,9 +12,9 @@ test('dashboard charts share card and tooltip tokens, stable plot geometry and n
  assert.match(chart,/className=\{CHART_TOOLTIP\}/);
  assert.match(chart,/<Bar dataKey="amount"[^>]*isAnimationActive=\{false\}/);
  assert.match(chart,/terra-overview-chart-plot/);
- assert.match(css,/\.terra-overview-chart-plot\s*\{height:208px;\}/);
- assert.match(css,/@media\(min-width:768px\)\{\.terra-overview-chart-plot\{height:248px;\}\}/);
- assert.match(css,/@media\(min-width:1024px\)\{\.terra-overview-chart-plot\{height:264px;\}\}/);
+ assert.match(css,/\.terra-overview-chart-plot\s*\{height:184px;\}/);
+ assert.match(css,/@media\(min-width:768px\)\{\.terra-overview-chart-plot\{height:208px;\}\}/);
+ assert.match(css,/@media\(min-width:1024px\)\{\.terra-overview-chart-plot\{height:224px;\}\}/);
 });
 test('motion respects OS preferences without changing scroll or data',()=>{
  assert.match(read('index.tsx'),/MotionConfig reducedMotion="user"/);
@@ -68,6 +68,9 @@ test('desktop metric cards use shared surfaces and readable wrapping labels',()=
  assert.match(overview,/data-testid="overview-metrics-desktop" className=\{DASHBOARD_CARD\+/);
  assert.match(section,/terra-overview-summary-main/);
  assert.match(section,/terra-overview-summary-side/);
+ assert.match(section,/data-overview-summary-zone="balance"/);
+ assert.match(section,/data-overview-summary-zone="period"/);
+ assert.match(section,/data-overview-summary-zone="today"/);
  assert.match(section,/\{monthMoneyPair\}/);
  assert.match(section,/data-testid="overview-daily-reserve-desktop"/);
  assert.match(section,/\{monthlySummary\}/);

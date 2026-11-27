@@ -13,6 +13,8 @@ test('reserve and service exit controls are named and real',()=>{
  assert.doesNotMatch(read('components/DebtSnowball.tsx'),/Обновлено в \{currentTimeSync\}/);
 });
 test('shopping shortcut and task creation share accessible labels across layouts',()=>{
- for(const p of ['components/TerraOverview.tsx','components/QuickShoppingWidget.tsx'])assert.match(read(p),/aria-label="Открыть все покупки"/);
+ const overview=read('components/TerraOverview.tsx');
+ assert.equal((overview.match(/<QuickShoppingWidget\b/g)||[]).length,2);
+ assert.match(read('components/QuickShoppingWidget.tsx'),/aria-label="Открыть все покупки"/);
  assert.equal((read('components/FamilyAgendaPanel.tsx').match(/aria-label="Создать задачу"/g)||[]).length,2);
 });

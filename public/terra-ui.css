@@ -259,3 +259,6 @@ details.terra-settings-group>summary{min-height:44px;}
  .terra-layout-context .terra-overview-category-header,.terra-layout-context .terra-overview-event-head{grid-template-columns:minmax(0,1fr);}
  .terra-layout-context .terra-overview-category-header>div:last-child,.terra-layout-context .terra-overview-event-head>div:last-child{justify-self:end;}
 }
+
+/* Keep the 44px chart controls, remove surplus vertical rail padding. */
+.terra-layout-context .terra-overview-chart-card .terra-chart-rail{padding-block:2px;}

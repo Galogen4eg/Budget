@@ -809,7 +809,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 2. Динамика расходов Card */}
-          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} terra-layout-surface terra-overview-chart-card space-y-3`}>
+          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} terra-layout-surface terra-overview-chart-card space-y-2`}>
               <OverviewExpenseChart
                 mobile scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
@@ -1054,7 +1054,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* LEFT COLUMN: 8 columns */}
           <div data-terra-stack="main" className="terra-layout-stack min-w-0">
             {/* Блок «Динамика расходов» */}
-            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' terra-layout-surface terra-overview-chart-card space-y-3'}>
+            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' terra-layout-surface terra-overview-chart-card space-y-2'}>
               <OverviewExpenseChart
                 scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}

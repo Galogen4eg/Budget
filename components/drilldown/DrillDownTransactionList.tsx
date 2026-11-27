@@ -1,4 +1,4 @@
-import { formatBudgetMoney } from '../../utils/budgetFinancialMath';
+import { formatBudgetMoney, sumMoney } from '../../utils/budgetFinancialMath';
 import React, { useMemo } from 'react';
 import { ArrowUpDown, Check } from 'lucide-react';
 import { Transaction, Category, FamilyMember, AppSettings } from '../../types';
@@ -59,8 +59,8 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
         };
       }
 
-      if (t.type === 'expense') groups[dateKey].totalSpent += t.amount;
-      if (t.type === 'income') groups[dateKey].totalIncome += t.amount;
+      if (t.type === 'expense') groups[dateKey].totalSpent=sumMoney([groups[dateKey].totalSpent,t.amount]);
+      if (t.type === 'income') groups[dateKey].totalIncome=sumMoney([groups[dateKey].totalIncome,t.amount]);
       groups[dateKey].txs.push(t);
     });
 
@@ -91,7 +91,7 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
             <button 
               type="button"
               onClick={onToggleSortOrder}
-              className="font-bold text-[#2E3230] dark:text-white hover:text-[#4A7C59] transition flex items-center gap-1 cursor-pointer"
+              className="min-h-[44px] font-semibold text-[var(--terra-ink)] hover:text-[var(--terra-primary-text)] motion-reduce:transition-none transition-colors flex items-center gap-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
             >
               <span>{sortOrder === 'newest' ? 'Сначала новые' : 'Сначала старые'}</span>
               <ArrowUpDown className="w-3.5 h-3.5" />
@@ -114,9 +114,7 @@ export const DrillDownTransactionList: React.FC<DrillDownTransactionListProps> =
                     {group.dateTitle}
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-[#F5F1EA] dark:bg-stone-800 text-[#2E3230] dark:text-stone-300 font-bold text-[11px]">
-                    {settings.privacyMode?'•••':group.totalSpent > 0 
-                      ? `-${formatBudgetMoney(group.totalSpent)} ₽` 
-                      : `+${formatBudgetMoney(group.totalIncome)} ₽`}
+                    {settings.privacyMode?'•••':`Итого: ${sumMoney([group.totalIncome,-group.totalSpent])>0?'+':''}${formatBudgetMoney(sumMoney([group.totalIncome,-group.totalSpent]))} ₽`}
                   </span>
                 </div>
 

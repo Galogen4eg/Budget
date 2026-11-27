@@ -71,7 +71,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
         <div 
             className="flex-1 min-h-0 relative z-10 flex flex-col justify-start overflow-hidden"
         >
-            {data.total === 0 ? (
+            {settings.privacyMode ? <p role="status" className="p-3 text-sm text-[var(--terra-muted)]">Категории скрыты в режиме приватности</p> : data.total === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40 py-4">
                     <div className="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-2">
                         <Info size={18} className="text-gray-400" />
@@ -105,7 +105,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
             )}
         </div>
 
-        <div className="mt-2 pt-2 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
+        {!settings.privacyMode&&<div className="mt-2 pt-2 border-t border-gray-50 dark:border-white/5 relative z-10 shrink-0">
             <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800/50 p-[1px]">
                 {data.total > 0 ? (
                     data.allCategories.map((item) => (
@@ -117,7 +117,7 @@ const CategoryAnalysisWidget: React.FC<CategoryAnalysisWidgetProps> = ({ transac
                     ))
                 ) : <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-full" />}
             </div>
-        </div>
+        </div>}
 
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full blur-[50px] -mr-10 -mt-10 pointer-events-none opacity-60" />
     </motion.div>

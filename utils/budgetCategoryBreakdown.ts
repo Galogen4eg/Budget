@@ -25,6 +25,16 @@ export function resolveBudgetCategoryRoot(categoryId:string,byId:ReadonlyMap<str
  }
 }
 
+export function budgetCategoryDescendantIds(id:string,categories:readonly {id:string;parentId?:string}[]):string[]{
+ const ids=new Set([id]);
+ let size=0;
+ while(size!==ids.size){
+  size=ids.size;
+  for(const category of categories)if(category.parentId&&ids.has(category.parentId))ids.add(category.id);
+ }
+ return [...ids];
+}
+
 /**
  * A transaction contributes to exactly one root category (or "Без категории").
  * The UI previously lost third-level descendants and used floating-point totals.

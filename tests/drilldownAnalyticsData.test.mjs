@@ -48,3 +48,11 @@ test('merchant breakdown uses root categories and exact kopecks, preserving whol
  assert.equal(groups[0].percentage,100);
  assert.equal(buildPayeeAnalytics(scoped,cats,'не найдено').length,0);
 });
+
+import {budgetCategoryDescendantIds} from '../utils/budgetCategoryBreakdown.ts';
+test('selected category includes all descendants without unrelated siblings or infinite loops',()=>{
+ const cats=[{id:'root'},{id:'child',parentId:'root'},{id:'leaf',parentId:'child'},{id:'other'},{id:'cycle-a',parentId:'cycle-b'},{id:'cycle-b',parentId:'cycle-a'}];
+ assert.deepEqual(budgetCategoryDescendantIds('root',cats),['root','child','leaf']);
+ assert.deepEqual(budgetCategoryDescendantIds('child',cats),['child','leaf']);
+ assert.deepEqual(budgetCategoryDescendantIds('cycle-a',cats),['cycle-a','cycle-b']);
+});

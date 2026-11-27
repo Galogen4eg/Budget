@@ -101,7 +101,7 @@ export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
             {categoryPayeeGroupedData.map(group=>{
               const open=expandedCatIds[group.catId]??Boolean(payeeSearchQuery.trim());
               return <div key={group.catId}>
-                <button type="button" aria-expanded={open} onClick={()=>setExpandedCatIds(old=>({...old,[group.catId]:!open}))}
+                <button type="button" data-testid="analytics-category-toggle" aria-expanded={open} onClick={()=>setExpandedCatIds(old=>({...old,[group.catId]:!open}))}
                   className="w-full min-h-[56px] py-3 flex items-center gap-3 text-left rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">
                   <span aria-hidden="true" className="w-2.5 h-2.5 shrink-0 rounded-full" style={{backgroundColor:group.catColor}}/>
                   <span className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
                 <AnimatePresence initial={false}>
                   {open&&<motion.div initial={reduced?false:{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:reduced?0:.18}} className="overflow-hidden">
                     <div className="divide-y divide-[var(--terra-border)] border-t border-[var(--terra-border)] pl-4">
-                      {group.payeesList.map(payee=><div key={payee.name} className="py-3 flex gap-3 items-center">
+                      {group.payeesList.map(payee=><div key={payee.name} data-testid="analytics-payee-row" className="py-3 flex gap-3 items-center">
                         <div className="flex-1 min-w-0"><p className="text-sm font-medium [overflow-wrap:anywhere]">{payee.name}</p><p className="text-xs text-[var(--terra-muted)]">Операций: {payee.txCount}</p></div>
                         <div className="min-w-0 max-w-[48%] text-right"><p className="text-sm font-semibold tabular-nums [overflow-wrap:anywhere]">{formatBudgetMoney(payee.spent)} ₽</p><p className="text-xs text-[var(--terra-muted)]">{Math.round(payee.percentage)}% категории</p></div>
                       </div>)}

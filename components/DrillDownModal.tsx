@@ -1,4 +1,5 @@
 import { buildAnalyticsSeries, chartBarPercent } from '../utils/analyticsPresentation';
+import {budgetCategoryDescendantIds} from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney, monthlyMoneyTotals, sumMoney } from '../utils/budgetFinancialMath';
 import { DASHBOARD_CARD, SECTION_HEADING } from './filterUiTokens';
 import { useModalSurface } from '../hooks/useDialogFocus';
@@ -136,8 +137,8 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   const familyCategoryIds = useMemo(() => {
     if (isAllTransactions) return [];
     if (!parentCategory) return categoryId ? [categoryId] : [];
-    return [parentCategory.id, ...subcategories.map(s => s.id)];
-  }, [parentCategory, subcategories, categoryId, isAllTransactions]);
+    return budgetCategoryDescendantIds(parentCategory.id,categories);
+  }, [parentCategory, categories, categoryId, isAllTransactions]);
 
   // All transactions matching current month/date context for the category family
   const allFamilyTransactions = useMemo(() => {
@@ -168,12 +169,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     if (!isAllTransactions) return [];
     const parentCats = categories.filter(c => !c.parentId && c.id !== 'other');
     return parentCats.map(cat => {
-      const childIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
-      const catFamily = [cat.id, ...childIds];
-      const spent = allFamilyTransactions
-        .filter(t => catFamily.includes(t.category) && t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-      return { cat, spent: Math.round(spent), familyIds: catFamily };
+      const catFamily=budgetCategoryDescendantIds(cat.id,categories);
+      const spent=sumMoney(allFamilyTransactions.filter(t=>catFamily.includes(t.category)&&t.type==='expense').map(t=>t.amount));
+      return {cat,spent,familyIds:catFamily};
     }).filter(item => item.spent > 0).sort((a, b) => b.spent - a.spent);
   }, [isAllTransactions, categories, allFamilyTransactions]);
 
@@ -181,14 +179,13 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
   const sortedSubcategoriesStats = useMemo(() => {
     return subcategories
       .map(sub => {
-        const subSpent = allFamilyTransactions
-          .filter(t => t.category === sub.id && t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
-        return { sub, spent: Math.round(subSpent) };
+        const ids=budgetCategoryDescendantIds(sub.id,categories);
+        const spent=sumMoney(allFamilyTransactions.filter(t=>ids.includes(t.category)&&t.type==='expense').map(t=>t.amount));
+        return {sub,spent};
       })
       .filter(item => item.spent > 0)
       .sort((a, b) => b.spent - a.spent);
-  }, [subcategories, allFamilyTransactions]);
+  }, [subcategories, allFamilyTransactions, categories]);
 
   // Filtered transactions for the current view (respecting activeAllCatId or activeSubcategoryId if chosen)
   const familyTransactions = useMemo(() => {
@@ -199,8 +196,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       return allFamilyTransactions.filter(t => catIds.includes(t.category));
     }
     if (!activeSubcategoryId) return allFamilyTransactions;
-    return allFamilyTransactions.filter(t => t.category === activeSubcategoryId);
-  }, [allFamilyTransactions, isAllTransactions, activeAllCatId, topParentCategoriesStats, activeSubcategoryId]);
+    const ids=budgetCategoryDescendantIds(activeSubcategoryId,categories);
+    return allFamilyTransactions.filter(t=>ids.includes(t.category));
+  }, [allFamilyTransactions, isAllTransactions, activeAllCatId, topParentCategoriesStats, activeSubcategoryId,categories]);
 
   // Check scroll overflow on render, resize and subcategory list change
   useEffect(() => {
@@ -230,7 +228,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       if (!p) return;
       const existing = map.get(p) || { payee: p, count: 0, spent: 0 };
       existing.count += 1;
-      if (t.type === 'expense') existing.spent += Math.round(t.amount);
+      if (t.type === 'expense') existing.spent=sumMoney([existing.spent,t.amount]);
       map.set(p, existing);
     });
     return Array.from(map.values()).filter(i => i.spent > 0).sort((a, b) => b.spent - a.spent);
@@ -281,7 +279,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
     const previousDays=new Date(previous.getFullYear(),previous.getMonth()+1,0).getDate();
     if(currentPeriod&&now.getDate()>previousDays)return 0;
     const through=currentPeriod?now.getDate():previousDays;
-    const ids=isAllTransactions?(activeAllCatId?topParentCategoriesStats.find(p=>p.cat.id===activeAllCatId)?.familyIds||[activeAllCatId]:null):activeSubcategoryId?[activeSubcategoryId]:familyCategoryIds;
+    const ids=isAllTransactions?(activeAllCatId?topParentCategoriesStats.find(p=>p.cat.id===activeAllCatId)?.familyIds||[activeAllCatId]:null):activeSubcategoryId?budgetCategoryDescendantIds(activeSubcategoryId,categories):familyCategoryIds;
     return sumMoney(transactions.filter(t=>{
       if(t.type!=='expense')return false;
       const d=new Date(t.date);
@@ -289,7 +287,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       if(merchantName){const q=merchantName.toLowerCase();return (t.note||'').toLowerCase().includes(q)||(t.rawNote||'').toLowerCase().includes(q);}
       return !ids||ids.includes(t.category);
     }).map(t=>t.amount));
-  },[transactions,currentMonth,selectedDate,isAllTransactions,activeAllCatId,activeSubcategoryId,topParentCategoriesStats,familyCategoryIds,merchantName]);
+  },[transactions,currentMonth,selectedDate,isAllTransactions,activeAllCatId,activeSubcategoryId,topParentCategoriesStats,familyCategoryIds,merchantName,categories]);
 
   const trendPercent = useMemo(() => {
     if (prevMonthExpense === 0) return 0;
@@ -363,7 +361,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
 
   const currentMonthFormatted = useMemo(() => {
     const d = selectedDate || currentMonth || new Date();
-    const raw = d.toLocaleString('ru-RU', selectedDate?{day:'numeric',month:'long',year:'numeric'}:{month:'long',year:'numeric'}).replace(/\s*г\.?/gi, '');
+    const raw = d.toLocaleString('ru-RU', selectedDate?{day:'numeric',month:'long',year:'numeric'}:{month:'long',year:'numeric'}).replace(/\s+г\.?$/i, '');
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [currentMonth,selectedDate]);
 
@@ -403,9 +401,9 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
       }
       groups[dateKey].txs.push(t);
       if (t.type === 'expense') {
-        groups[dateKey].dayTotal -= t.amount;
+        groups[dateKey].dayTotal=sumMoney([groups[dateKey].dayTotal,-t.amount]);
       } else {
-        groups[dateKey].dayTotal += t.amount;
+        groups[dateKey].dayTotal=sumMoney([groups[dateKey].dayTotal,t.amount]);
       }
     });
 
@@ -845,7 +843,7 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#68726B] dark:text-stone-400">
                         Участники семьи
                       </span>
-                      <span className="text-[11px] text-[#68726B] dark:text-stone-400">Доля объёма</span>
+                      <span className="text-[11px] text-[#68726B] dark:text-stone-400">Доля оборота</span>
                     </div>
 
                     {settings.privacyMode?<p className="text-sm text-[var(--terra-muted)]">Суммы и доли скрыты</p>:memberBreakdown.map(({ member, expense, income, count, share }, index) => {
@@ -868,12 +866,12 @@ const DrillDownModal: React.FC<DrillDownModalProps> = ({
                               </span>
                             </div>
                             <span className="font-headline font-semibold text-xs text-[#2E3230] dark:text-white">
-                              {expense > 0 ? `-${formatAmount(expense)} ₽` : `+${formatAmount(income)} ₽`}
+                              {formatAmount(sumMoney([expense,income]))} ₽ · {share}%
                             </span>
                           </div>
                           <div className="w-full bg-[#EAE6DE] dark:bg-stone-800 h-1.5 rounded-full overflow-hidden">
                             <div 
-                              className="h-full rounded-full transition-all duration-500" 
+                              className="h-full rounded-full terra-progress" 
                               style={{ width: `${chartBarPercent(share,100)}%`, backgroundColor: member?.color || '#4A7C59' }}
                             />
                           </div>

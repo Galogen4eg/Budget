@@ -268,7 +268,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                   </p>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <h2 className="text-2xl font-headline font-bold text-[#2E3230] dark:text-white tracking-tight">
-                      {netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
+                      {!privacyMode && netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
                     </h2>
                     {!privacyMode&&trendPercent !== 0 && (
                       <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -330,17 +330,14 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                       <Users size={14} className="text-[#705C30] dark:text-amber-300" />
                       <span>Участники семьи</span>
                     </span>
-                    <span className="text-[11px]">доли объёма</span>
+                    <span className="text-[11px]">Доля оборота</span>
                   </div>
 
                   <div className="space-y-2">
                     {memberBreakdown.map((item, idx) => {
                       const name = item.member?.name || 'Общие';
                       const initial = name.charAt(0).toUpperCase();
-                      const isNetExpense = item.expense >= item.income;
-                      const formattedSum = isNetExpense 
-                        ? `-${formatAmount(item.expense)} ₽` 
-                        : `+${formatAmount(item.income)} ₽`;
+                      const formattedSum=`${formatAmount(item.volume)} ₽ · ${item.share}%`;
 
                       return (
                         <div key={item.member?.id || idx} className="bg-white dark:bg-[#252528] rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs border border-[#E4E0D8]/40 dark:border-white/5">
@@ -357,14 +354,14 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                                 ({item.count} оп.)
                               </span>
                             </div>
-                            <span className={`font-bold text-xs ${isNetExpense ? 'text-[#B83230] dark:text-rose-400' : 'text-[#4A7C59] dark:text-green-400'}`}>
+                            <span className="font-semibold text-sm text-[var(--terra-ink)] tabular-nums">
                               {formattedSum}
                             </span>
                           </div>
 
                           <div className="w-full bg-[#F0ECE4] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
                             <div 
-                              className="h-full rounded-full transition-all"
+                              className="h-full rounded-full terra-progress"
                               style={{ 
                                 width: `${chartBarPercent(item.share,100)}%`,
                                 backgroundColor: item.member?.color || (idx === 0 ? '#4A7C59' : '#C4A66A')
@@ -601,7 +598,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                     +{formatAmount(totalIncome)} <span className="text-xs font-normal">₽</span>
                   </div>
                   <p className="text-[11px] text-[#4A4E4A] dark:text-stone-400 font-medium mt-0.5">
-                    Баланс: {netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
+                    Баланс: {!privacyMode && netBalance > 0 ? '+' : ''}{formatAmount(netBalance)} ₽
                   </p>
                 </div>
               </div>

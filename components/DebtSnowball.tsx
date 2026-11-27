@@ -880,12 +880,12 @@ const DebtSnowball: React.FC<Props> = ({
             <span className="font-semibold tabular-nums text-sm">{money(d.monthlyPayment||0)}</span>
           </div>)}</div>}
       </section>
-      <section className={SURFACE_CARD+' flex flex-wrap items-center justify-between gap-3'}>
-        <div className="min-w-0 flex-1">
+      <section aria-label="Досрочное погашение" className={SURFACE_CARD+' grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] items-center gap-3'}>
+        <div className="min-w-0">
           <h2 className="text-base font-semibold">Досрочное погашение</h2>
           <p className="text-sm text-[var(--terra-muted)] mt-1">Оценка срока по остатку и ежемесячному взносу без новых процентов и комиссий.</p>
         </div>
-        <button type="button" onClick={()=>setShowEarlyRepaymentCalc(true)} disabled={!payoffOptions.length} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY}>Калькулятор досрочного погашения</button>
+        <button type="button" onClick={()=>setShowEarlyRepaymentCalc(true)} disabled={!payoffOptions.length} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY+' w-full md:w-auto h-auto min-h-[44px] whitespace-normal py-2'}>Калькулятор досрочного погашения</button>
       </section>
 
       {/* 9. Модальное окно подтверждения удаления долга */}

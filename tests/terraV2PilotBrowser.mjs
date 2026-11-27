@@ -374,7 +374,15 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.doesNotMatch(await services.innerText(),/Экономия ~248 000|Безопасно \(24%\)|Автосписание настроено|\+1\.2%/);
     await summary.scrollIntoViewIfNeeded();await capture(page,'services-debts-'+label);
     const calculator=button(services,'Калькулятор досрочного погашения');
-    await targetSize(calculator,label+' calculator');await calculator.click();
+    await targetSize(calculator,label+' calculator');
+    const calculatorCard=services.getByRole('region',{name:'Досрочное погашение'});
+    await calculatorCard.scrollIntoViewIfNeeded();
+    await noOverflow(calculatorCard,label+' calculator card');
+    const cardLayout=await calculatorCard.evaluate(el=>({width:el.clientWidth,copyWidth:el.querySelector('p').clientWidth,copy:el.querySelector('p').getBoundingClientRect().toJSON(),action:el.querySelector('button').getBoundingClientRect().toJSON()}));
+    assert.ok(cardLayout.copyWidth>=Math.min(240,cardLayout.width-40),label+' calculator description squeezed');
+    if(mobile)assert.ok(cardLayout.copy.bottom<=cardLayout.action.top,label+' calculator must stack on mobile');
+    await capture(page,'services-payoff-card-'+label);
+    await calculator.click();
     const payoff=page.getByRole('dialog',{name:'Досрочное погашение'});
     await payoff.waitFor({state:'visible'});
     const result=payoff.getByTestId('debt-payoff-result');

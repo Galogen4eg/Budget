@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
@@ -102,21 +102,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     });
   }, [selectedDate]);
 
-  const weekPeriodTitle = useMemo(() => {
-    if (currentWeekDays.length === 0) return '';
-    const start = currentWeekDays[0];
-    const end = currentWeekDays[6];
-    const startDay = start.getDate();
-    const endDay = end.getDate();
-    const startMonth = start.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
-    const endMonth = end.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
-    const year = end.getFullYear();
-
-    if (start.getMonth() === end.getMonth()) {
-      return `${startDay} — ${endDay} ${endMonth} ${year}`;
-    }
-    return `${startDay} ${startMonth} — ${endDay} ${endMonth} ${year}`;
-  }, [currentWeekDays]);
+  const weekPeriodTitle=useMemo(()=>currentWeekDays.length?formatCalendarWeekRange(currentWeekDays[0],currentWeekDays[6],true):'', [currentWeekDays]);
 
   const changeDay = (increment: number) => {
     const nextDate=new Date(selectedDate);

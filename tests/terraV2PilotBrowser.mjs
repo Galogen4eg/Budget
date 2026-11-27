@@ -249,7 +249,28 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const add=button(plans,'Добавить событие');await add.click();
     const editor=page.getByRole('dialog',{name:'Новый план'});
     await editor.waitFor({state:'visible'});
-    await noOverflow(editor,label+' event editor');await capture(page,'plans-editor-'+label);
+    await noOverflow(editor,label+' event editor');
+    const titleInput=editor.locator('#event-title-input');
+    const noteInput=editor.getByRole('textbox',{name:'Заметка или место встречи'});
+    for(const field of [titleInput,noteInput]){
+     await targetSize(field,label+' event text input');
+     const colors=await field.evaluate(el=>{
+      const style=getComputedStyle(el),placeholder=getComputedStyle(el,'::placeholder');
+      return {bg:style.backgroundColor,fg:style.color,placeholder:placeholder.color};
+     });
+     const luminance=color=>{
+      const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);
+      return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+     };
+     const contrast=(a,b)=>{const [high,low]=[luminance(a),luminance(b)].sort((a,b)=>b-a);return (high+.05)/(low+.05);};
+     assert.ok(contrast(colors.bg,colors.fg)>=4.5,label+' unreadable editor text '+JSON.stringify(colors));
+     assert.ok(contrast(colors.bg,colors.placeholder)>=4.5,label+' unreadable editor placeholder '+JSON.stringify(colors));
+    }
+    await titleInput.fill('QA — проверка читаемости');
+    await noteInput.fill('Тестовая заметка, без сохранения');
+    await capture(page,'plans-editor-filled-'+label);
+    await titleInput.fill('');await noteInput.fill('');
+    await capture(page,'plans-editor-'+label);
     await button(editor,'Закрыть редактор события').click();await editor.waitFor({state:'hidden'});
     console.log('PASS TERRA PLANS PILOT '+label+' selected day scroll, period views, event editor');
     await button(page.locator('nav'),'Обзор').click();

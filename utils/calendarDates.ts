@@ -76,3 +76,12 @@ export function calendarViewPeriod(currentDate:Date,selectedDate:Date,view:'mont
  }
  return {from:formatLocalCalendarDate(first),to:formatLocalCalendarDate(last)};
 }
+
+/** A localized interval, including both years when the week crosses New Year. */
+export function formatCalendarWeekRange(start:Date,end:Date,includeYear=false):string {
+ const sameYear=start.getFullYear()===end.getFullYear();
+ const sameMonth=sameYear&&start.getMonth()===end.getMonth();
+ const fmt=(date:Date,year:boolean)=>date.toLocaleDateString('ru-RU',{day:'numeric',month:'long',...(year?{year:'numeric'}:{})}).replace(/\s*г\.?$/u,'');
+ const left=sameMonth?String(start.getDate()):fmt(start,!sameYear);
+ return left+' — '+fmt(end,includeYear||!sameYear);
+}

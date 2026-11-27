@@ -20,7 +20,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { formatReminderLabel } from './EventModal';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
@@ -244,20 +244,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     return currentWeekDays.some(d => formatDateKey(d) === todayStr);
   }, [currentWeekDays]);
 
-  const weekPeriodTitle = useMemo(() => {
-    if (currentWeekDays.length === 0) return '';
-    const start = currentWeekDays[0];
-    const end = currentWeekDays[6];
-    const startDay = start.getDate();
-    const endDay = end.getDate();
-    const startMonth = start.toLocaleString('ru-RU', { month: 'long' });
-    const endMonth = end.toLocaleString('ru-RU', { month: 'long' });
-
-    if (start.getMonth() === end.getMonth()) {
-      return `${startDay} — ${endDay} ${endMonth}`;
-    }
-    return `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
-  }, [currentWeekDays]);
+  const weekPeriodTitle=useMemo(()=>currentWeekDays.length?formatCalendarWeekRange(currentWeekDays[0],currentWeekDays[6],false):'', [currentWeekDays]);
 
   const weekMonthYearTitle = useMemo(() => {
     if (currentWeekDays.length === 0) return '';

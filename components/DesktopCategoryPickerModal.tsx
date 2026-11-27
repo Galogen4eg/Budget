@@ -1,6 +1,7 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { terraTransition } from '../utils/uiMotion';
 import { 
   Search, X, Plus, ChevronDown, Check, ArrowRight, FolderOutput 
 } from 'lucide-react';
@@ -39,6 +40,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
 }) => {
   useModalBackHandler(isOpen, onClose);
   const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть"]'});
+  const reduced=Boolean(useReducedMotion());
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
 
@@ -287,19 +289,19 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
       {isOpen && (
         <motion.div 
           id="categoryModalWrapper"
-          initial={{ opacity: 0 }}
+          initial={reduced?false:{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={terraTransition(reduced,.18)}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 overflow-y-auto"
           {...surface} role="dialog"
           aria-modal="true" aria-label="Выбор категории"
         >
       <motion.div 
-        initial={{ scale: 0.94, opacity: 0, y: 18 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.94, opacity: 0, y: 18 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
+        initial={reduced?false:{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 6 }}
+        transition={terraTransition(reduced,.20)}
         className="relative max-w-4xl lg:max-w-5xl w-full bg-[var(--terra-surface)] rounded-2xl border border-[var(--terra-border)] shadow-lg overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >

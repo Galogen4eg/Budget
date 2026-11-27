@@ -397,7 +397,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE VIEW (< md) */}
       {/* ========================================================================= */}
-      <div data-testid="categories-scroll-container" className="terra-categories-compact flex-1 min-h-0 flex-col overflow-y-auto overscroll-y-contain pb-4">
+      <div className="terra-categories-compact flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+      <div data-testid="categories-scroll-container" className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-y-contain pb-3">
         
         {/* Interactive Search & Overview Header */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">
@@ -470,12 +471,12 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     isSelected ? 'border-[#4A7C59]' : 'border-transparent'
                   }`}
                 >
-                  <div 
+                  <button type="button" aria-expanded={isOpen} aria-label={`Категория: ${cat.label}`} 
                     onClick={() => {
                       handleSelectCategory(cat.id);
                       toggleAccordion(cat.id);
                     }}
-                    className="p-4 flex items-center justify-between cursor-pointer active:bg-[#F0ECE4] select-none"
+                    className="w-full min-h-[56px] p-3 text-left flex items-center justify-between gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] select-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {(() => {
@@ -505,7 +506,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                         className={`text-[#6B6358] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
                       />
                     </div>
-                  </div>
+                  </button>
 
                   {/* Accordion Expanded Subchips & Color Picker */}
                   {isOpen && (
@@ -747,12 +748,13 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           </div>
         )}
 
-        {/* Mobile Sticky Action Bar with Safe Area Bottom Padding and Standardized h-11 Height */}
-        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] bg-[#FAF6F0]/95 dark:bg-[#1C1F1E]/95 backdrop-blur-md shadow-2xl flex items-center gap-2.5 z-40 border-t border-[#E4E0D8] dark:border-white/10">
+      </div>
+        {/* Actions stay within the settings dialog, outside the content scroller. */}
+        <div data-testid="settings-category-actions" className="shrink-0 p-3 bg-[var(--terra-surface)] flex items-center gap-2 border-t border-[var(--terra-border)]">
           <button 
             type="button"
             onClick={handleCreateNewCategory}
-            className="h-11 px-4 rounded-xl bg-[#E4E0D8] dark:bg-white/10 text-[#2E3230] dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
+            className="h-11 min-w-[44px] px-3 rounded-xl bg-[#E4E0D8] dark:bg-white/10 text-[#2E3230] dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
           >
             <Plus size={16} />
             <span>Новая</span>
@@ -761,7 +763,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           <button 
             type="button"
             onClick={handleSaveCategory}
-            className="h-11 flex-1 rounded-xl bg-[#4A7C59] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-transform cursor-pointer"
+            className="min-h-[44px] min-w-0 flex-1 rounded-xl bg-[#4A7C59] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-transform cursor-pointer"
           >
             <Check size={16} />
             <span>{saveSuccess ? 'Сохранено!' : 'Сохранить изменения'}</span>

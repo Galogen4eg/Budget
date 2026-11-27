@@ -176,3 +176,12 @@ details.terra-settings-group>summary{min-height:44px;}
 @media(max-width:767px){.terra-settings-group :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px;}.terra-settings-theme button{font-size:12px;}}
 @media(max-width:359px){.terra-settings-back-text{display:none;}.terra-settings-readout>div{grid-template-columns:minmax(0,1fr);gap:3px;}.terra-settings-readout dd{text-align:left;}}
 @media(prefers-reduced-motion:reduce){.terra-settings-switch-track,.terra-settings-switch-track>span{transition:none!important;}}
+
+/* Settings nested editor boundaries: a footer belongs to its own dialog. */
+.terra-invite-dialog input:not([type=checkbox]){min-height:44px;font-size:16px;min-width:0;}
+.terra-invite-dialog button{min-height:44px;}
+.terra-settings-actions>button{flex:1 1 160px;min-width:0;justify-content:center;}
+.terra-settings-body[data-settings-section="account"] .terra-settings-group input{padding-right:48px;}
+.terra-settings-body[data-settings-section="account"] .terra-settings-group input[type="text"][id="settings-account-login"]{padding-right:12px;}
+.terra-settings-content{scrollbar-gutter:stable;}
+@media(max-width:767px){.terra-settings-content{scrollbar-gutter:auto;}}

@@ -17,10 +17,10 @@ export const SAVINGS_STEP = 1;
 export const TOTAL_MONTH_DAYS = 31;
 
 export const PRESET_SAVINGS_CHIPS = [
-  { val: 5, label: '+5% (Мягкий)' },
-  { val: 10, label: '+10% (Рекомендуемый)' },
-  { val: 15, label: '15% (Уверенный)' },
-  { val: 20, label: '20% (Интенсив)' },
+  { val: 5, label: '5%' },
+  { val: 10, label: '10%' },
+  { val: 15, label: '15%' },
+  { val: 20, label: '20%' },
 ] as const;
 
 /**
@@ -87,8 +87,9 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
     ? settings.salaryDates 
     : [...DEFAULT_SALARY_DATES];
 
-  const [archiveStart, setArchiveStart] = useState('2023-01-01');
-  const [archiveEnd, setArchiveEnd] = useState('2023-12-31');
+  const localDate=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const [archiveStart, setArchiveStart] = useState(()=>{const today=new Date();return localDate(new Date(today.getFullYear(),today.getMonth(),1));});
+  const [archiveEnd, setArchiveEnd] = useState(()=>localDate(new Date()));
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting,setIsDeleting]=useState(false);
   const deletePending=React.useRef(false);
@@ -175,8 +176,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             </label>
             <div className="flex items-center justify-between mt-1">
               <input 
-                type="number"
-                value={initialBalance || ''}
+                type="number" step="0.01" inputMode="decimal" aria-label="Начальный баланс"
+                value={initialBalance}
                 onChange={e => onUpdateSetting('initialBalance', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                 placeholder="125 000"
                 className="w-full bg-transparent font-headline font-bold text-lg text-[#2e3230] dark:text-white focus:outline-none" 
@@ -196,7 +197,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             </label>
             <div className="flex items-center justify-between mt-1 relative cursor-pointer">
               <input
-                type="date"
+                type="date" aria-label="Дата начала учета"
                 value={initialDate}
                 onChange={e => onUpdateSetting('initialBalanceDate', e.target.value)}
                 className="w-full bg-transparent font-headline font-semibold text-base text-[#2e3230] dark:text-white focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
@@ -422,7 +423,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                   type="date"
                   aria-label="Начало периода" disabled={isDeleting} value={archiveStart}
                   onChange={e => {setArchiveStart(e.target.value);setIsConfirmingDelete(false);}}
-                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="w-full min-w-0 bg-transparent text-sm font-semibold text-[#2e3230] dark:text-white focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
               <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0 pointer-events-none" />
@@ -435,7 +436,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                   type="date"
                   aria-label="Конец периода" disabled={isDeleting} value={archiveEnd}
                   onChange={e => {setArchiveEnd(e.target.value);setIsConfirmingDelete(false);}}
-                  className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="w-full min-w-0 bg-transparent text-sm font-semibold text-[#2e3230] dark:text-white focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
               <Calendar size={18} className="text-[#4a4e4a] dark:text-gray-400 shrink-0 pointer-events-none" />

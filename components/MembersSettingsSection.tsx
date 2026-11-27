@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { useModalSurface } from '../hooks/useDialogFocus';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import { 
   Users, UserPlus, Mail, Check, X, 
   Trash2, Copy, AlertCircle, ChevronRight, Link as LinkIcon, 
@@ -103,6 +106,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteColor, setInviteColor] = useState(MEMBER_PRESET_COLORS[0]);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const closeInvite=()=>{if(!isSendingInvite)setIsInviteModalOpen(false);};
+  const inviteSurface=useModalSurface(closeInvite,{enabled:isInviteModalOpen,initialSelector:"#invite-member-name"});
+  useModalBackHandler(isInviteModalOpen,closeInvite);
 
   // States for selected editing member
   const [editName, setName] = useState('');
@@ -817,14 +823,15 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       {/* ──────────────────────────────────────────────────────────── */}
       {/* MODULAR INVITE MEMBER DIALOG */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {isInviteModalOpen && (
           <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] bg-white dark:bg-[#1E2023] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border-0 sm:border border-gray-200 dark:border-white/10 space-y-4 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+              {...inviteSurface} role="dialog" aria-modal="true" aria-label="Приглашение участника" aria-busy={isSendingInvite}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="terra-invite-dialog w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] bg-[var(--terra-surface)] rounded-none sm:rounded-2xl p-4 sm:p-5 shadow-2xl border-0 sm:border border-gray-200 dark:border-white/10 space-y-4 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/5">
                 <div className="flex items-center gap-2.5">
@@ -832,13 +839,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     <UserPlus size={18} />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 dark:text-white font-headline">
-                    Добавление в команду семьи
+                    Приглашение участника
                   </h3>
                 </div>
                 <button 
                   type="button" 
-                  onClick={() => setIsInviteModalOpen(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors cursor-pointer"
+                  onClick={closeInvite} disabled={isSendingInvite} aria-label="Закрыть приглашение"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 >
                   <X size={18} />
                 </button>
@@ -846,26 +853,26 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
               <form onSubmit={handleCreateNewMember} className="space-y-4 pt-1">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                  <label htmlFor="invite-member-name" className="block text-sm font-medium">
                     Имя участника <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
+                    id="invite-member-name" type="text"
                     required
                     value={inviteName}
                     onChange={(e) => setInviteName(e.target.value)}
                     placeholder="Например: Мария"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                    autoFocus
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                    E-mail для синхронизации (необязательно)
+                  <label htmlFor="invite-member-email" className="block text-sm font-medium">
+                    Email для приглашения (необязательно)
                   </label>
+                  <p className="text-xs text-[var(--terra-muted)]">Приглашение появится при входе с этим email. Письмо не отправляется.</p>
                   <input
-                    type="email"
+                    id="invite-member-email" type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="maria@example.com"
@@ -882,8 +889,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       <button
                         key={c}
                         type="button"
-                        onClick={() => setInviteColor(c)}
-                        className={`h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        onClick={() => setInviteColor(c)} aria-pressed={inviteColor===c} aria-label={`Цвет участника ${MEMBER_PRESET_COLORS.indexOf(c)+1}`}
+                        className={`min-h-[44px] rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                           inviteColor === c 
                             ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-102 border-2 border-white dark:border-[#202225]' 
                             : 'opacity-85 hover:opacity-100 hover:scale-101'
@@ -899,15 +906,15 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 <div className="pt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsInviteModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer"
+                    onClick={closeInvite} disabled={isSendingInvite}
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
                     disabled={isSendingInvite || householdPersonal || !isHouseholdOwner || !inviteName.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] font-semibold text-sm disabled:opacity-50 cursor-pointer"
                   >
                     {isSendingInvite ? 'Приглашение...' : 'Создать участника'}
                   </button>
@@ -916,7 +923,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,document.body)}
     </div>
   );
 };

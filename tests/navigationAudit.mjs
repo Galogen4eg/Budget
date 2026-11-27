@@ -217,7 +217,14 @@ async function checkSections(){
   if(!geometry.fits)throw new Error('Settings horizontal overflow: '+geometry.section);
   if(!geometry.buttons&&geometry.section!=='diagnostics')throw new Error('Settings section has no actions: '+geometry.section);
   if(geometry.section==='account'&&await content.getByLabel('Новый пароль',{exact:true}).count()!==1)throw new Error('Password field label missing');
-  if(geometry.section==='family')await expectVisible(first(content.getByRole('button',{name:'Пригласить участника',exact:true})));
+  if(geometry.section==='family'){
+   const invite=first(content.getByRole('button',{name:'Пригласить участника',exact:true}));await expectVisible(invite);
+   if(await invite.isEnabled()){
+    await invite.click();const nested=page.getByRole('dialog',{name:'Приглашение участника',exact:true});await expectVisible(nested);
+    await nested.getByLabel('Имя участника').fill('QA unsaved invitation');await page.keyboard.press('Escape');await nested.waitFor({state:'hidden'});
+    if(!await invite.evaluate(el=>document.activeElement===el))throw new Error('Invite focus not restored');
+   }
+  }
   if(geometry.section==='budget'){
    const days=content.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');if(await days.count()!==31)throw new Error('Salary day controls missing');
    if(!(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44&&e.hasAttribute('aria-pressed');}))))throw new Error('Salary grid geometry or selection semantics');

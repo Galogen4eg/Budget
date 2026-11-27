@@ -184,7 +184,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   });
 
   // Family ID Switch State
-  const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
+  const [newFamilyId, setNewFamilyId] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
@@ -760,11 +760,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {requiresLoginPassword && (
                   <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1">
-                    <label className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                      Введите текущий пароль для подтверждения смены логина:
+                    <label htmlFor="settings-login-password" className="text-sm font-medium text-[var(--terra-offline-text)]">
+                      Текущий пароль для подтверждения смены логина
                     </label>
                     <input
-                      type="password"
+                      id="settings-login-password" autoComplete="current-password" type="password"
                       value={currentPasswordForLogin}
                       onChange={e => setCurrentPasswordForLogin(e.target.value)}
                       placeholder="Текущий пароль"
@@ -840,7 +840,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPass(!showConfirmPass)} aria-label={showConfirmPass?'Скрыть повторите новый пароль':'Показать повторите новый пароль'}
+                      onClick={() => setShowConfirmPass(!showConfirmPass)} aria-label={showConfirmPass?'Скрыть подтверждение пароля':'Показать подтверждение пароля'}
                       className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg cursor-pointer"
                     >
                       {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -849,6 +849,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {confirmPassword&&newPassword!==confirmPassword&&<p role="status" className="text-sm text-[var(--terra-danger-text)]">Пароли не совпадают.</p>}
               {/* Requirements Bar & Action */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
                 <p className="text-sm text-[var(--terra-muted)]">Минимум 6 символов. Используйте уникальный пароль.</p>
@@ -1197,8 +1198,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              <p className="text-xs text-[var(--terra-muted)]">Проверка токена подтверждает доступ к боту, но не к чату.</p>
-              <div className="terra-settings-actions flex flex-wrap gap-2">                <button
+              <p className="text-xs text-[var(--terra-muted)]">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
+              <div className="terra-settings-actions flex flex-wrap gap-2">
+                <button
                   type="button"
                   onClick={handleTestTelegramConnection}
                   disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim()}
@@ -1206,16 +1208,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Проверить токен</span>
-                </button></div>
-              <div className="flex flex-wrap items-center gap-3">
+                </button>
                 <button type="button" onClick={handleTestTelegramDelivery}
                   disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
                   className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                   {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
                   Проверить доставку
                 </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Отправит одно проверочное сообщение в указанный чат</span>
               </div>
+              <p className="text-xs text-[var(--terra-muted)]">Проверка доставки отправит одно сообщение в указанный чат.</p>
               {telegramDeliveryResult && (
                 <p role="status" aria-live="polite" className={`rounded-xl border p-3 text-sm ${telegramDeliveryResult.ok ? 'border-emerald-200 text-emerald-700 dark:text-emerald-300' : 'border-red-200 text-red-700 dark:text-red-300'}`}>{telegramDeliveryResult.message}</p>
               )}

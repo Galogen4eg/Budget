@@ -637,6 +637,41 @@ try{
       assert.ok(await settingsDialog.getByRole('button',{name:'Установить приложение',exact:true}).isVisible() ||
         await settingsDialog.getByText('Приложение открыто в отдельном окне.').isVisible());
     }
+    // Capture every settings page at the real viewport, not a static mock.
+    const allSettings=['account','appearance','navigation','family','budget','categories','data','integrations','diagnostics'];
+    const settingsNav=key=>settingsDialog.locator('[data-settings-nav="'+key+'"]').filter({visible:true}).first();
+    const settingsBack=async()=>{if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();};
+    await settingsBack();
+    for(const theme of ['light','dark']){
+      await settingsNav('appearance').click();
+      await settingsDialog.getByRole('group',{name:'Тема приложения'}).getByRole('button',{name:theme==='light'?'Светлая':'Тёмная',exact:true}).click();
+      await page.waitForFunction(theme=>document.documentElement.classList.contains('dark')===(theme==='dark'),theme);
+      await settingsBack();
+      for(const key of allSettings){
+        await settingsNav(key).click();
+        const body=settingsDialog.locator('[data-settings-section="'+key+'"]').filter({visible:true});
+        await body.waitFor({state:'visible'});
+        const g=await body.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
+        assert.ok(g.scroll<=g.width+2,label+' settings '+key+' '+theme+' horizontal overflow '+JSON.stringify(g));
+        if(key==='categories'&&await body.getByTestId('settings-category-actions').isVisible()){
+          const bar=await body.getByTestId('settings-category-actions').boundingBox();
+          const dialog=await settingsDialog.boundingBox();
+          assert.ok(bar&&dialog&&bar.x>=dialog.x-1&&bar.x+bar.width<=dialog.x+dialog.width+1&&bar.y+bar.height<=dialog.y+dialog.height+1,label+' category footer escapes settings dialog');
+        }
+        if(key==='budget'){
+          const days=body.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');
+          assert.equal(await days.count(),31);
+          assert.ok(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44;})),label+' salary targets');
+        }
+        if(key==='family')await body.getByRole('button',{name:'Пригласить участника',exact:true}).waitFor({state:'visible'});
+        await page.screenshot({path:'artifacts/budget-browser/'+label+'-settings-'+theme+'-'+key+'.png',animations:'disabled'});
+        await settingsBack();
+      }
+    }
+    await settingsNav('appearance').click();
+    await settingsDialog.getByRole('group',{name:'Тема приложения'}).getByRole('button',{name:'Светлая',exact:true}).click();
+    await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+    console.log('PASS '+label+' all nine settings blocks light/dark geometry');
     await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
     await settingsDialog.waitFor({state:'hidden'});
     await nav.getByRole('button',{name:'Обзор',exact:true}).click();

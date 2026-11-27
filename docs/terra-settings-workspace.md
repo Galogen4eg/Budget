@@ -10,3 +10,6 @@ Base 72dbf53e7370a6c8132550136cdfbae2bc6f312a (previous UX candidate, all six CI
 - Integrations: credentials before verification, separate token/delivery, collapsible listener log, no secret values in UI screenshots or diagnostics; keep actual integration handlers.
 - Diagnostics: aligned status rows and install controls; no additional reachability promises.
 Acceptance: all existing CI plus new source and browser assertions; capture each settings block; check light/dark and narrow width. Physical keyboard, actual Telegram/Gemini calls, production user data not tested by emulator. Existing security policies unchanged. 
+
+## Follow-up review
+Moved invitation dialog to its own portal using the existing focus/back contract; no actual invitation submitted in UI tests. Fixed the compact category editor footer to remain inside its modal, removed redundant safe-area padding. History range defaults to current local month through today; date filters and existing delete predicate unchanged. Added all-nine-section captures and geometry checks in both themes at existing six smoke widths; the populated-family audit opens and cancels invitation when permitted. Retargeted PR #127 to main for the existing CI triggers; PR #126 remains unchanged and is the verified ancestor. CI and screenshots remain required.

@@ -14,7 +14,7 @@ export const FnsReceiptScanner:React.FC<FnsReceiptScannerProps>=()=>{
    <p className="text-sm text-[var(--terra-muted)]">QR-код содержит реквизиты и итоговую сумму. Получение товарных позиций и проверка через ФНС пока не подключены. Этот экран не записывает операции в бюджет.</p>
    <form onSubmit={parse} className="space-y-2">
     <label htmlFor="receipt-qr-input" className="block text-sm font-medium">Строка QR-кода</label>
-    <textarea id="receipt-qr-input" rows={3} value={raw} onChange={e=>{setRaw(e.target.value);setResult(null);setError('');}} placeholder="t=…&s=…&fn=…&i=…&fp=…&n=…" className="w-full min-w-0 rounded-xl p-3 text-base border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)]" />
+    <textarea id="receipt-qr-input" rows={3} value={raw} onChange={e=>{setRaw(e.target.value);setResult(null);setError('');}} placeholder="t=…&s=…&fn=…&i=…&fp=…&n=…" className="w-full min-w-0 rounded-xl p-3 text-base border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] outline-none" />
     {error&&<p role="alert" className="text-sm text-[var(--terra-danger-text)]">{error}</p>}
     <button type="submit" disabled={!raw.trim()} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY}>Показать реквизиты</button>
    </form>

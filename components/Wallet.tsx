@@ -524,7 +524,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск карт" aria-label="Поиск карт"
-                className="w-full min-h-[44px] pl-8 pr-12 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-medium text-stone-800 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
+                className="w-full min-h-[44px] pl-8 pr-12 rounded-xl border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
               />
               {searchQuery && (
                 <button 

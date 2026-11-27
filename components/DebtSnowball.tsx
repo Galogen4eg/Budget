@@ -15,6 +15,8 @@ import { assertDebtDeletionSafe } from '../utils/familyWorkspace';
 import { resolveDebtOwnerForSave } from '../utils/debtOwner';
 import { generateUniqueId, updateItem, deleteItem } from '../utils/db';
 import { parseDebtAmount, parseDebtAmounts } from '../utils/debtEdit';
+import { estimateDebtPayoff } from '../utils/debtPayoffEstimate';
+import { SURFACE_CARD, PAGE_HEADING, TOOLBAR_ACTION, TOOLBAR_ACTION_PRIMARY, ICON_ACTION } from './filterUiTokens';
 import { 
   findLinkedExpenseForDebt, 
   computeDebtMonthPaymentStatus, 
@@ -48,6 +50,10 @@ const DebtSnowball: React.FC<Props> = ({
   const [showDebtStats, setShowDebtStats] = useState<ExtendedDebt | null>(null);
   const [showEarlyRepaymentCalc, setShowEarlyRepaymentCalc] = useState<boolean>(false);
   const [extraPaymentAmount, setExtraPaymentAmount] = useState<number>(5000);
+  const [payoffDebtId,setPayoffDebtId]=useState<string>('');
+  const payoffOptions=debts.filter(d=>(d.currentBalance??d.totalAmount)>0&&(d.monthlyPayment??0)>0).sort((a,b)=>(a.currentBalance??a.totalAmount)-(b.currentBalance??b.totalAmount));
+  const payoffDebt=payoffOptions.find(d=>d.id===payoffDebtId)||payoffOptions[0];
+  const payoff=payoffDebt?estimateDebtPayoff(payoffDebt.currentBalance??payoffDebt.totalAmount,payoffDebt.monthlyPayment??0,extraPaymentAmount):null;
   const [editingDebt, setEditingDebt] = useState<Partial<ExtendedDebt> | null>(null);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
   const [mode, setMode] = useState<CalculationMode>('manual');
@@ -195,6 +201,7 @@ const DebtSnowball: React.FC<Props> = ({
   const getForecastDates = (debt: ExtendedDebt, count: number = 3) => {
     const dates: { date: Date, amount: number, isPaid: boolean }[] = [];
     const monthly = debt.monthlyPayment || 0;
+    if(monthly<=0||(!debt.dueDate&&debt.strategy!=='auto'))return dates;
     
     let baseDate = new Date();
     if (debt.strategy === 'auto') {
@@ -372,7 +379,7 @@ const DebtSnowball: React.FC<Props> = ({
   const getPaidAmount = (d: { totalAmount: number, currentBalance: number }) => Math.max(0, d.totalAmount - d.currentBalance);
 
   // Аналитические агрегаты
-  const { totalRemaining, totalOriginal, totalPaid, overallProgress, monthlyDebtLoad, nextUpcomingDebt } = useMemo(() => {
+  const { totalRemaining, totalOriginal, totalPaid, overallProgress, monthlyDebtLoad, nextUpcomingDebt, unpaidDebtsWithDates } = useMemo(() => {
     const totalRemaining = debts.reduce((acc, d) => acc + (d.currentBalance ?? d.totalAmount), 0);
     const totalOriginal = debts.reduce((acc, d) => acc + (d.totalAmount || 0), 0);
     const totalPaid = Math.max(0, totalOriginal - totalRemaining);
@@ -380,10 +387,10 @@ const DebtSnowball: React.FC<Props> = ({
     const monthlyDebtLoad = debts.reduce((acc, d) => acc + (d.monthlyPayment || 0), 0);
 
     const unpaidDebtsWithDates = debts
-      .filter(d => !d.paidThisMonth && d.dueDate)
+      .filter(d => (d.currentBalance??d.totalAmount)>0 && d.dueDate && Number.isFinite(new Date(d.dueDate).getTime()) && !computeDebtMonthPaymentStatus(d,findLinkedExpenseForDebt(d.id,settings.mandatoryExpenses),transactions,settings,new Date()).isPaid)
       .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-    const nextUpcomingDebt = unpaidDebtsWithDates.length > 0 ? unpaidDebtsWithDates[0] : debts[0];
+    const nextUpcomingDebt = unpaidDebtsWithDates[0];
 
     return {
       totalRemaining,
@@ -391,9 +398,9 @@ const DebtSnowball: React.FC<Props> = ({
       totalPaid,
       overallProgress,
       monthlyDebtLoad,
-      nextUpcomingDebt
+      nextUpcomingDebt,unpaidDebtsWithDates
     };
-  }, [debts]);
+  }, [debts,settings,transactions]);
 
   const daysToNextPayment = useMemo(() => {
     if (!nextUpcomingDebt?.dueDate) return null;
@@ -421,19 +428,12 @@ const DebtSnowball: React.FC<Props> = ({
     return <CreditCard className="w-5 h-5 text-[#4a7c59] dark:text-emerald-400" />;
   };
 
-  // Текстовый бейдж срока/условий для карточки
-  const getDebtBadgeText = (debt: Debt) => {
-    const lower = debt.name.toLowerCase();
-    if (lower.includes('кредитк') || lower.includes('карт')) {
-      return '0% переплаты';
-    }
-    if (lower.includes('рассрочк')) {
-      return '3 взноса';
-    }
-    if (daysToNextPayment !== null && daysToNextPayment >= 0 && !debt.paidThisMonth) {
-      return `Через ${daysToNextPayment} ${daysToNextPayment === 1 ? 'день' : daysToNextPayment < 5 ? 'дня' : 'дней'}`;
-    }
-    return 'В графике';
+  // Display only recorded conditions and payment status.
+  const getDebtBadgeText=(debt:Debt,paid:boolean,overdue:boolean)=>{
+    if((debt.currentBalance??debt.totalAmount)<=0)return 'Погашен';
+    if(paid)return 'Оплачено';
+    if(overdue)return 'Просрочено';
+    return debt.dueDate?'Ожидает оплаты':'Дата не указана';
   };
 
   // Сортировка обязательств
@@ -502,29 +502,10 @@ const DebtSnowball: React.FC<Props> = ({
 
       </div>
 
-      {/* 2. Header Banner: Мобильная и десктопная шапка */}
-      <header className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 shadow-card border border-stone-200/90 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 sm:gap-5">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40 shadow-inner">
-            <CreditCard className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight leading-tight">
-              Мои долги
-            </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm uppercase font-bold tracking-wider text-[#4a7c59] dark:text-emerald-400 mt-0.5">
-              УПРАВЛЕНИЕ ВЫПЛАТАМИ И КРЕДИТАМИ
-            </p>
-          </div>
-        </div>
-
-        <button 
-          type="button"
-          onClick={handleOpenAddModal}
-          className="min-h-[44px] px-4 py-2.5 sm:px-6 sm:py-3.5 bg-[#4a7c59] hover:bg-[#3d6749] text-white rounded-xl sm:rounded-2xl font-display font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-[#4a7c59]/25 transition transform active:scale-98 cursor-pointer flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-          <span>Добавить долг</span>
+      <header className={SURFACE_CARD+' flex flex-wrap items-center justify-between gap-3'}>
+        <h1 className={PAGE_HEADING}>Мои долги</h1>
+        <button type="button" onClick={handleOpenAddModal} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY}>
+          <Plus size={16} aria-hidden="true"/><span>Добавить долг</span>
         </button>
       </header>
 
@@ -536,10 +517,7 @@ const DebtSnowball: React.FC<Props> = ({
           <div>
             <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-2">
               <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">Остаток долга</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-[11px] font-bold border border-[#d1dbd1] dark:border-emerald-800/40">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>+1.2% в этом мес.</span>
-              </span>
+              <span className="text-xs font-semibold text-[var(--terra-muted)]">Всего</span>
             </div>
             <div className="text-2xl sm:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
               {formatCurrencyWithKopecks(totalRemaining)}
@@ -576,10 +554,10 @@ const DebtSnowball: React.FC<Props> = ({
                 </span>
               </div>
               <div className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
-                {formatCurrencyWithKopecks(nextUpcomingDebt?.monthlyPayment || 0)}
+                {nextUpcomingDebt?formatCurrencyWithKopecks(nextUpcomingDebt.monthlyPayment||0):'—'}
               </div>
               <div className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 font-medium mt-1 truncate">
-                {nextUpcomingDebt?.name || 'Нет долгов'} · {nextUpcomingDebt?.dueDate ? formatDate(nextUpcomingDebt.dueDate) : '—'}
+                {nextUpcomingDebt?nextUpcomingDebt.name+' · '+formatDate(nextUpcomingDebt.dueDate):'Нет неоплаченных платежей с датой'}
               </div>
               {daysToNextPayment !== null && daysToNextPayment >= 0 && (
                 <div className="text-[10px] sm:text-xs text-[#4a7c59] dark:text-emerald-400 font-bold mt-0.5">
@@ -588,10 +566,6 @@ const DebtSnowball: React.FC<Props> = ({
               )}
             </div>
 
-            <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-stone-100 dark:border-white/5 flex items-center gap-1.5 text-[10px] sm:text-xs text-stone-500 dark:text-stone-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate">Автосписание настроено</span>
-            </div>
           </div>
 
           {/* KPI 3: Ежемесячная нагрузка */}
@@ -607,16 +581,10 @@ const DebtSnowball: React.FC<Props> = ({
                 {formatCurrencyWithKopecks(monthlyDebtLoad)}
               </div>
               <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 mt-1 truncate">
-                {debts.length} {debts.length === 1 ? 'активный' : debts.length < 5 ? 'активных' : 'активных'} · Без просрочек
+                Обязательств: {debts.length}
               </p>
             </div>
 
-            <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[10px] sm:text-xs font-semibold">
-              <span className="text-stone-500 dark:text-stone-400 truncate">Безопасно (24%)</span>
-              <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40 shrink-0">
-                В норме ✓
-              </span>
-            </div>
           </div>
         </div>
 
@@ -686,7 +654,7 @@ const DebtSnowball: React.FC<Props> = ({
                     className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card flex flex-col space-y-3.5 relative transition-all duration-300"
                   >
                     {/* Header row: Icon, Name & Status, Utility buttons */}
-                    <header className="flex items-start justify-between gap-2">
+                    <header className="flex flex-wrap items-start justify-between gap-2">
                       <div className="flex items-start space-x-3 min-w-0 flex-1">
                         {/* Sage Badge House / Credit Icon */}
                         <div aria-hidden="true" className="w-12 h-12 rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#4a7c59]/15 dark:border-emerald-800/40 shadow-xs">
@@ -695,7 +663,7 @@ const DebtSnowball: React.FC<Props> = ({
                         
                         {/* Title & Badges container */}
                         <div className="flex flex-col items-start space-y-1 min-w-0 flex-1">
-                          <h2 className="text-xl font-bold text-stone-900 dark:text-white leading-tight tracking-tight truncate max-w-full">
+                          <h2 className="text-lg font-bold text-[var(--terra-ink)] leading-tight break-words [overflow-wrap:anywhere] max-w-full">
                             {debt.name}
                           </h2>
 
@@ -721,13 +689,13 @@ const DebtSnowball: React.FC<Props> = ({
                       </div>
 
                       {/* Utility Icons: Notification, History, Delete */}
-                      <div className="flex items-center space-x-1 shrink-0 -mr-1">
+                      <div className="flex items-center gap-1 shrink-0 ml-auto">
                         <button 
                           type="button"
                           onClick={() => setShowNotifySettings(debt)}
                           aria-label="Напоминания" 
                           title="Напоминания" 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           <Bell className="w-4 h-4" />
                         </button>
@@ -736,7 +704,7 @@ const DebtSnowball: React.FC<Props> = ({
                           onClick={() => setShowDebtStats(extendedDebt)}
                           aria-label="История" 
                           title="История платежей и статистика" 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 hover:bg-[var(--terra-primary-soft)] dark:hover:bg-white/10 transition-colors cursor-pointer"
                         >
                           <Clock className="w-4 h-4" />
                         </button>
@@ -745,7 +713,7 @@ const DebtSnowball: React.FC<Props> = ({
                           onClick={() => setDebtToDelete(debt)}
                           aria-label="Удалить карточку" 
                           title="Удалить" 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-[#d9534f] hover:bg-red-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          className="w-11 h-11 rounded-xl flex items-center justify-center text-stone-400 hover:text-[#d9534f] hover:bg-red-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -781,7 +749,7 @@ const DebtSnowball: React.FC<Props> = ({
 
                       <div className="flex flex-col items-end space-y-1 shrink-0">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border border-stone-300/80 dark:border-white/10 shadow-2xs">
-                          {getDebtBadgeText(debt)}
+                          {getDebtBadgeText(debt,isPaidThisMonth,overdue)}
                         </span>
                         <button 
                           type="button"
@@ -896,203 +864,25 @@ const DebtSnowball: React.FC<Props> = ({
               })}
             </div>
 
-            {/* Ближайшие платежи (Компактный график / Upcoming preview) */}
-            <section className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl border border-stone-200/90 dark:border-white/10 p-4 sm:p-5 shadow-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-[#4a7c59] dark:bg-emerald-400" />
-                  <h3 className="text-xs font-bold text-stone-800 dark:text-stone-200 uppercase tracking-wider">
-                    Ближайшие платежи
-                  </h3>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => setShowEarlyRepaymentCalc(true)}
-                  className="text-xs font-semibold text-[#4a7c59] dark:text-emerald-400 hover:underline cursor-pointer"
-                >
-                  Весь график
-                </button>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                {sortedDebts.slice(0, 3).map((d) => {
-                  const day = d.dueDate ? new Date(d.dueDate).getDate() : 15;
-                  const monthName = d.dueDate 
-                    ? new Date(d.dueDate).toLocaleString('ru-RU', { month: 'long', year: 'numeric' })
-                    : 'Текущий месяц';
-
-                  return (
-                    <div 
-                      key={d.id} 
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-[#f5f2eb]/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10"
-                    >
-                      <div className="flex items-center space-x-2.5 min-w-0">
-                        <span className="w-7 h-7 rounded-lg bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 font-bold text-[11px] flex items-center justify-center shrink-0">
-                          {day}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-stone-800 dark:text-stone-200 truncate capitalize">
-                            {monthName}
-                          </p>
-                          <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
-                            {d.name} · {d.paidThisMonth ? 'Оплачено' : 'Плановый платёж'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 pl-2">
-                        <span className="font-bold text-stone-900 dark:text-white block">
-                          {formatCurrencyWithKopecks(d.monthlyPayment || 0)}
-                        </span>
-                        <span className="text-[10px] text-stone-500 dark:text-stone-400">
-                          до {day.toString().padStart(2, '0')}.{new Date().getMonth() + 1}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
           </>
         )}
       </section>
 
-      {/* 6. Полноразмерный баннер: Стратегия «Снежный ком» активна */}
-      <section className="bg-white dark:bg-[var(--terra-surface)] border border-stone-200/90 dark:border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#d1dbd1] dark:border-emerald-800/40">
-            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <h3 className="font-display font-extrabold text-stone-900 dark:text-white text-sm sm:text-base md:text-lg">
-              Стратегия «Снежный ком» активна
-            </h3>
-            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-1 leading-relaxed">
-              При внесении дополнительных <b>{extraPaymentAmount.toLocaleString('ru-RU')} ₽</b> в месяц срок закрытия первого кредита сократится на <b>4 месяца</b>, а переплата снизится на <b>~18 400 ₽</b>.
-            </p>
-          </div>
-        </div>
-
-        <button 
-          type="button"
-          onClick={() => setShowEarlyRepaymentCalc(true)}
-          className="min-h-[44px] whitespace-nowrap px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold uppercase tracking-wider text-[#4a7c59] dark:text-emerald-400 hover:text-white hover:bg-[#4a7c59] bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] rounded-xl sm:rounded-2xl border border-[#4a7c59]/40 transition shadow-xs cursor-pointer shrink-0 active:scale-95"
-        >
-          Калькулятор досрочного погашения
-        </button>
+      <section className={SURFACE_CARD+' space-y-3'} aria-label="Ближайшие платежи">
+        <h2 className="text-base font-semibold">Ближайшие платежи</h2>
+        {unpaidDebtsWithDates.length===0?<p className="text-sm text-[var(--terra-muted)]">Нет неоплаченных платежей с указанной датой.</p>:
+          <div className="divide-y divide-[var(--terra-border)]">{unpaidDebtsWithDates.map(d=><div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+            <div className="min-w-0 flex-1"><div className="font-semibold text-sm [overflow-wrap:anywhere]">{d.name}</div>
+            <div className="text-xs text-[var(--terra-muted)]">{formatDate(d.dueDate)}</div></div>
+            <span className="font-semibold tabular-nums text-sm">{formatCurrencyWithKopecks(d.monthlyPayment||0)}</span>
+          </div>)}</div>}
       </section>
-
-      {/* 7. Нижний аналитический блок: Динамика снижения долга (2024–2028) и Календарь ближайших выплат */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        
-        {/* Левые 2 колонки на десктопе: Динамика снижения долговой нагрузки */}
-        <div className="lg:col-span-2 bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display font-bold text-stone-900 dark:text-white text-sm sm:text-base">
-                Динамика снижения долга
-              </h3>
-              <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                Прогноз до 2028 года с учетом регулярных аннуитетных платежей
-              </p>
-            </div>
-            <span className="inline-block px-2.5 py-1 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 text-xs font-bold border border-[#d1dbd1] dark:border-emerald-800/40 shrink-0">
-              Экономия ~248 000 ₽
-            </span>
-          </div>
-
-          {/* SVG трендлайн с градиентом в стиле Terra */}
-          <div className="w-full pt-2">
-            <svg className="w-full h-32 overflow-visible" fill="none" viewBox="0 0 320 120">
-              <line opacity="0.4" stroke="#c4c8bc" strokeDasharray="3 3" strokeWidth="0.75" x1="0" x2="320" y1="20" y2="20" />
-              <line opacity="0.4" stroke="#c4c8bc" strokeDasharray="3 3" strokeWidth="0.75" x1="0" x2="320" y1="60" y2="60" />
-              <line opacity="0.4" stroke="#c4c8bc" strokeDasharray="3 3" strokeWidth="0.75" x1="0" x2="320" y1="100" y2="100" />
-              
-              <path d="M10 24 Q 85 45, 160 68 T 310 98 L 310 110 L 10 110 Z" fill="url(#terraGradFlow)" opacity="0.25" />
-              <path d="M10 24 Q 85 45, 160 68 T 310 98" stroke="#4a7c59" strokeLinecap="round" strokeWidth="2.5" />
-              
-              <circle cx="10" cy="24" fill="#4a7c59" r="3.5" />
-              <circle cx="85" cy="46" fill="#4a7c59" r="3.5" />
-              <circle cx="160" cy="68" fill="#4a7c59" r="3.5" />
-              <circle cx="235" cy="84" fill="#4a7c59" r="3.5" />
-              <circle cx="310" cy="98" fill="#faf6f0" r="4.5" stroke="#4a7c59" strokeWidth="2.5" />
-              
-              <defs>
-                <linearGradient id="terraGradFlow" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#4a7c59" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#4a7c59" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            </svg>
-
-            {/* Метки оси времени */}
-            <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold text-stone-500 dark:text-stone-400 mt-2 px-1">
-              <span>2024 (5.1M)</span>
-              <span>2025</span>
-              <span>2026 (4.2M)</span>
-              <span>2027</span>
-              <span className="font-bold text-[#4a7c59] dark:text-emerald-400">2028 (2.1M)</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 text-xs text-stone-600 dark:text-stone-300">
-            <CheckCircle2 className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400 shrink-0" />
-            <span>{fixPrepositions("Соблюдение графика сокращает общий срок выплат на 1 год и 4 месяца.")}</span>
-          </div>
+      <section className={SURFACE_CARD+' flex flex-wrap items-center justify-between gap-3'}>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold">Досрочное погашение</h2>
+          <p className="text-sm text-[var(--terra-muted)] mt-1">Оценка срока по остатку и ежемесячному взносу без новых процентов и комиссий.</p>
         </div>
-
-        {/* Правая 1 колонка: Ближайшие выплаты */}
-        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between space-y-3.5">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
-                <h3 className="font-display font-bold text-stone-900 dark:text-white text-sm sm:text-base">
-                  Ближайшие выплаты
-                </h3>
-              </div>
-              <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
-                Календарь
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              {debts.slice(0, 3).map((debt, index) => {
-                const dueDay = debt.dueDate ? new Date(debt.dueDate).getDate() : 25;
-                const dueMonth = debt.dueDate ? new Date(debt.dueDate).toLocaleDateString('ru-RU', { month: 'short' }) : 'сен';
-                return (
-                  <div key={debt.id || index} className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-stone-200/60 dark:border-white/5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-lg bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 flex flex-col items-center justify-center shrink-0 border border-stone-200/80 dark:border-white/10">
-                        <span className="text-[9px] font-bold text-stone-400 uppercase leading-none">{dueMonth}</span>
-                        <span className="text-xs font-bold leading-tight">{dueDay}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-stone-900 dark:text-white leading-tight truncate">
-                          {debt.name}
-                        </p>
-                        <p className="text-[10px] text-[#4a7c59] dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] dark:bg-emerald-400 shrink-0" />
-                          <span>{index === 0 ? 'Автоплатёж' : index === 1 ? 'Напоминание' : 'Ручной взнос'}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-extrabold text-stone-900 dark:text-white shrink-0">
-                      {formatCurrencyWithKopecks(debt.monthlyPayment || 0)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-xs">
-            <span className="text-stone-500 dark:text-stone-400 font-medium">Итого в текущем месяце:</span>
-            <span className="font-extrabold text-[#4a7c59] dark:text-emerald-400 text-sm">
-              {monthlyDebtLoad.toLocaleString('ru-RU')} ₽
-            </span>
-          </div>
-        </div>
-
+        <button type="button" onClick={()=>setShowEarlyRepaymentCalc(true)} disabled={!payoffOptions.length} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY}>Калькулятор досрочного погашения</button>
       </section>
 
       {/* 9. Модальное окно подтверждения удаления долга */}
@@ -1584,8 +1374,8 @@ const DebtSnowball: React.FC<Props> = ({
                         {formatCurrencyWithKopecks(showDebtStats.monthlyPayment || 0)}
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-stone-500 dark:text-stone-400 mt-2.5">
-                        <span>{showDebtStats.strategy === 'auto' ? 'Авто-расчет' : 'Фиксированный аннуитет'}</span>
-                        <span className="font-medium text-[#4a7c59] dark:text-emerald-400">В графике</span>
+                        <span>{showDebtStats.strategy === 'auto' ? 'Расчёт взноса' : 'Плановый взнос'}</span>
+                        <span className="font-medium text-[var(--terra-muted)]">По сохранённому взносу</span>
                       </div>
                     </div>
                   </div>
@@ -1664,6 +1454,7 @@ const DebtSnowball: React.FC<Props> = ({
                           }}
                           role={isFirst ? 'button' : undefined}
                           tabIndex={isFirst ? 0 : undefined}
+                          onKeyDown={e=>{if(isFirst&&(e.key==='Enter'||e.key===' ')){e.preventDefault();void togglePaidStatus(showDebtStats.id);}}}
                           className={`group flex items-center justify-between p-3 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all border ${
                             item.isPaid
                               ? 'bg-[#edf4ef]/70 dark:bg-emerald-950/20 border-[#4a7c59]/40'
@@ -1701,9 +1492,9 @@ const DebtSnowball: React.FC<Props> = ({
                                     : 'text-stone-500 dark:text-stone-400'
                               }`}>
                                 {item.isPaid 
-                                  ? 'Оплачен вовремя ✓' 
+                                  ? 'Оплачен' 
                                   : isFirst 
-                                    ? (daysToNextPayment !== null && daysToNextPayment >= 0 ? `Через ${daysToNextPayment} ${daysToNextPayment === 1 ? 'день' : daysToNextPayment < 5 ? 'дня' : 'дней'}` : 'Ближайший платёж') 
+                                    ? 'Ближайший плановый платёж' 
                                     : 'Регулярный взнос'}
                               </div>
                             </div>
@@ -1738,7 +1529,7 @@ const DebtSnowball: React.FC<Props> = ({
                   </div>
 
                   <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 leading-relaxed text-left sm:text-right max-w-md">
-                    {fixPrepositions("Срок первого кредита сократится на 4 месяца при сохранении текущего графика платежей.")}
+                    Расчётный график не учитывает новые проценты и комиссии.
                   </p>
                 </footer>
 
@@ -1806,71 +1597,24 @@ const DebtSnowball: React.FC<Props> = ({
         </div>
       )}
 
-      {/* 13. Модальное окно калькулятора досрочного погашения */}
-      {showEarlyRepaymentCalc && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-white dark:bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center">
-                  <Calculator className="w-5 h-5" />
-                </div>
-                <h3 className="text-xl font-display font-bold text-stone-900 dark:text-white">
-                  Досрочное погашение
-                </h3>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setShowEarlyRepaymentCalc(false)}
-                className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {showEarlyRepaymentCalc&&<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onKeyDown={e=>{if(e.key==='Escape')setShowEarlyRepaymentCalc(false);}}>
+        <section role="dialog" aria-modal="true" aria-labelledby="debt-payoff-title" className={SURFACE_CARD+' w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4'}>
+          <div className="flex items-center justify-between gap-2"><h2 id="debt-payoff-title" className="text-lg font-semibold">Досрочное погашение</h2>
+          <button type="button" aria-label="Закрыть калькулятор" onClick={()=>setShowEarlyRepaymentCalc(false)} className={ICON_ACTION}><X size={20}/></button></div>
+          <label className="block text-sm">Долг<select value={payoffDebt?.id||''} onChange={e=>setPayoffDebtId(e.target.value)} className="mt-1 w-full min-h-[44px] rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] px-3">
+          {payoffOptions.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+          <label className="block text-sm">Дополнительный взнос в месяц: <strong>{formatCurrencyWithKopecks(extraPaymentAmount)}</strong>
+            <input type="range" min="0" max="50000" step="1000" value={extraPaymentAmount} onChange={e=>setExtraPaymentAmount(Number(e.target.value))} className="w-full min-h-[44px] accent-[var(--terra-primary-solid)]"/>
+          </label>
+          {payoff?<dl className="grid grid-cols-2 gap-3 text-sm" data-testid="debt-payoff-result">
+            <div className="rounded-xl bg-[var(--terra-soft)] p-3"><dt className="text-[var(--terra-muted)]">Текущий взнос</dt><dd className="text-xl font-semibold tabular-nums">{payoff.baselineMonths} мес.</dd></div>
+            <div className="rounded-xl bg-[var(--terra-primary-soft)] p-3"><dt className="text-[var(--terra-muted)]">С доплатой</dt><dd className="text-xl font-semibold tabular-nums">{payoff.withExtraMonths} мес.</dd></div>
+          </dl>:<p role="status" className="text-sm text-[var(--terra-muted)]">Для оценки нужен положительный ежемесячный взнос и остаток долга.</p>}
+          <p className="text-xs text-[var(--terra-muted)]">Оценка без новых процентов и комиссий. Это не банковский график. Экономия процентов не рассчитывается, данные бюджета не меняются.</p>
+          <button type="button" onClick={()=>setShowEarlyRepaymentCalc(false)} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY+' w-full'}>Понятно</button>
+        </section>
+      </div>}
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1.5">
-                  Дополнительный платёж в месяц
-                </label>
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="range"
-                    min="1000"
-                    max="50000"
-                    step="1000"
-                    value={extraPaymentAmount}
-                    onChange={(e) => setExtraPaymentAmount(Number(e.target.value))}
-                    className="w-full accent-[#4a7c59]"
-                  />
-                  <span className="text-base font-bold font-display text-[#4a7c59] dark:text-emerald-400 whitespace-nowrap min-w-[90px] text-right">
-                    {extraPaymentAmount.toLocaleString('ru-RU')} ₽
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#edf4ef]/60 dark:bg-[var(--terra-primary-soft)] border border-[#d1dbd1] dark:border-emerald-800/40 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-stone-600 dark:text-stone-300">Ускорение закрытия:</span>
-                  <strong className="text-[#4a7c59] dark:text-emerald-400">~{Math.max(1, Math.round(extraPaymentAmount / 2000) + 2)} мес. быстрее</strong>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-stone-600 dark:text-stone-300">Экономия на переплате:</span>
-                  <strong className="text-[#4a7c59] dark:text-emerald-400">~{(extraPaymentAmount * 3.6).toLocaleString('ru-RU')} ₽</strong>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              type="button"
-              onClick={() => setShowEarlyRepaymentCalc(false)} 
-              className="w-full py-3.5 bg-[#4a7c59] hover:bg-[#3d6749] text-white rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            >
-              Понятно
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

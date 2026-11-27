@@ -1,10 +1,10 @@
 import { FinancialDataState } from './FinancialDataState';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ChevronLeft, ChevronRight, Wallet, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import TerraMobileHeader from './TerraMobileHeader';
-import { SURFACE_CARD, PAGE_HEADING } from './filterUiTokens';
+import { SURFACE_CARD, PAGE_HEADING, TOOLBAR_ACTION, TOOLBAR_ACTION_IDLE } from './filterUiTokens';
 
 import DebtSnowball from './DebtSnowball';
 import WalletApp from './Wallet';
@@ -31,7 +31,17 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     value === 'menu' || value === 'debts' || value === 'wallet' || value === 'receipts';
   const [activeService, setActiveService] = useState<ServiceType>(() => isValidService(initialService) ? initialService : 'menu');
   const scrollRef=useRef<HTMLDivElement>(null);
-  useEffect(()=>{if(scrollRef.current)scrollRef.current.scrollTop=0;},[activeService]);
+  const returnService=useRef<ServiceType|null>(null);
+  const previousService=useRef<ServiceType>(activeService);
+  useLayoutEffect(()=>{
+    const scroll=scrollRef.current;if(!scroll)return;
+    scroll.scrollTop=0;
+    if(activeService==='menu'&&previousService.current!=='menu'){
+      scroll.querySelector<HTMLElement>('[data-service-id="'+(returnService.current||previousService.current)+'"]')?.focus({preventScroll:true});
+      returnService.current=null;
+    }
+    previousService.current=activeService;
+  },[activeService]);
   const { 
     financialSettings: settings, 
     debts, setDebts,
@@ -84,7 +94,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
         </svg>
       ),
       component: (
-        workspaceStatuses.wallet!=='ready'?<div className="flex flex-col gap-2"><button type="button" className="min-h-[44px] text-left text-[var(--terra-primary-text)]" onClick={()=>setActiveService('menu')}>Все сервисы</button><FinancialDataState status={workspaceStatuses.wallet} section="карты лояльности" onRetry={retryWorkspace}/></div>:<WalletApp 
+        workspaceStatuses.wallet!=='ready'?<FinancialDataState status={workspaceStatuses.wallet} section="карты лояльности" onRetry={retryWorkspace}/>:<WalletApp 
           cards={loyaltyCards} 
           setCards={setLoyaltyCards} 
           onClose={() => setActiveService('menu')}
@@ -94,7 +104,7 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
     { 
       id: 'receipts', 
       label: 'Чеки ФНС и выписки', 
-      desc: 'Просмотр реквизитов QR-кода чека', 
+      desc: 'Расшифровка QR-кода без проверки ФНС', 
       hasAttention: false,
       icon: (
         <ShieldCheck className="w-6 h-6 stroke-[1.8]" />
@@ -123,12 +133,13 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
           <div className="flex flex-col space-y-3 sm:space-y-5">
             <h1 className={`hidden md:block ${PAGE_HEADING}`}>Сервисы</h1>
             {/* BEGIN: Services Grid (Compact 2-col on mobile, 3-col on desktop) */}
-            <div className="terra-service-grid" data-purpose="service-cards-grid">
+            <div className="terra-service-grid w-full md:max-w-3xl" data-purpose="service-cards-grid">
               {SERVICES.map(app => (
                 <button
                   type="button"
                   key={app.id}
-                  onClick={() => setActiveService(app.id as ServiceType)}
+                  data-service-id={app.id}
+                  onClick={() => {returnService.current=app.id as ServiceType;setActiveService(app.id as ServiceType);}}
                   className="terra-service-row min-h-[76px] flex items-center gap-3 px-3 py-3 text-left hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors terra-press"
                 >
                   <span className="w-11 h-11 rounded-xl bg-[var(--terra-primary-soft)] flex items-center justify-center text-[var(--terra-primary-text)] shrink-0" aria-hidden="true">{app.icon}</span>
@@ -144,12 +155,12 @@ const ServicesHub: React.FC<ServicesHubProps> = ({
           </div>
         ) : (
           <div className="flex flex-col space-y-4">
-            {activeService !== 'debts' && (
+            {(activeService !== 'debts' || financialDataStatus!=='ready') && (
               <div className="flex flex-wrap items-center gap-2">
                 <button 
                   type="button"
                   onClick={() => setActiveService('menu')} 
-                  className="min-h-[44px] px-3.5 py-1.5 bg-white dark:bg-[var(--terra-surface)] hover:bg-stone-50 dark:hover:bg-[var(--terra-soft)] rounded-xl shadow-xs border border-stone-200 dark:border-white/10 text-stone-800 dark:text-white text-xs font-bold flex items-center gap-1.5 transition  cursor-pointer"
+                  className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Все сервисы</span>

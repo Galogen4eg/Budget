@@ -29,7 +29,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
   desktop=false,
 }) => {
   return (
-    <section data-testid="overview-shopping-card" className={`${DASHBOARD_CARD} space-y-2`}>
+    <section data-testid="overview-shopping-card" className={`${DASHBOARD_CARD} terra-layout-surface space-y-2`}>
       <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <h3 className={SECTION_HEADING}>

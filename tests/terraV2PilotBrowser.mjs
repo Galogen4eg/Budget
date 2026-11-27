@@ -28,6 +28,40 @@ async function axisFits(locator,label){
  assert.deepEqual(bounds.clipped,[],label+' clipped Y-axis labels');
 }
 
+
+// Verify computed grid tracks and actual page/card rails, not just class names.
+async function assertTerraLayoutGeometry(overview,label,width){
+ const layout=overview.locator('[data-terra-layout="'+(width<768?'mobile':'desktop')+'"]').filter({visible:true}).first();
+ const g=await layout.evaluate(root=>{
+  const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+  const visible=e=>e&&e.getClientRects().length>0;
+  const grids=[...root.querySelectorAll('[data-terra-grid]')].filter(visible).map(e=>{const c=getComputedStyle(e);return {id:e.dataset.terraGrid,columns:c.gridTemplateColumns.trim().split(/\s+/).length,gap:parseFloat(c.columnGap),rect:rect(e),children:[...e.children].filter(visible).map(rect)};});
+  const cards=[...root.querySelectorAll('.terra-layout-surface')].filter(visible).map(e=>{const c=getComputedStyle(e),head=e.querySelector('[data-overview-section-head]');return {id:e.dataset.testid,rect:rect(e),padding:[c.paddingTop,c.paddingRight,c.paddingBottom,c.paddingLeft].map(parseFloat),head:visible(head)?rect(head):null,overflow:e.scrollWidth-e.clientWidth};});
+  const stacks=[...root.querySelectorAll('[data-terra-stack]')].filter(visible).map(e=>({id:e.dataset.terraStack,rect:rect(e),children:[...e.children].filter(visible).map(rect)}));
+  return {grids,cards,stacks};
+ });
+ const near=(a,b)=>Math.abs(a-b)<=1.5,mobile=width<768,gap=mobile?12:16;
+ assert.ok(g.cards.length>=5,label+' missing cards');
+ for(const card of g.cards){
+  assert.ok(card.padding.every(p=>near(p,gap)),label+' inconsistent card padding '+JSON.stringify(card));
+  assert.ok(card.overflow<=2,label+' card overflow '+card.id);
+  if(card.head)assert.ok(near(card.head.left-card.rect.left,gap+1)&&near(card.rect.right-card.head.right,gap+1),label+' card heading not on content rails '+card.id);
+ }
+ if(mobile){
+  const grid=g.grids.find(x=>x.id==='mobile');
+  assert.equal(grid.columns,4,label+' mobile grid');assert.ok(near(grid.gap,12),label+' mobile gap');
+  for(const [i,c] of grid.children.entries()){assert.ok(near(c.left,g.cards[0].rect.left)&&near(c.right,g.cards[0].rect.right),label+' mobile axes');if(i)assert.ok(near(c.top-grid.children[i-1].bottom,12),label+' mobile vertical gap');}
+ }else{
+  const grid=g.grids.find(x=>x.id==='workspace'),summary=g.grids.find(x=>x.id==='summary');
+  assert.ok([4,8,12].includes(grid.columns),label+' unexpected tracks');
+  assert.equal(grid.columns,summary.columns,label+' mismatched tracks');
+  assert.ok(near(grid.gap,16)&&near(grid.rect.left,summary.rect.left)&&near(grid.rect.right,summary.rect.right),label+' page axes');
+  for(const stack of g.stacks)for(const [i,c] of stack.children.entries()){assert.ok(near(c.left,stack.rect.left)&&near(c.right,stack.rect.right),label+' stack axes');if(i)assert.ok(near(c.top-stack.children[i-1].bottom,16),label+' stack gap');}
+  if(grid.columns===12){const [main,aside]=g.stacks,track=(grid.rect.width-11*grid.gap)/12;assert.ok(near(main.rect.width,track*8+grid.gap*7)&&near(aside.rect.width,track*4+grid.gap*3),label+' wrong 8/4 spans');assert.ok(near(main.rect.top,aside.rect.top)&&near(aside.rect.left-main.rect.right,grid.gap),label+' workspace axes');}
+ }
+ console.log('TERRA LAYOUT GEOMETRY '+label+' '+JSON.stringify(g));
+}
+
 // Full-width visual acceptance of the overview, with actual populated emulator data.
 async function overviewGeometryPilot(page,settingsRef){
  const overview=page.locator('[data-tab-panel="overview"]');
@@ -47,6 +81,7 @@ async function overviewGeometryPilot(page,settingsRef){
    assert.equal(await progress.getAttribute('aria-valuenow'),'100');
    assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(253, 164, 160)':'rgb(168, 50, 44)',label+' limit danger token');
    await noOverflow(limit,label+' limit');
+   await assertTerraLayoutGeometry(overview,label,width);
    const toolbar=visibleInOverview(width<768?'[data-overview-mobile-controls]':'[data-overview-toolbar]').first();
    await noOverflow(toolbar,label+' controls');
    const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));

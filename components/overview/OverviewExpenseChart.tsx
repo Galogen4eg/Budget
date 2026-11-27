@@ -89,7 +89,7 @@ export function OverviewExpenseChart({
     <button type="button" onClick={onOpenBudget} className="terra-overview-chart-budget min-h-[44px] px-2 inline-flex items-center justify-end gap-1 text-sm font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
         К бюджету<ChevronRight size={15} aria-hidden="true"/>
       </button>
-      {!privacyMode && <p className="terra-overview-chart-note text-xs text-[var(--terra-muted)]">{complianceText}</p>}
+      {!privacyMode && <span className="terra-overview-chart-note text-xs text-[var(--terra-muted)]">{complianceText}</span>}
     </div>
   </>;
 }

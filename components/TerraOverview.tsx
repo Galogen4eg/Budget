@@ -707,7 +707,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
-      <div className="md:hidden flex flex-col min-w-0 w-full">
+      <div className="terra-layout-context md:hidden flex flex-col min-w-0 w-full" data-terra-layout="mobile">
         {/* Shared app header; date selection is a secondary control, not competing navigation. */}
         <TerraMobileHeader
           title="Обзор"
@@ -723,7 +723,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </button>
           }
         />
-        <div data-overview-mobile-controls className="terra-overview-mobile-controls px-3 pt-2">
+        <div data-overview-mobile-controls className="terra-overview-mobile-controls terra-layout-inset pt-2">
         <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector">
           <button type="button" onClick={()=>setIsMonthPickerOpen(open=>!open)}
             aria-label={`Выбрать месяц: ${currentMonthName}`} aria-expanded={isMonthPickerOpen} aria-controls="overview-month-controls-mobile"
@@ -780,9 +780,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         </div>
         {/* Mobile Dashboard Cards Stream */}
-        <div className="px-3 pt-3 space-y-3 pb-2">
+        <div data-terra-grid="mobile" className="terra-layout-grid terra-layout-inset pt-3 pb-2">
           {/* 1. Hero Balance Card */}
-          <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} terra-overview-balance-card space-y-2`}>
+          <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} terra-layout-surface terra-overview-balance-card space-y-2`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h2 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">
@@ -802,14 +802,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             {monthlySummary}
             {isCurrentCalendarMonth&&<div className="space-y-1.5 pt-2 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
             {dailySummary}
-            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="terra-overview-reserve-link min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+            <button type="button" onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="terra-overview-reserve-link min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               <span className="text-sm text-[var(--terra-muted)]">{personalOnly?'Личный резерв':'Семейный резерв'}</span><span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-[var(--terra-ink)]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
             </button>
             </div>}
           </section>
 
           {/* 2. Динамика расходов Card */}
-          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} terra-overview-chart-card space-y-3`}>
+          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} terra-layout-surface terra-overview-chart-card space-y-3`}>
               <OverviewExpenseChart
                 mobile scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
@@ -821,7 +821,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 6. История операций Card */}
-          <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} terra-overview-list-card space-y-1.5`}>
+          <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} terra-layout-surface terra-overview-list-card space-y-2`}>
             <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h3 className={SECTION_HEADING}>
@@ -851,7 +851,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
           </section>
           {/* 3. Категории расходов Card */}
-          <section data-testid="overview-categories-mobile" className={`${SURFACE_CARD} terra-overview-list-card space-y-2`}>
+          <section data-testid="overview-categories-mobile" className={`${SURFACE_CARD} terra-layout-surface terra-overview-list-card space-y-2`}>
             <div data-overview-section-head className="terra-overview-section-head terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className={SECTION_HEADING}>
@@ -914,8 +914,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
           {showWeekEvents && upcomingWeekEvents.length > 0 && (
-            <section className={`${SURFACE_CARD} space-y-3.5`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <section data-testid="overview-events-mobile" className={`${SURFACE_CARD} terra-layout-surface space-y-2`}>
+              <div data-overview-section-head className="terra-overview-section-head terra-overview-event-head flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className={SECTION_HEADING}>
                     События на этой неделе
@@ -975,7 +975,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           <p className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                             {ev.title}
                           </p>
-                          <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-[var(--terra-muted)] mt-0.5">
                             <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
                             <span className="font-medium text-[var(--terra-muted)]">
                               {memberMeta?.name || 'Вся семья'}
@@ -1001,7 +1001,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       {/* ========================================================= */}
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
-        <div className="terra-overview-layout p-4 sm:p-5 lg:px-7 lg:py-5 space-y-4 max-w-[1600px] mx-auto w-full">
+        <div data-terra-layout="desktop" className="terra-layout-context terra-overview-layout terra-layout-page max-w-[1600px] mx-auto w-full">
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
@@ -1026,12 +1026,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <button type="button" onClick={onOpenSettings} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}>Настройки бюджета</button>
         </div>}
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section data-testid="overview-metrics-desktop" className={DASHBOARD_CARD+' terra-overview-metrics terra-overview-summary grid items-start'} data-current-period={isCurrentCalendarMonth}>
+        <section data-testid="overview-metrics-desktop" className={DASHBOARD_CARD+' terra-layout-grid terra-overview-metrics terra-overview-summary terra-layout-surface'} data-terra-grid="summary" data-current-period={isCurrentCalendarMonth}>
           <div className="terra-overview-summary-main terra-overview-summary-zone min-w-0 flex flex-col gap-2" data-overview-summary-zone="balance">
             <h2 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</h2>
             <div className="terra-overview-balance terra-overview-main-amount font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0" data-negative={!settings.privacyMode&&sharedLedger<0}>{formatAmount(sharedLedger)} ₽</div>
             {balanceExplanation&&<p className="text-xs text-[var(--terra-muted)]">{balanceExplanation}</p>}
-            <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
+            <button type="button" onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'}
               className="terra-overview-reserve-link min-h-[44px] w-full text-left flex flex-wrap items-center justify-between gap-1 border-t border-[var(--terra-border)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-soft)]">
               <span className="text-xs text-[var(--terra-muted)] inline-flex items-center gap-1"><Lock size={14} aria-hidden="true"/>{personalOnly?'Личный резерв':'Семейный резерв'}</span>
               <span className="text-sm font-semibold text-[var(--terra-ink)] tabular-nums flex items-center gap-1 [overflow-wrap:anywhere]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
@@ -1050,11 +1050,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </section>
 
         {/* 2. Основная рабочая область (12 колонок: 8 слева + 4 справа, выровненных по нижнему краю) */}
-        <div className="terra-overview-columns grid gap-4 lg:gap-5">
+        <div data-terra-grid="workspace" className="terra-layout-grid terra-overview-columns">
           {/* LEFT COLUMN: 8 columns */}
-          <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
+          <div data-terra-stack="main" className="terra-layout-stack min-w-0">
             {/* Блок «Динамика расходов» */}
-            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' terra-overview-chart-card space-y-3'}>
+            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' terra-layout-surface terra-overview-chart-card space-y-3'}>
               <OverviewExpenseChart
                 scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
@@ -1066,7 +1066,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>
 
             {/* Сетка «Категории расходов» (4 карточки, растянута до нижней границы) */}
-            <div data-testid="overview-categories-desktop" className={`${DASHBOARD_CARD} flex flex-col`}>
+            <div data-testid="overview-categories-desktop" className={`${DASHBOARD_CARD} terra-layout-surface flex flex-col gap-2`}>
               <div data-overview-section-head className="terra-overview-section-head terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className={SECTION_HEADING}>Категории расходов</h3>
@@ -1078,7 +1078,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </div>
               </div>
 
-              <div className="terra-overview-category-grid divide-y divide-[var(--terra-border)] pt-2">
+              <div className="terra-overview-category-grid divide-y divide-[var(--terra-border)]">
                 {mobileCategories.length===0&&<p className="py-4 text-sm text-[var(--terra-muted)]">За выбранный период пока нет расходов по категориям.</p>}
                 {renderCategoryRows()}
               </div>
@@ -1090,9 +1090,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </div>
 
           {/* RIGHT COLUMN: 4 columns */}
-          <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
+          <div data-terra-stack="aside" className="terra-layout-stack min-w-0">
             {/* Виджет «История операций» (компактный список без пустых разрывов) */}
-            <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
+            <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} terra-layout-surface flex flex-col gap-2 justify-start`}>
               <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className={SECTION_HEADING}>
@@ -1109,7 +1109,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </button>
               </div>
 
-              <div className="divide-y divide-[var(--terra-border)] mt-1 flex flex-col justify-start">
+              <div className="divide-y divide-[var(--terra-border)] flex flex-col justify-start">
                 {recentTransactions.length === 0 ? (
                   <div className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
                     Нет операций за выбранный период
@@ -1135,8 +1135,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
             {showWeekEvents && upcomingWeekEvents.length > 0 && (
-              <div className={DASHBOARD_CARD}>
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F0ECE4] dark:border-white/5">
+              <div data-testid="overview-events-desktop" className={DASHBOARD_CARD+" terra-layout-surface space-y-2"}>
+                <div data-overview-section-head className="terra-overview-section-head terra-overview-event-head flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     
                     <div className="flex items-center gap-2">
@@ -1202,7 +1202,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                             <p className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                               {ev.title}
                             </p>
-                            <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-[var(--terra-muted)] mt-0.5">
                               <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
                               <span className="font-medium text-[var(--terra-muted)]">
                                 {memberMeta?.name || 'Вся семья'}

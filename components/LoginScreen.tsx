@@ -4,7 +4,7 @@ import { User, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, LogIn, X, M
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
-export const LoginScreen: React.FC = () => {
+export const LoginScreen: React.FC<{installedApp?:boolean}> = ({installedApp=false}) => {
   const { enterDemoMode, loginWithEmail, registerWithEmail, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -234,17 +234,17 @@ export const LoginScreen: React.FC = () => {
             </button>
           </form>
 
-          {/* Локальный демо-режим */}
-          <footer className="mt-5 pt-4 border-t border-[#ece7df] flex flex-col items-center text-center">
+          {/* Локальный демо-режим — только в установленном приложении. */}
+          {installedApp&&<footer className="mt-5 pt-4 border-t border-[#ece7df] flex flex-col items-center text-center">
             <button
               type="button"
               onClick={enterDemoMode}
-              className="inline-flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-[#4a584d] hover:text-[#3e6b48] transition-colors py-1.5 px-3 rounded-lg hover:bg-[var(--terra-soft)]/70 cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 text-sm font-semibold text-[#4a584d] hover:text-[#3e6b48] transition-colors py-1.5 px-3 rounded-lg hover:bg-[var(--terra-soft)]/70 cursor-pointer"
             >
               <UserPlus size={14} className="text-[#78857a]" />
               <span>Локальный демо-режим</span>
             </button>
-          </footer>
+          </footer>}
         </motion.div>
       </main>
 

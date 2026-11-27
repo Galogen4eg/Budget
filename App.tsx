@@ -2,6 +2,8 @@ import { useMobileViewport } from './hooks/useMobileViewport';
 import { FinancialDataState } from './components/FinancialDataState';
 
 import TerraSplash from './components/TerraSplash';
+import { Capacitor } from '@capacitor/core';
+import { isInstalledApp } from './utils/launchMode';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Settings as SettingsIcon, Bell, LayoutGrid, ShoppingBag, PieChart, Calendar, AppWindow, Users, User, Settings2, Bot, Plus, Users2, BrainCircuit, WifiOff, Wifi, LayoutDashboard, Leaf, Wallet, Sparkles, MessageSquare } from 'lucide-react';
@@ -106,6 +108,7 @@ const pageVariants = {
 export default function App() {
   const mobileViewport=useMobileViewport();
   const { user, familyId, loading: isAuthLoading, logout, enterDemoMode } = useAuth();
+  const installedApp=isInstalledApp(Capacitor.isNativePlatform());
   const [showSlowLoadFallback, setShowSlowLoadFallback] = useState(false);
   const importFileDigestRef = useRef<string | null>(null);
   const importFileRef = useRef<File | null>(null);
@@ -116,9 +119,9 @@ export default function App() {
       setShowSlowLoadFallback(false);
       return;
     }
-    const timer = setTimeout(() => setShowSlowLoadFallback(true), 2500);
+    const timer = setTimeout(() => setShowSlowLoadFallback(true), installedApp?2500:8000);
     return () => clearTimeout(timer);
-  }, [isAuthLoading]);
+  }, [isAuthLoading,installedApp]);
   const { 
     transactions, setTransactions,
     shoppingItems, setShoppingItems,
@@ -974,8 +977,8 @@ export default function App() {
     return (shoppingItems || []).filter(i => !i.completed).length;
   }, [shoppingItems]);
 
-  if (isAuthLoading) return <TerraSplash slow={showSlowLoadFallback} onDemo={enterDemoMode} />;
-  if (!user) return <LoginScreen />;
+  if (isAuthLoading) return <TerraSplash slow={showSlowLoadFallback} onDemo={installedApp?enterDemoMode:undefined} />;
+  if (!user) return <LoginScreen installedApp={installedApp} />;
   if (pinMode === 'unlock') return <Suspense fallback={null}><PinScreen mode="unlock" savedPin={settings.pinCode} onSuccess={() => setPinMode(null)} onForgot={() => logout()} /></Suspense>;
 
   return (

@@ -63,6 +63,50 @@ async function assertTerraLayoutGeometry(overview,label,width){
 }
 
 // Full-width visual acceptance of the overview, with actual populated emulator data.
+async function budgetGeometryPilot(page,settingsRef){
+ const budget=page.locator('[data-tab-panel="budget"]');
+ for(const theme of ['light','dark']){
+  await settingsRef.set({theme,privacyMode:false},{merge:true});
+  await page.waitForFunction(t=>document.documentElement.classList.contains('dark')===(t==='dark'),theme);
+  for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[768,1024],[1024,768],[1440,900],[1920,1080]]){
+   const label='budget-'+theme+'-'+width,mobile=width<768,gap=mobile?12:16;
+   await page.setViewportSize({width,height});
+   await button(page.locator('nav'),'Бюджет').click();
+   const layout=visible(budget.locator('[data-terra-layout="'+(mobile?'mobile':'desktop')+'"]'));
+   await layout.waitFor({state:'visible'});
+   const g=await layout.evaluate(root=>{
+    const rect=e=>e.getBoundingClientRect().toJSON();
+    const grids=[...root.querySelectorAll('[data-terra-grid]')].map(e=>({id:e.dataset.terraGrid,columns:getComputedStyle(e).gridTemplateColumns.trim().split(/\s+/).length,gap:parseFloat(getComputedStyle(e).columnGap),width:e.clientWidth,children:[...e.children].filter(x=>x.getClientRects().length).map(rect)}));
+    const cards=[...root.querySelectorAll('.terra-layout-surface')].filter(e=>e.getClientRects().length).map(e=>({id:e.dataset.testid,padding:parseFloat(getComputedStyle(e).paddingLeft),overflow:e.scrollWidth-e.clientWidth}));
+    const s=getComputedStyle(root);
+    return {grids,cards,contentWidth:root.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),overflow:root.scrollWidth-root.clientWidth};
+   });
+   assert.ok(g.overflow<=2,label+' page overflow');
+   assert.ok(g.cards.length>=5,label+' missing surfaces');
+   for(const card of g.cards){assert.equal(card.padding,gap,label+' inconsistent padding '+card.id);assert.ok(card.overflow<=2,label+' overflowing card '+card.id);}
+   for(const grid of g.grids){
+    assert.equal(grid.gap,gap,label+' grid gap');
+    const expected=mobile?4:g.contentWidth>=1040?12:g.contentWidth>=520?8:4;
+    assert.equal(grid.columns,expected,label+' columns '+grid.id);
+    if(grid.id==='workspace'&&expected===12){
+     assert.equal(grid.children.length,2,label+' workspace columns');
+     assert.ok(Math.abs(grid.children[0].top-grid.children[1].top)<=1,label+' workspace alignment');
+    }
+   }
+   const history=visible(budget.locator('[data-testid="budget-history-'+(mobile?'mobile':'desktop')+'"]'));
+   await noOverflow(history,label+' history');
+   for(const row of await history.locator('[data-history-row]').all()){
+    const box=await row.boundingBox();if(box)assert.ok(box.height>=48,label+' short history row');
+   }
+   await layout.evaluate(el=>el.scrollTop=0);
+   await capture(page,'budget-reaudit-main-'+theme+'-'+width);
+   await history.scrollIntoViewIfNeeded();
+   await capture(page,'budget-reaudit-history-'+theme+'-'+width);
+   console.log('PASS TERRA BUDGET GEOMETRY '+label);
+  }
+ }
+}
+
 async function overviewGeometryPilot(page,settingsRef){
  const overview=page.locator('[data-tab-panel="overview"]');
  const visibleInOverview=selector=>overview.locator(selector).filter({visible:true});
@@ -580,6 +624,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
    }
   }
   await overviewGeometryPilot(page,settingsRef);
+  await budgetGeometryPilot(page,settingsRef);
   assert.equal(await ledger(),before,'UI pilot changed transaction records');
  }finally{
   await page.emulateMedia({reducedMotion:'no-preference'});

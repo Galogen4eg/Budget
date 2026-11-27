@@ -142,10 +142,10 @@ test('budget metric cards simplify labels and hide derived money in privacy mode
  assert.doesNotMatch(mobile,/Рассчитан|shadow-xs/);
  assert.doesNotMatch(desktop,/Ориентир рассчитан|>факт<|truncate block|uppercase tracking-wider/);
  assert.ok(desktop.includes("safeDailyLimit <= 0 || settings.privacyMode ? ''"));
- assert.ok(desktop.includes('!settings.privacyMode && yesterdaySpent < safeDailyLimit'));
+ assert.ok(desktop.includes('!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit'));
  for(const section of [mobile,desktop]){
   assert.ok(section.includes('formatBudgetMoney(safeDailyLimit)'));
-  assert.ok(section.includes('motion-reduce:transition-none'));
+  assert.ok(section.includes('terra-progress'));
  }
 });
 

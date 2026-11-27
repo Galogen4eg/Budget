@@ -672,7 +672,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const member=members.find(m=>m.id===tx.memberId)?.name||'Участник';
     const isExpense=tx.type==='expense';
     return <button type="button" key={tx.id||idx} onClick={()=>onEditTransaction(tx)} aria-label={`Редактировать операцию: ${title}`}
-      data-overview-history-row className="terra-overview-history-row min-h-[56px] w-full text-left px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+      data-overview-history-row className="terra-overview-history-row min-h-[56px] w-full text-left px-1 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
       <BrandIcon name={title} brandKey={getMerchantBrandKey(title)} category={cat} size="sm" className="w-9 h-9 rounded-xl"/>
       <span className="min-w-0 flex flex-col gap-1">
         <span data-overview-history-title className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere] leading-snug">{title}</span>
@@ -686,7 +686,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   });
   const renderCategoryRows=()=>mobileCategories.slice(0,OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat,idx)=><button type="button" key={cat.id||idx} onClick={()=>onDrillDown(cat.id||'all')}
     aria-label={`Аналитика категории: ${cat.name}`} data-overview-category-row
-    className="min-h-[56px] w-full text-left px-1 py-2 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] space-y-1.5">
+    className="min-h-[56px] w-full text-left px-1 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] space-y-1.5">
     <span className="terra-overview-category-row">
       <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{backgroundColor:cat.bg,color:cat.color}} aria-hidden="true">{cat.icon}</span>
       <span data-overview-category-title className="text-sm font-medium text-[var(--terra-ink)] min-w-0 [overflow-wrap:anywhere]">{cat.name}</span>
@@ -854,7 +854,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
           {/* 3. Категории расходов Card */}
           <section data-testid="overview-categories-mobile" className={`${SURFACE_CARD} terra-overview-list-card space-y-2`}>
-            <div className="flex items-start justify-between gap-2">
+            <div className="terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
                   Категории расходов
@@ -867,7 +867,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <button
                   type="button"
                   onClick={() => onDrillDown('all')}
-                  className="min-h-[44px] flex items-center gap-0.5 text-xs font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-1 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                  className="min-h-[44px] flex items-center gap-0.5 text-sm font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-1 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                   title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                 >
                   <span>Аналитика</span>
@@ -1104,7 +1104,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </div>}
           </div>
 
-          <div className={DASHBOARD_CARD+' terra-overview-metric-card flex flex-col gap-3 justify-center'} data-testid="overview-daily-reserve-desktop">
+          <div className={DASHBOARD_CARD+' terra-overview-metric-card flex flex-col gap-3 justify-start'} data-testid="overview-daily-reserve-desktop">
             {isCurrentCalendarMonth&&<div data-testid="overview-daily-desktop">{dailySummary}</div>}
             <button type="button"
               onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}

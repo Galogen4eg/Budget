@@ -203,7 +203,9 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-overview-metric-card{padding:16px;}
 
 /* Overview: stable numeric column and a shared row structure at every width. */
-.terra-overview-history-row{display:grid;grid-template-columns:36px minmax(0,1fr) minmax(0,42%);gap:8px;align-items:start;min-width:0;}
-.terra-overview-category-row{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,42%);gap:8px;align-items:start;min-width:0;}
+.terra-overview-history-row{display:grid;grid-template-columns:36px minmax(0,1fr) minmax(0,clamp(88px,33%,144px));gap:8px;align-items:start;min-width:0;}
+.terra-overview-category-row{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,clamp(96px,38%,156px));gap:8px;align-items:start;min-width:0;}
 .terra-overview-category-grid{display:grid;grid-template-columns:minmax(0,1fr);}
 @container (min-width:1120px){.terra-overview-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;}.terra-overview-category-grid>button{border-top:0;border-bottom:1px solid var(--terra-border);}.terra-overview-category-grid>button:nth-last-child(-n+2){border-bottom:0;}}
+
+@media(max-width:359px){.terra-overview-category-header>div:first-child{flex-basis:100%;}.terra-overview-category-header>div:last-child{margin-left:auto;}}

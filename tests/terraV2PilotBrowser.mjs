@@ -63,13 +63,16 @@ async function overviewGeometryPilot(page,settingsRef){
     for(const box of boxes){
      assert.ok(Math.max(box.overflow,box.titleOverflow,box.amountOverflow)<=2,label+' '+kind+' overflow '+JSON.stringify(box));
      assert.ok(box.title.right<=box.amount.left+1,label+' '+kind+' text overlaps amount');
+     if(kind==='history')assert.ok(box.amount.width<=Math.max(88,box.row.width*.34)+1,label+' history amount column too wide');
      assert.ok(Math.abs((box.row.right-box.amount.right)-(first.row.right-first.amount.right))<=1,label+' '+kind+' amount right axis');
      assert.ok(Math.abs((box.title.left-box.row.left)-(first.title.left-first.row.left))<=1,label+' '+kind+' title left axis');
      if(kind==='history')assert.ok(Math.abs(box.secondary.left-box.title.left)<=1&&box.secondary.top>=box.title.bottom-1,label+' history author/date alignment');
      else assert.ok(Math.abs(box.secondary.right-box.amount.right)<=1&&box.secondary.top>=box.amount.bottom-1,label+' category percentage alignment');
     }
-    await rows.first().scrollIntoViewIfNeeded();
+    const card=overview.getByTestId((kind==='category'?'overview-categories':'overview-history')+(width<768?'-mobile':'-desktop'));
+    await card.scrollIntoViewIfNeeded();
     await capture(page,'overview-reaudit-'+kind+'-'+label);
+    await card.screenshot({path:out+'/overview-reaudit-card-'+kind+'-'+label+'.png',animations:'disabled'});
     await rows.last().scrollIntoViewIfNeeded();
     await capture(page,'overview-reaudit-'+kind+'-end-'+label);
    }

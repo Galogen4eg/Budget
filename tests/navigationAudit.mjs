@@ -300,7 +300,7 @@ async function checkButtons(){
  });
  await buttonScenario('OVR-report-to-budget',async()=>{
   await nav('overview','Обзор');action='open report via overview';
-  await button(panel('overview'),mobile()?/^К бюджету/:/^Подробный отчет/,false).click();
+  await button(panel('overview'),/^К бюджету/,false).click();
   await expectVisible(panel('budget'));check(await button(page.locator('nav'),'Бюджет').getAttribute('aria-current')==='page','Budget nav not selected');
  });
  if(!mobile())await buttonScenario('OVR-05-reserve-details',async()=>{

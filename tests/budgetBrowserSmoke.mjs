@@ -222,15 +222,28 @@ try{
       // The member chips are HISTORY filters. They must not reallocate
       // the shared family opening balance, paid bills or savings reserve.
       await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
-      const familyLimit=page.locator('[data-testid="family-daily-limit-desktop"]');
-      const currentMonthButton=page.getByRole('button',{name:'Текущий месяц',exact:true}).filter({visible:true});
-      if(await currentMonthButton.count())await currentMonthButton.click();
+      const budgetPanel=page.locator('[data-tab-panel="budget"]');
+      const budgetMetrics=budgetPanel.locator('.terra-budget-metrics');
+      const familyLimit=budgetPanel.getByTestId('family-daily-limit-desktop');
+      const currentMonthButton=budgetPanel.getByRole('button',{name:'Текущий месяц',exact:true}).filter({visible:true});
+      // Navigation can lazily mount this panel. Wait for its actual period
+      // state instead of counting a conditional button before mount.
+      await budgetMetrics.waitFor({state:'visible'});
+      const initialPeriod=await budgetMetrics.getAttribute('data-current-period');
+      assert.ok(['true','false'].includes(initialPeriod),'Budget period state missing');
+      if(initialPeriod==='false'){
+        await currentMonthButton.click();
+      }
+      await budgetPanel.locator('.terra-budget-metrics[data-current-period="true"]').waitFor({state:'visible'});
       await familyLimit.waitFor({state:'visible'});
-      await page.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+      await budgetPanel.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+      const archiveMetrics=budgetPanel.locator('.terra-budget-metrics[data-current-period="false"]');
+      await archiveMetrics.waitFor({state:'visible'});
       await familyLimit.waitFor({state:'hidden'});
-      const archiveMetrics=page.locator('.terra-budget-metrics[data-current-period="false"]');
       assert.equal(await archiveMetrics.locator(':scope > div').count(),1,'Archive must not contain duplicate KPI cards');
+      await page.screenshot({path:'artifacts/budget-browser/desktop-1920-budget-archive.png',animations:'disabled'});
       await currentMonthButton.click();
+      await budgetPanel.locator('.terra-budget-metrics[data-current-period="true"]').waitFor({state:'visible'});
       await familyLimit.waitFor({state:'visible'});
       const originalFamilyLimit=(await familyLimit.innerText()).trim();
       const memberRail=page.getByRole('group',{name:'Участник бюджета'}).filter({visible:true}).first();

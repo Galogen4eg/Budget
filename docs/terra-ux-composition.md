@@ -13,3 +13,6 @@ Mobile daily comparison is an internal group in the existing balance surface, no
 
 ## Visual acceptance follow-up
 On SHA 58b152962b390227dddaf0933bf452d12e006ba2 all six CI workflows passed; inspected actual populated workspace and browser artifacts. Archive budget now uses one monthly summary rather than two irrelevant daily/duplicate cards, with a direct return to the current month. Narrow shopping rows use available space before wrapping (44px controls unchanged); menu settings groups align side by side where space permits. Added browser archive assertions. Recheck exact SHA before release.
+
+## Full HD regression check
+On 8d3a5971fbd6e4dadbf7e63ef65f8f9a86190280 all checks except browser smoke passed. The smoke log at line 228 timed out waiting for current-day guidance after navigation. The test read a conditional current-month button before awaiting the budget panel; archive deliberately hides guidance. Wait for the mounted period marker, explicitly restore current month if archived, then verify archive and current period transitions and capture the archive screenshot. This is a test synchronization hypothesis, not a confirmed application regression. No financial or application code changed. Exact-head rerun required.

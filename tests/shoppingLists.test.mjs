@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createShoppingListTemplate, recentRepeatItems, mergePurchaseHistory, mergeCompletedPurchaseHistory } from '../utils/shoppingLists.ts';
+import { createShoppingListTemplate, recentRepeatItems, mergePurchaseHistory, mergeCompletedPurchaseHistory, filterShoppingItems, frequentFamilyPurchases } from '../utils/shoppingLists.ts';
 
 const items=[
  {id:'1',title:'Молоко',amount:'2',unit:'л',memberId:'a',priority:'medium',category:'dairy',completed:false},
@@ -78,4 +78,25 @@ test('legacy completions still deduplicate by item id and use observation time',
  assert.equal(next[0].purchaseEventId,'legacy');
  assert.equal(next[0].purchasedAt,500);
  assert.equal(mergeCompletedPurchaseHistory(next,[old],700),next);
+});
+
+test('frequent items count distinct real completions, not add/restore actions or duplicate history, and preserve last quantity/unit',()=>{
+ const milk={...items[0],completed:true};
+ const events=[{...milk,id:'a',completedAt:1,amount:'1'},{...milk,id:'a',completedAt:2,amount:'3'},{...milk,id:'b',completedAt:3,unit:'уп'},{...milk,id:'c',completedAt:4,unit:'уп'}];
+ const h=mergeCompletedPurchaseHistory([],events,5);
+ assert.deepEqual(frequentFamilyPurchases([]),[]);
+ assert.deepEqual(frequentFamilyPurchases([h[0]]),[]);
+ const ranked=frequentFamilyPurchases([...h,h[0]]);
+ assert.equal(ranked.length,2);
+ assert.equal(ranked.find(x=>x.unit==='л').amount,'3');
+ assert.equal(ranked.find(x=>x.unit==='л').purchaseCount,2);
+ assert.equal(ranked.find(x=>x.unit==='уп').purchaseCount,2);
+ assert.equal(frequentFamilyPurchases(h,1).length,1);
+});
+test('shopping search is trimmed, case-insensitive, and identical for active and completed rows',()=>{
+ const rows=[{...items[0],note:' Семейный чай '},{...items[1],note:'СЕМЕЙНЫЙ ЧАЙ'},{...items[1],id:'3',note:'другое'}];
+ assert.deepEqual(filterShoppingItems(rows,'  чай  ').map(x=>x.id),['1','2']);
+ assert.deepEqual(filterShoppingItems(rows,'  ').map(x=>x.id),['1','2','3']);
+ assert.deepEqual(filterShoppingItems(rows,'bakery').map(x=>x.id),['2','3']);
+ assert.deepEqual(filterShoppingItems(rows,'не найдено'),[]);
 });

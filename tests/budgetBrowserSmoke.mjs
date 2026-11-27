@@ -428,9 +428,10 @@ try{
       await page.waitForFunction(start=>document.querySelector('[data-testid="shopping-scroll-container"]').scrollTop>start+5,before);
       await cdp.detach();
       await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight;});
-      const bottom=scroll.getByRole('group',{name:'Частые покупки'});
+      const bottom=scroll.locator('[aria-label^="Редактировать товар: "], [aria-label^="Вернуть в список: "]').filter({visible:true}).last();
       const last=await bottom.boundingBox();
-      assert.ok(last&&last.y+last.height<=height-(width<768?50:0)+2,label+': last shopping controls obscured');
+      const scrollBounds=await scroll.boundingBox();
+      assert.ok(last&&scrollBounds&&last.height>=44&&last.y>=scrollBounds.y-2&&last.y+last.height<=Math.min(scrollBounds.y+scrollBounds.height,height-(width<768?50:0))+2,label+': last shopping controls obscured');
       await scroll.evaluate(el=>{el.scrollTop=0;});
     }
     const shoppingOverflow=await page.evaluate(()=>({

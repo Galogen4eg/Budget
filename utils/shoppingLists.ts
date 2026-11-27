@@ -72,3 +72,28 @@ export function mergeCompletedPurchaseHistory(
   const next = [...additions.reverse(), ...history].sort((a,b) => b.purchasedAt - a.purchasedAt).slice(0,60);
   return next.length === history.length && next.every((p,i) => p === history[i]) ? history : next;
 }
+
+/** Same search for active and purchased rows on both devices. */
+export function filterShoppingItems(items:readonly ShoppingItem[],query:string):ShoppingItem[]{
+ const q=query.trim().toLocaleLowerCase('ru-RU');
+ return items.filter(item=>!q||[item.title,item.note,item.category].some(value=>String(value||'').toLocaleLowerCase('ru-RU').includes(q)));
+}
+
+/** Counts actual, distinct completion events in the existing bounded family history. */
+export function frequentFamilyPurchases(history:readonly PurchasedProduct[],limit=8):Array<ListProduct&{purchaseCount:number}>{
+ const seen=new Set<string>();
+ const counts=new Map<string,ListProduct&{purchaseCount:number;purchasedAt:number}>();
+ for(const purchase of [...history].sort((a,b)=>b.purchasedAt-a.purchasedAt)){
+  const eventId=purchase.purchaseEventId||purchase.shoppingItemId;
+  if(!eventId||!purchase.title?.trim()||seen.has(eventId))continue;
+  seen.add(eventId);
+  const key=purchase.title.trim().toLocaleLowerCase('ru-RU')+'|'+(purchase.unit||'шт').trim().toLowerCase();
+  const prior=counts.get(key);
+  if(prior){prior.purchaseCount++;continue;}
+  counts.set(key,{title:purchase.title,amount:purchase.amount,unit:purchase.unit,category:purchase.category,priority:purchase.priority,
+   ...(purchase.estimatedPrice!==undefined?{estimatedPrice:purchase.estimatedPrice}:{}),purchaseCount:1,purchasedAt:purchase.purchasedAt});
+ }
+ return [...counts.values()].filter(item=>item.purchaseCount>=2)
+  .sort((a,b)=>b.purchaseCount-a.purchaseCount||b.purchasedAt-a.purchasedAt||a.title.localeCompare(b.title,'ru-RU'))
+  .slice(0,Math.max(0,limit)).map(({purchasedAt,...product})=>product);
+}

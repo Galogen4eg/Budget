@@ -472,6 +472,33 @@ await scenario('SHP Terra filtered clear, template preview and pantry transfer',
  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),ledgerBefore,'Shopping changed the financial ledger');
  console.log('PASS TERRA shopping filtered clear, exact pantry transfer, other account inventory, template preview and unchanged ledger');
 });
+await scenario('SHP shared frequent history and note search',async()=>{
+ const shopping=family.collection('shopping');
+ const ids=['terra-real-frequency-1','terra-real-frequency-2','terra-note-active'];
+ const name='QA повторный продукт',note='QA уникальная заметка';
+ const baseline=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+ try{
+  await Promise.all(ids.map((id,i)=>shopping.doc(id).set({id,title:i===2?'QA активный товар':name,note,amount:'1',unit:'шт',category:'other',priority:'medium',memberId:i===1?'b':'a',completed:i!==2,...(i!==2?{completedAt:Date.now()+i}:{})})));
+  for(const page of [a,b]){
+   await nav(page,'shopping','Покупки');
+   const p=panel(page,'shopping'),search=p.getByRole('textbox',{name:'Поиск по товарам в семейном списке'});
+   phase='note filter '+page.viewportSize().width;
+   await search.fill('  QA УНИКАЛЬНАЯ ЗАМЕТКА  ');
+   await btn(p,'Редактировать товар: QA активный товар').waitFor({state:'visible',timeout:20000});
+   await btn(p,'Вернуть в список: '+name).first().waitFor({state:'visible'});
+   await btn(p,'Очистить поиск товаров').click();assert.equal(await search.inputValue(),'');
+   phase='actual shared purchase frequency '+page.viewportSize().width;
+   const repeat=btn(p,'Повторить покупки');
+   if(await repeat.getAttribute('aria-expanded')!=='true')await repeat.click();
+   const frequent=p.getByTestId('family-frequent-purchases');
+   const item=btn(frequent,'Повторить частую покупку: '+name+' шт');
+   await item.waitFor({state:'visible',timeout:20000});
+   assert.equal(await item.getByTestId('frequency-count').innerText(),'2×');
+   await repeat.click();
+  }
+  assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),baseline);
+ }finally{await Promise.all(ids.map(id=>shopping.doc(id).delete()));}
+});
 await scenario('CHAT message and other-account heart reaction',async()=>{
  await nav(b,'chat','Чат');await nav(a,'chat','Чат');
  const p=panel(b,'chat'),q=panel(a,'chat');

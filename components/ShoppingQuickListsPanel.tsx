@@ -10,7 +10,7 @@ import PantryInventory from './PantryInventory';
 import { unseenPurchaseCompletions } from '../utils/familyWorkspace';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
 import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../utils/shoppingManager';
-import { recentRepeatItems, type ListProduct, type SavedShoppingList, type PurchasedProduct } from '../utils/shoppingLists';
+import { recentRepeatItems, frequentFamilyPurchases, type ListProduct, type SavedShoppingList, type PurchasedProduct } from '../utils/shoppingLists';
 import {
   subscribeShoppingListLibrary, saveFamilyShoppingTemplate,
   deleteFamilyShoppingTemplate, recordFamilyPurchases
@@ -56,6 +56,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
   const toggleSection=(next:'templates'|'history'|'pantry')=>{setSection(previous=>previous===next?null:next);setPreviewId(null);};
   const captured = useRef(new Set<string>());
   const recent = useMemo(() => recentRepeatItems(history, 20), [history]);
+  const frequent=useMemo(()=>frequentFamilyPurchases(history),[history]);
   const lastPurchasedAt = useMemo(() => {
     const latest = new Map<string, number>();
     for (const purchase of history) {
@@ -194,8 +195,18 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
 
       {section === 'history' && (
         <div id="shopping-repeat-options" className="pt-3 space-y-3 min-w-0" aria-label="История покупок">
+          {libraryFamily===familyId&&!libraryError&&<section aria-label="Частые покупки" data-testid="family-frequent-purchases" className="space-y-2 border-b border-[var(--terra-border)] pb-3">
+            <h3 className="text-sm font-semibold">Частые покупки</h3>
+            {frequent.length?<><p className="text-xs text-[var(--terra-muted)]">По последним {history.length} покупкам семьи</p>
+              <div className="flex flex-wrap gap-2">{frequent.map(({purchaseCount,...product})=><button type="button" key={product.title.toLocaleLowerCase('ru-RU')+'|'+product.unit} disabled={saving}
+                aria-label={'Повторить частую покупку: '+product.title+' '+product.unit} onClick={()=>void addProducts([product])}
+                className={TOOLBAR_ACTION_IDLE+" min-h-[44px] min-w-0 max-w-full flex items-center gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm text-left focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"}>
+                <span className="min-w-0 [overflow-wrap:anywhere]">{product.title} · {product.amount} {product.unit}</span>
+                <span data-testid="frequency-count" className="shrink-0 text-xs tabular-nums text-[var(--terra-muted)]">{purchaseCount}×</span><Plus size={14} className="shrink-0" aria-hidden="true"/>
+              </button>)}</div></>:<p className="text-sm text-[var(--terra-muted)]">Повторных покупок пока нет.</p>}
+          </section>}
           <div className="flex justify-between gap-2 items-center flex-wrap">
-            <p className="text-xs text-[var(--terra-muted)]">Недавние покупки</p>
+            <p className="text-sm font-semibold">Недавние покупки</p>
             <button type="button" disabled={saving || recent.length===0}
               onClick={() => void addProducts(recent)}
               className="min-h-[44px] px-3 py-2 bg-[var(--terra-primary-solid)] text-white rounded-xl text-xs font-semibold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">

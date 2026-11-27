@@ -20,8 +20,8 @@ test('calendar participant filters are accessible 44px targets',()=>{
  assert.match(chipTokens,/shrink-0/);
 });
 test('shopping checkbox and steppers have 44px targets and labelled amounts',()=>{
- assert.match(shopping,/aria-label="Уменьшить количество"/);
- assert.match(shopping,/aria-label="Увеличить количество"/);
+ assert.match(shopping,/aria-label=\{\x60Уменьшить количество: \$\{item.title\}\x60\}/);
+ assert.match(shopping,/aria-label=\{\x60Увеличить количество: \$\{item.title\}\x60\}/);
  assert.match(shopping,/min-w-\[44px\] min-h-\[44px\]/);
 });
 test('budget month select and day-details controls are touch sized',()=>{

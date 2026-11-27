@@ -5,11 +5,12 @@ import {
   Plus, Trash2, Check, X, ScanLine, ShoppingBag, 
   Loader2, Edit2, ChevronLeft, Mic, BrainCircuit, 
   ArrowRight, Send, Sparkles, ChevronDown, ChevronUp,
-  Star, Zap, QrCode, User, PlusCircle, RotateCcw,
+  Zap, QrCode, User, PlusCircle, RotateCcw,
   Search, CheckCircle2
 } from 'lucide-react';
 import TerraMobileHeader from './TerraMobileHeader';
-import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
+import { SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
+import {filterShoppingItems} from '../utils/shoppingLists';
 import { ShoppingItem, AppSettings, FamilyMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { shoppingQuantityStep, parseShoppingQuantity } from '../utils/shoppingAmount';
@@ -22,11 +23,7 @@ import {
   createShoppingItemsFromQuickText 
 } from '../utils/quickShoppingParser';
 import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges } from '../utils/shoppingManager';
-import { 
-  recordPurchaseEvent, 
-  getTopFrequentPurchases,
-  FrequentItemStat
-} from '../utils/frequentPurchases';
+import { recordPurchaseEvent } from '../utils/frequentPurchases';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
 import { captureCompletedSelection, resolveCompletedDeletion } from '../utils/shoppingClearSelection';
@@ -110,20 +107,11 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
   useEffect(()=>setClearSelection(null),[searchQuery]);
   const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
-  // Frequent items state
-  const [frequentStaples, setFrequentStaples] = useState<(FrequentItemStat & { totalScore: number; frequencyLabel: string })[]>([]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const modalTitleInputRef = useRef<HTMLInputElement>(null);
 
   const apiKey = settings.geminiApiKey || process.env.API_KEY;
-
-  // Refresh frequent staples
-  useEffect(() => {
-    const top = getTopFrequentPurchases(8);
-    setFrequentStaples(top);
-  }, [items]);
 
   // Focus modal input when modal opens or after adding
   useEffect(() => {
@@ -135,19 +123,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     }
   }, [isAddModalOpen]);
 
-  // Filter items by Search Query only
-  const filteredItems = useMemo(() => {
-    let result = items;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(i => 
-        i.title.toLowerCase().includes(q) ||
-        (i.note && i.note.toLowerCase().includes(q)) ||
-        (i.category && i.category.toLowerCase().includes(q))
-      );
-    }
-    return result;
-  }, [items, searchQuery]);
+  // Common family list; search is the same on both devices.
+  const filteredItems=useMemo(()=>filterShoppingItems(items,searchQuery),[items,searchQuery]);
 
   // Active vs Completed
   const activeItems = useMemo(() => filteredItems.filter(i => !i.completed), [filteredItems]);
@@ -397,35 +374,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     }
   };
 
-  const handleAddFrequentPreset = async (stat: FrequentItemStat | string) => {
-    const title = typeof stat === 'string' ? stat : stat.title;
-    const amount = typeof stat === 'string' ? '1' : (stat.amount || '1');
-    const unit = typeof stat === 'string' ? 'шт' : (stat.unit || 'шт');
-    const category = typeof stat === 'string' ? detectProductCategory(title) : (stat.category || 'other');
-    const targetMemberId = getShoppingMember();
-      if (!targetMemberId) return;
-
-    const {
-        purchaseEvents,
-      itemsToUpdateInDb,
-      itemsToAddInDb
-    } = mergeOrRestoreShoppingItems(items, [{
-      title,
-      amount,
-      unit: unit as any,
-      category,
-      priority: 'medium',
-      memberId: targetMemberId
-    }], targetMemberId);
-
-    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
-    try {
-      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
-      recordCommittedShoppingEvents(purchaseEvents);
-      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
-    } catch (error) { toast.error('Не удалось добавить покупку'); }
-  };
-
   // Voice Input with Gemini or fallback
   const startListening = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -509,7 +457,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     r.start();
   };
 
-  const defaultSuggestions = ['Молоко 3.2%', 'Хлеб', 'Яйца С0', 'Сыр твёрдый', 'Вода 5 л', 'Бананы'];
+
 
   return (
     <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-4 md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
@@ -621,7 +569,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               onChange={e => setQuickAddText(e.target.value)}
               placeholder="Например, молоко 1 л"
               aria-label="Быстрое добавление товаров"
-              className="min-h-[44px] flex-1 bg-transparent text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
+              className="min-h-[44px] flex-1 bg-transparent text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[var(--terra-muted)] focus:outline-none min-w-0"
             />
             <button type="button" onClick={startListening} aria-label="Голосовой ввод товара" className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press"><Mic size={17}/></button>
             <button 
@@ -657,7 +605,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск товаров"
             aria-label="Поиск по товарам в семейном списке"
-            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[var(--terra-muted)] border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
           />
           {searchQuery && (
             <button 
@@ -777,36 +725,6 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
             )}
           </section>
         )}
-
-        {/* 6. Frequent Purchases Section ("Частые покупки") */}
-        <section className="space-y-2 pt-1">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5">
-              <Star size={14} className="text-[var(--terra-muted)] dark:text-stone-400 fill-stone-300 dark:fill-stone-600" />
-              <h3 className="font-bold text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white">
-                Частые покупки
-              </h3>
-            </div>
-
-          </div>
-
-          <div role="group" aria-label="Частые покупки" className={`${FILTER_RAIL} -mx-4 px-4`}>
-            {(frequentStaples.length > 0 ? frequentStaples : defaultSuggestions).map((item, idx) => {
-              const label = typeof item === 'string' ? item : item.title;
-              return (
-                <button 
-                  key={`staple-${label}-${idx}`}
-                  type="button"
-                  onClick={() => handleAddFrequentPreset(item as any)}
-                  className={`${FILTER_CHIP} ${FILTER_CHIP_IDLE} cursor-pointer`}
-                >
-                  <span>{label}</span>
-                  <span className="text-[var(--terra-primary)] dark:text-emerald-400 font-bold">+</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
 
       </div>
 
@@ -1085,7 +1003,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, -1);
             }}
-            aria-label="Уменьшить количество" title={`Уменьшить количество: ${item.title}`}
+            aria-label={`Уменьшить количество: ${item.title}`} title={`Уменьшить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             -
@@ -1099,7 +1017,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               e.stopPropagation();
               onAdjustAmount(item, 1);
             }}
-            aria-label="Увеличить количество" title={`Увеличить количество: ${item.title}`}
+            aria-label={`Увеличить количество: ${item.title}`} title={`Увеличить количество: ${item.title}`}
             className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             +

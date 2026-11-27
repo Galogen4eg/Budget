@@ -22,7 +22,7 @@ test('iteration 76: desktop and mobile use the targeted reconciliation for all b
   const src=read(path);
   assert.doesNotMatch(src,/setItems\(updatedList\)/);
   const matches=src.match(/setItems\(prev => applyCommittedShoppingChanges\(prev, itemsToUpdateInDb, itemsToAddInDb\)\)/g)||[];
-  assert.equal(matches.length,4,path);
+  assert.equal(matches.length,3,path); // Frequent repeats now use the shared library's existing Firestore listener.
   assert.match(src,/await saveShoppingMerge\(familyId, itemsToUpdateInDb, itemsToAddInDb\)/);
  }
 });

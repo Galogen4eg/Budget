@@ -50,7 +50,7 @@ export default function GrokSettingsSection(){
    <a className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[var(--terra-primary-text)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg" href="https://console.x.ai/" target="_blank" rel="noopener noreferrer">Получить API-ключ</a>
   </div>
   <p className="text-sm text-[var(--terra-muted)]">Личные ключи. Для ассистента используется один проверенный ключ; остальные служат резервными при отзыве доступа.</p>
-  <p className="text-sm text-[var(--terra-muted)]">При включении Grok текст диалога, категории, финансовая сводка и до 15 операций выбранного режима могут отправляться в xAI. В режиме приватности сводка и операции не передаются. Проверка и запросы могут расходовать платную квоту.</p>
+  <p className="text-sm text-[var(--terra-muted)]">При включении Grok текст диалога, категории, финансовая сводка и до 15 операций выбранного режима могут отправляться в xAI. В режиме приватности не передаются сводка, операции и предыдущие сообщения. Текущий запрос всё равно отправляется в xAI. Проверка и запросы могут расходовать платную квоту.</p>
   <div role="status" data-testid="grok-config-status" className="text-sm text-[var(--terra-ink)]">
    {unavailable?'Войдите в аккаунт для настройки Grok':busy&&!status?'Загрузка…':status?(status.enabled?(status.activeId?'Grok подключён · '+status.model:'Нет рабочего ключа'):'Grok отключён'):'Настройки не подтверждены'}
   </div>

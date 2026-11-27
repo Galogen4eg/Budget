@@ -129,7 +129,7 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
 
         {/* Chart - Expanded Height */}
         <div className="flex-1 w-full relative z-10 -ml-1 min-h-[120px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {settings.privacyMode?<p role="status" className="text-sm text-[var(--terra-muted)] p-3">График скрыт в режиме приватности</p>:<ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="colorNormal" x1="0" y1="0" x2="0" y2="1">
@@ -184,7 +184,7 @@ const MonthlyAnalyticsWidget: React.FC<MonthlyAnalyticsWidgetProps> = ({ transac
                         ))}
                     </Bar>
                 </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer>}
         </div>
     </div>
   );

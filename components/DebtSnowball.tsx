@@ -16,6 +16,7 @@ import { resolveDebtOwnerForSave } from '../utils/debtOwner';
 import { generateUniqueId, updateItem, deleteItem } from '../utils/db';
 import { parseDebtAmount, parseDebtAmounts } from '../utils/debtEdit';
 import { estimateDebtPayoff } from '../utils/debtPayoffEstimate';
+import {privateAmount,privatePercentage} from '../utils/financialPrivacy';
 import { SURFACE_CARD, PAGE_HEADING, TOOLBAR_ACTION, TOOLBAR_ACTION_PRIMARY, ICON_ACTION } from './filterUiTokens';
 import { 
   findLinkedExpenseForDebt, 
@@ -46,6 +47,8 @@ const DebtSnowball: React.FC<Props> = ({
   transactions = [], 
   onClose 
 }) => {
+  const money=(value:number)=>privateAmount(value,Boolean(settings.privacyMode),formatCurrencyWithKopecks);
+  const ratio=(value:number)=>privatePercentage(value,Boolean(settings.privacyMode));
   const [showNotifySettings, setShowNotifySettings] = useState<Debt | null>(null);
   const [showDebtStats, setShowDebtStats] = useState<ExtendedDebt | null>(null);
   const [showEarlyRepaymentCalc, setShowEarlyRepaymentCalc] = useState<boolean>(false);
@@ -520,7 +523,7 @@ const DebtSnowball: React.FC<Props> = ({
               <span className="text-xs font-semibold text-[var(--terra-muted)]">Всего</span>
             </div>
             <div className="text-2xl sm:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
-              {formatCurrencyWithKopecks(totalRemaining)}
+              {money(totalRemaining)}
             </div>
           </div>
 
@@ -528,15 +531,15 @@ const DebtSnowball: React.FC<Props> = ({
             <div className="w-full bg-stone-100 dark:bg-stone-800 rounded-full h-2.5 overflow-hidden">
               <div 
                 className="bg-[#4a7c59] dark:bg-emerald-500 h-2.5 rounded-full transition-all duration-700" 
-                style={{ width: `${overallProgress}%` }}
+                style={{ width: `${ratio(overallProgress)}%`, transition:settings.privacyMode?"none":undefined }}
               />
             </div>
             <div className="flex justify-between items-center text-xs text-stone-500 dark:text-stone-400">
               <span className="text-[11px] truncate mr-1">
-                Выплачено {formatCurrencyWithKopecks(totalPaid)} из {formatCurrencyWithKopecks(totalOriginal)}
+                Выплачено {money(totalPaid)} из {money(totalOriginal)}
               </span>
               <span className="font-bold text-[#4a7c59] dark:text-emerald-400 shrink-0">
-                {overallProgress}%
+                {settings.privacyMode?'•••':overallProgress+'%'}
               </span>
             </div>
           </div>
@@ -554,7 +557,7 @@ const DebtSnowball: React.FC<Props> = ({
                 </span>
               </div>
               <div className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
-                {nextUpcomingDebt?formatCurrencyWithKopecks(nextUpcomingDebt.monthlyPayment||0):'—'}
+                {nextUpcomingDebt?money(nextUpcomingDebt.monthlyPayment||0):'—'}
               </div>
               <div className="text-xs text-[var(--terra-muted)] font-medium mt-1 break-words">
                 {nextUpcomingDebt?nextUpcomingDebt.name+' · '+formatDate(nextUpcomingDebt.dueDate):'Нет неоплаченных платежей с датой'}
@@ -578,7 +581,7 @@ const DebtSnowball: React.FC<Props> = ({
                 </span>
               </div>
               <div className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
-                {formatCurrencyWithKopecks(monthlyDebtLoad)}
+                {money(monthlyDebtLoad)}
               </div>
               <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 mt-1 truncate">
                 Обязательств: {debts.length}
@@ -767,11 +770,11 @@ const DebtSnowball: React.FC<Props> = ({
                       <div className="flex justify-between items-baseline mb-1">
                         <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">ВЗНОС</span>
                         <div className="text-xs font-medium text-stone-600 dark:text-stone-300">
-                          Остаток: <span className="font-bold text-stone-900 dark:text-white ml-0.5 tracking-tight">{formatCurrencyWithKopecks(debt.currentBalance ?? debt.totalAmount)}</span>
+                          Остаток: <span className="font-bold text-stone-900 dark:text-white ml-0.5 tracking-tight">{money(debt.currentBalance ?? debt.totalAmount)}</span>
                         </div>
                       </div>
                       <div className="text-2xl font-black text-stone-900 dark:text-white tracking-tight">
-                        {formatCurrencyWithKopecks(debt.monthlyPayment || 0)}
+                        {money(debt.monthlyPayment || 0)}
                       </div>
                     </section>
 
@@ -790,12 +793,12 @@ const DebtSnowball: React.FC<Props> = ({
                           <AlertTriangle className="w-4 h-4 shrink-0 text-[#d9534f]" />
                         )}
                         <span className="truncate">
-                          {paymentStatus.displayStatusText}
+                          {settings.privacyMode?(paymentStatus.isPaid?'Оплачено':paymentStatus.status==='partially_paid'?'Частичная оплата':'Ожидает оплаты'):paymentStatus.displayStatusText}
                         </span>
                       </div>
                       {isPaidThisMonth && paymentStatus.paidAmount > 0 && (
                         <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
-                          {formatCurrencyWithKopecks(paymentStatus.paidAmount)}
+                          {money(paymentStatus.paidAmount)}
                         </span>
                       )}
                     </div>
@@ -804,7 +807,7 @@ const DebtSnowball: React.FC<Props> = ({
                     <section className="pt-0.5">
                       <div className="flex justify-between items-center text-xs font-bold mb-1.5">
                         <span className="text-stone-500 dark:text-stone-400 uppercase text-[11px] tracking-wider">ПРОГРЕСС ПОГАШЕНИЯ</span>
-                        <span className="text-[#4a7c59] dark:text-emerald-400 font-extrabold text-xs">{progress}.0%</span>
+                        <span className="text-[#4a7c59] dark:text-emerald-400 font-extrabold text-xs">{settings.privacyMode?'•••':progress+'.0%'}</span>
                       </div>
                       <div className="w-full bg-stone-200/80 dark:bg-stone-800 h-2.5 rounded-full overflow-hidden p-0.5 flex items-center">
                         <div 
@@ -815,12 +818,12 @@ const DebtSnowball: React.FC<Props> = ({
                                 ? 'bg-[#d9534f]' 
                                 : 'bg-[#4a7c59] dark:bg-emerald-500'
                           }`} 
-                          style={{ width: `${progress}%`, minWidth: progress > 0 ? 8 : 0 }} 
+                          style={{ width: `${ratio(progress)}%`, minWidth: !settings.privacyMode&&progress>0 ? 8 : 0, transition:settings.privacyMode?"none":undefined }} 
                         />
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-stone-500 dark:text-stone-400 font-medium mt-1.5 px-0.5">
-                        <span>Выплачено: {formatCurrencyWithKopecks(paidAmt)}</span>
-                        <span>Всего: {formatCurrencyWithKopecks(debt.totalAmount)}</span>
+                        <span>Выплачено: {money(paidAmt)}</span>
+                        <span>Всего: {money(debt.totalAmount)}</span>
                       </div>
                     </section>
 
@@ -874,7 +877,7 @@ const DebtSnowball: React.FC<Props> = ({
           <div className="divide-y divide-[var(--terra-border)]">{unpaidDebtsWithDates.map(d=><div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
             <div className="min-w-0 flex-1"><div className="font-semibold text-sm [overflow-wrap:anywhere]">{d.name}</div>
             <div className="text-xs text-[var(--terra-muted)]">{formatDate(d.dueDate)}</div></div>
-            <span className="font-semibold tabular-nums text-sm">{formatCurrencyWithKopecks(d.monthlyPayment||0)}</span>
+            <span className="font-semibold tabular-nums text-sm">{money(d.monthlyPayment||0)}</span>
           </div>)}</div>}
       </section>
       <section className={SURFACE_CARD+' flex flex-wrap items-center justify-between gap-3'}>
@@ -1117,7 +1120,7 @@ const DebtSnowball: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="text-xs text-stone-600 dark:text-stone-300 font-medium">
-                      Безопасный лимит: <b>{safeMonthlyBudget.toLocaleString('ru-RU')} ₽</b>
+                      Безопасный лимит: <b>{money(safeMonthlyBudget)}</b>
                     </div>
                   </div>
                   
@@ -1133,7 +1136,7 @@ const DebtSnowball: React.FC<Props> = ({
                 </div>
               )}
 
-              {mode === 'auto' && scheduleData.length > 0 && (
+              {!settings.privacyMode && mode === 'auto' && scheduleData.length > 0 && (
                 <div className="bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] rounded-2xl p-4 border border-stone-200 dark:border-white/10 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1195,7 +1198,7 @@ const DebtSnowball: React.FC<Props> = ({
                   <option value="">-- Без привязки к обязательному платежу --</option>
                   {(settings.mandatoryExpenses || []).map(exp => (
                     <option key={exp.id} value={exp.id} disabled={Boolean(exp.linkedDebtId&&exp.linkedDebtId!==editingDebt.id)}>
-                      {exp.name} ({exp.amount.toLocaleString('ru-RU')} ₽, день {exp.day}-й)
+                      {exp.name} ({money(exp.amount)}, день {exp.day}-й)
                     </option>
                   ))}
                 </select>
@@ -1274,7 +1277,7 @@ const DebtSnowball: React.FC<Props> = ({
                         {showDebtStats.name}
                       </h2>
                       <span className="text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full bg-[#c8e8d0]/60 dark:bg-emerald-950/50 text-[#2a6038] dark:text-emerald-300 border border-[#4a7c59]/20 shrink-0">
-                        {timeframeRange}
+                        {settings.privacyMode?'•••':timeframeRange}
                       </span>
                     </div>
                     <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400 pl-10 sm:pl-13">
@@ -1302,7 +1305,7 @@ const DebtSnowball: React.FC<Props> = ({
                         Выплачено
                       </span>
                       <div className="text-2xl font-display font-bold text-[#4a7c59] dark:text-emerald-400 tracking-tight">
-                        {formatCurrencyWithKopecks(paid)}
+                        {money(paid)}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] font-medium text-stone-500 dark:text-stone-400">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] dark:bg-emerald-400" />
@@ -1322,12 +1325,12 @@ const DebtSnowball: React.FC<Props> = ({
                           stroke="#4a7c59" 
                           strokeWidth="4.5" 
                           strokeDasharray="125.66" 
-                          strokeDashoffset={125.66 * (1 - progressPercent / 100)} 
+                          strokeDashoffset={125.66 * (1 - ratio(progressPercent) / 100)} 
                           strokeLinecap="round" 
                         />
                       </svg>
                       <span className="absolute font-sans font-bold text-xs text-[#4a7c59] dark:text-emerald-400">
-                        {progressPercent.toFixed(1)}%
+                        {settings.privacyMode?'•••':progressPercent.toFixed(1)+'%'}
                       </span>
                     </div>
                   </div>
@@ -1339,22 +1342,22 @@ const DebtSnowball: React.FC<Props> = ({
                         Остаток долга
                       </span>
                       <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300 px-2 py-0.5 rounded-md bg-stone-200/70 dark:bg-stone-800">
-                        {targetMonthYear}
+                        {settings.privacyMode?'•••':targetMonthYear}
                       </span>
                     </div>
                     <div className="mt-2">
                       <div className="text-2xl font-display font-bold text-stone-900 dark:text-white tracking-tight">
-                        {formatCurrencyWithKopecks(currentBal)}
+                        {money(currentBal)}
                       </div>
                       <div className="w-full bg-stone-200/80 dark:bg-stone-700 h-1.5 rounded-full mt-2.5 overflow-hidden">
                         <div 
                           className="bg-[#4a7c59] dark:bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                          style={{ width: `${Math.min(100, (currentBal / total) * 100)}%` }} 
+                          style={{ width: `${ratio(Math.min(100, (currentBal / total) * 100))}%`, transition:settings.privacyMode?"none":undefined }} 
                         />
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-stone-500 dark:text-stone-400 mt-1.5">
                         <span>Текущий баланс</span>
-                        <span className="font-semibold text-stone-800 dark:text-stone-200">{remainingMonths} мес. осталось</span>
+                        <span className="font-semibold text-stone-800 dark:text-stone-200">{settings.privacyMode?'Срок скрыт':remainingMonths+' мес. осталось'}</span>
                       </div>
                     </div>
                   </div>
@@ -1371,7 +1374,7 @@ const DebtSnowball: React.FC<Props> = ({
                     </div>
                     <div className="mt-2">
                       <div className="text-2xl font-display font-bold text-stone-900 dark:text-white tracking-tight">
-                        {formatCurrencyWithKopecks(showDebtStats.monthlyPayment || 0)}
+                        {money(showDebtStats.monthlyPayment || 0)}
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-stone-500 dark:text-stone-400 mt-2.5">
                         <span>{showDebtStats.strategy === 'auto' ? 'Расчёт взноса' : 'Плановый взнос'}</span>
@@ -1390,10 +1393,10 @@ const DebtSnowball: React.FC<Props> = ({
                       <CheckCircle2 className="w-4 h-4 text-[#4a7c59] dark:text-emerald-400" />
                     </div>
                     <div className="text-lg font-display font-bold text-[#4a7c59] dark:text-emerald-400 tracking-tight">
-                      {formatCurrencyWithKopecks(paid)}
+                      {money(paid)}
                     </div>
                     <div className="mt-2 w-full bg-stone-200 dark:bg-stone-700 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-[#4a7c59] dark:bg-emerald-500 h-full rounded-full" style={{ width: `${progressPercent}%` }} />
+                      <div className="bg-[#4a7c59] dark:bg-emerald-500 h-full rounded-full" style={{ width: `${ratio(progressPercent)}%` }} />
                     </div>
                   </div>
 
@@ -1404,10 +1407,10 @@ const DebtSnowball: React.FC<Props> = ({
                       <Hourglass className="w-4 h-4 text-rose-500" />
                     </div>
                     <div className="text-lg font-display font-bold text-rose-600 dark:text-rose-400 tracking-tight">
-                      {formatCurrencyWithKopecks(currentBal)}
+                      {money(currentBal)}
                     </div>
                     <div className="mt-2 w-full bg-stone-200 dark:bg-stone-700 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min(100, (currentBal / total) * 100)}%` }} />
+                      <div className="bg-rose-500 h-full rounded-full" style={{ width: `${ratio(Math.min(100, (currentBal / total) * 100))}%`, transition:settings.privacyMode?"none":undefined }} />
                     </div>
                   </div>
                 </div>
@@ -1502,7 +1505,7 @@ const DebtSnowball: React.FC<Props> = ({
 
                           <div className="text-right shrink-0">
                             <span className="text-xs sm:text-sm font-bold font-display text-stone-900 dark:text-white tracking-tight">
-                              {formatCurrencyWithKopecks(item.amount)}
+                              {money(item.amount)}
                             </span>
                             {item.isPaid && (
                               <div className="text-[10px] font-bold text-[#4a7c59] dark:text-emerald-400">
@@ -1524,7 +1527,7 @@ const DebtSnowball: React.FC<Props> = ({
                       Плановая дата закрытия:
                     </span>
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-[#2a6038] dark:text-emerald-300 bg-[#c8e8d0]/60 dark:bg-emerald-950/50 border border-[#4a7c59]/20">
-                      {targetClosingDateFormatted}
+                      {settings.privacyMode?'•••':targetClosingDateFormatted}
                     </span>
                   </div>
 
@@ -1601,16 +1604,17 @@ const DebtSnowball: React.FC<Props> = ({
         <section role="dialog" aria-modal="true" aria-labelledby="debt-payoff-title" className={SURFACE_CARD+' w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4'}>
           <div className="flex items-center justify-between gap-2"><h2 id="debt-payoff-title" className="text-lg font-semibold">Досрочное погашение</h2>
           <button type="button" aria-label="Закрыть калькулятор" onClick={()=>setShowEarlyRepaymentCalc(false)} className={ICON_ACTION}><X size={20}/></button></div>
+          {settings.privacyMode?<p role="status" className="text-sm text-[var(--terra-muted)]">Расчёт скрыт в режиме приватности. Чтобы увидеть значения, отключите скрытие сумм в настройках.</p>:<>
           <label className="block text-sm">Долг<select value={payoffDebt?.id||''} onChange={e=>setPayoffDebtId(e.target.value)} className="mt-1 w-full min-h-[44px] rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] px-3">
           {payoffOptions.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-          <label className="block text-sm">Дополнительный взнос в месяц: <strong>{formatCurrencyWithKopecks(extraPaymentAmount)}</strong>
+          <label className="block text-sm">Дополнительный взнос в месяц: <strong>{money(extraPaymentAmount)}</strong>
             <input type="range" min="0" max="50000" step="1000" value={extraPaymentAmount} onChange={e=>setExtraPaymentAmount(Number(e.target.value))} className="w-full min-h-[44px] accent-[var(--terra-primary-solid)]"/>
           </label>
           {payoff?<dl className="grid grid-cols-2 gap-3 text-sm" data-testid="debt-payoff-result">
             <div className="rounded-xl bg-[var(--terra-soft)] p-3"><dt className="text-[var(--terra-muted)]">Текущий взнос</dt><dd className="text-xl font-semibold tabular-nums">{payoff.baselineMonths} мес.</dd></div>
             <div className="rounded-xl bg-[var(--terra-primary-soft)] p-3"><dt className="text-[var(--terra-muted)]">С доплатой</dt><dd className="text-xl font-semibold tabular-nums">{payoff.withExtraMonths} мес.</dd></div>
           </dl>:<p role="status" className="text-sm text-[var(--terra-muted)]">Для оценки нужен положительный ежемесячный взнос и остаток долга.</p>}
-          <p className="text-xs text-[var(--terra-muted)]">Оценка без новых процентов и комиссий. Это не банковский график. Экономия процентов не рассчитывается, данные бюджета не меняются.</p>
+          <p className="text-xs text-[var(--terra-muted)]">Оценка без новых процентов и комиссий. Это не банковский график. Экономия процентов не рассчитывается, данные бюджета не меняются.</p></>}
           <button type="button" onClick={()=>setShowEarlyRepaymentCalc(false)} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_PRIMARY+' w-full'}>Понятно</button>
         </section>
       </div>}

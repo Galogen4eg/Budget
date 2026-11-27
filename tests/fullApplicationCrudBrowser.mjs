@@ -531,8 +531,20 @@ await scenario('SET-02 personal theme persistence and isolation',async()=>{
  await btn(d,'Закрыть настройки').click();
  phase='reload dark theme';await reset(b);await b.waitForFunction(()=>document.documentElement.classList.contains('dark'));
  phase='restore light theme';await btn(b,'Настройки').click();await btn(d,/^Оформление и приватность/,false).click();
- await btn(theme,'Светлая').click();await currentDoc(ref,x=>x.exists&&x.data().theme==='light','personal light theme');
+ await btn(theme,'Системная').click();await currentDoc(ref,x=>x.exists&&x.data().theme==='system','personal system theme');
  await btn(d,'Закрыть настройки').click();
+ try{
+  await b.emulateMedia({colorScheme:'dark'});await b.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+  await b.emulateMedia({colorScheme:'light'});await b.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+  assert.equal((await other.get()).data().theme,'light');
+  await nav(b,'overview','Обзор');await btn(panel(b,'overview'),'Скрыть суммы').click();
+  await currentDoc(ref,x=>x.data()?.privacyMode===true,'personal privacy');
+  assert.notEqual((await other.get()).data()?.privacyMode,true);
+  await reset(b);await nav(b,'overview','Обзор');await btn(panel(b,'overview'),'Показать суммы').waitFor({state:'visible'});
+  await btn(panel(b,'overview'),'Показать суммы').click();await currentDoc(ref,x=>x.data()?.privacyMode===false,'restore privacy');
+ }finally{
+  await ref.set({theme:'light',privacyMode:false},{merge:true});await b.emulateMedia({colorScheme:null});
+ }
 });
 await scenario('OVR-drilldown privacy on desktop and mobile',async()=>{
  const refs=users.map(u=>family.collection('members').doc(u.uid).collection('config').doc('settings'));

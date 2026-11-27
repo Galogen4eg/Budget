@@ -663,7 +663,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Приватность и видимость</h3>
               <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Скрывает суммы в поддерживаемых финансовых экранах.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${settings.privacyMode?'is-on':''}`}><span/></span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Скрывает суммы и графики в финансовых сводках. В формах редактирования значения остаются доступны. Это не ограничение доступа к данным.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${settings.privacyMode?'is-on':''}`}><span/></span>
               </button>
               <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
                 <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">

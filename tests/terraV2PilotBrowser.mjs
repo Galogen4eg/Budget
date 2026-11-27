@@ -383,6 +383,17 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.match(await payoff.innerText(),/без новых процентов и комиссий/);
     await capture(page,'services-payoff-'+label);
     await button(payoff,'Закрыть калькулятор').click();
+    await settingsRef.set({privacyMode:true},{merge:true});
+    await summary.getByText('•••',{exact:true}).first().waitFor({state:'visible',timeout:20000});
+    assert.doesNotMatch(await summary.innerText(),/\d[\d\s.,]*₽|\d+%/);
+    await summary.scrollIntoViewIfNeeded();await capture(page,'privacy-debts-'+label);
+    await calculator.click();
+    await payoff.getByText(/Расчёт скрыт в режиме приватности/).waitFor({state:'visible'});
+    assert.equal(await payoff.getByTestId('debt-payoff-result').count(),0);
+    await capture(page,'privacy-payoff-'+label);
+    await button(payoff,'Закрыть калькулятор').click();
+    await settingsRef.set({privacyMode:false},{merge:true});
+    await summary.getByText('•••',{exact:true}).first().waitFor({state:'hidden',timeout:20000});
     await button(services,'Все сервисы').click();
     await grid.waitFor({state:'visible'});
     assert.equal(await debtButton.evaluate(el=>document.activeElement===el),true,label+' services focus return');

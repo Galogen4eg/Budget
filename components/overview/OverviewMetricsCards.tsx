@@ -61,7 +61,7 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
               {settings.privacyMode ? '•••' : hasMonthlyLimit ? `${formatAmount(displayMonthSpent)} ₽ / ${formatAmount(totalMonthlyLimit)} ₽` : `${formatAmount(displayMonthSpent)} ₽`}
             </span>
           </div>
-          {hasMonthlyLimit && <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
+          {hasMonthlyLimit && !settings.privacyMode && <div className="h-2 rounded-full bg-[#EAE6DD] dark:bg-[#2C2C2E] overflow-hidden">
             <div 
               className={`h-full rounded-full transition-all duration-500 ${isOverLimit ? 'bg-[#B25E41]' : 'bg-[#4A7C59]'}`}
               style={{ width: `${percentSpent}%` }}
@@ -109,16 +109,16 @@ export const OverviewMetricsCards: React.FC<OverviewMetricsCardsProps> = ({
             Темп расходов
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#4A7C59]/10 text-[#4A7C59]">
-            {hasMonthlyLimit ? (isOverLimit ? 'Лимит превышен' : 'В пределах лимита') : 'Без лимита'}
+            {settings.privacyMode?'Суммы скрыты':hasMonthlyLimit ? (isOverLimit ? 'Лимит превышен' : 'В пределах лимита') : 'Без лимита'}
           </span>
         </div>
 
         <div>
           <div className="text-2xl font-bold font-headline text-graphite dark:text-white">
-            {!hasMonthlyLimit ? 'Лимит не задан' : isOverLimit ? 'Перерасход' : `${percentSpent}% лимита использовано`}
+            {settings.privacyMode?'Суммы скрыты':!hasMonthlyLimit ? 'Лимит не задан' : isOverLimit ? 'Перерасход' : `${percentSpent}% лимита использовано`}
           </div>
           <p className="text-xs text-graphite-muted dark:text-gray-400 mt-1">
-            {hasMonthlyLimit ? (isOverLimit ? `Превышение: ${settings.privacyMode ? '•••' : `${formatAmount(displayMonthSpent - totalMonthlyLimit)} ₽`}` : `Осталось ${100 - percentSpent}% месячного лимита`) : 'Установите месячный лимит, чтобы отслеживать расходы'}
+            {settings.privacyMode?'':hasMonthlyLimit ? (isOverLimit ? `Превышение: ${formatAmount(displayMonthSpent - totalMonthlyLimit)} ₽` : `Осталось ${100 - percentSpent}% месячного лимита`) : 'Установите месячный лимит, чтобы отслеживать расходы'}
           </p>
         </div>
 

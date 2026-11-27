@@ -274,7 +274,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await assistantTrigger.click();
     const assistant=page.getByTestId('terra-ai-dialog');await assistant.waitFor({state:'visible'});
     await noOverflow(assistant,label+' assistant');
-    const composer=assistant.getByRole('textbox',{name:'Сообщение ассистенту'});
+    const assistantComposer=assistant.getByRole('textbox',{name:'Сообщение ассистенту'});
     await targetSize(button(assistant,'Закрыть чат'),label+' assistant close');
     await capture(page,'overview-assistant-'+label);
     const attach=button(assistant,'Дополнительные действия');
@@ -283,8 +283,8 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await page.keyboard.press('Escape');assert.equal(await attach.getAttribute('aria-expanded'),'false');
     assert.equal(await attach.evaluate(el=>document.activeElement===el),true,label+' assistant actions focus return');
     await attach.click();await button(assistant,'Быстрый список покупок').click();
-    assert.equal(await composer.inputValue(),'Добавь в список покупок: ',label+' quick list must only prepare a draft');
-    await composer.fill('');
+    assert.equal(await assistantComposer.inputValue(),'Добавь в список покупок: ',label+' quick list must only prepare a draft');
+    await assistantComposer.fill('');
     // Mock speech input only inside the isolated browser. No real microphone or external request.
     await page.evaluate(()=>{
       const previous=Object.getOwnPropertyDescriptor(window,'SpeechRecognition');
@@ -301,9 +301,9 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
       const voice=page.getByRole('dialog',{name:'Голосовой ввод',exact:true});await voice.waitFor({state:'visible'});
       await capture(page,'overview-assistant-voice-'+label);
       await button(voice,'Завершить запись').click();await voice.waitFor({state:'hidden'});
-      assert.equal(await composer.inputValue(),'QA голосовой черновик',label+' real transcript remains a draft');
+      assert.equal(await assistantComposer.inputValue(),'QA голосовой черновик',label+' real transcript remains a draft');
     }finally{await page.evaluate(()=>{window.__terraQaRestoreSpeech?.();delete window.__terraQaRestoreSpeech;});}
-    await composer.fill('');
+    await assistantComposer.fill('');
     await page.keyboard.press('Escape');await assistant.waitFor({state:'hidden'});
     assert.equal(await assistantTrigger.evaluate(el=>document.activeElement===el),true,label+' assistant focus return');
     const values=chart.locator('summary').filter({hasText:'Значения графика'});

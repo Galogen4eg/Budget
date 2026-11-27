@@ -123,7 +123,7 @@ async function overviewGeometryPilot(page,settingsRef){
    assert.match(await limit.innerText(),/Превышение:/);
    const progress=limit.getByRole('progressbar');
    assert.equal(await progress.getAttribute('aria-valuenow'),'100');
-   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(253, 164, 160)':'rgb(168, 50, 44)',label+' limit danger token');
+   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(212, 160, 154)':'rgb(150, 63, 57)',label+' limit danger token');
    await noOverflow(limit,label+' limit');
    await assertTerraLayoutGeometry(overview,label,width);
    const toolbar=visibleInOverview(width<768?'[data-overview-mobile-controls]':'[data-overview-toolbar]').first();
@@ -131,7 +131,7 @@ async function overviewGeometryPilot(page,settingsRef){
    const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));
    assert.ok(controlBoxes.length>=3,label+' missing controls');
    for(const box of controlBoxes)assert.ok(box.height>=44&&box.width>=44,label+' too small control '+JSON.stringify(box));
-   if(width>=390&&width<768||width>=1440)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
+   if(width>=375&&width<768||width>=1440)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
    if(width>=768){
     const summary=overview.getByTestId('overview-metrics-desktop');
     const headings=summary.locator('[data-overview-summary-heading]');
@@ -257,11 +257,21 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const dayDialog=page.getByTestId('terra-day-detail');
     await dayDialog.waitFor({state:'visible'});
     assert.equal(await dayDialog.getAttribute('aria-modal'),'true');
+    await noOverflow(dayDialog,label+' day detail');
+    for(const action of await dayDialog.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' day detail action');
+    await capture(page,'overview-day-detail-'+label);
     await button(dayDialog,'Закрыть детали дня').focus();
     await page.keyboard.press('Escape');
     await dayDialog.waitFor({state:'hidden'});
     assert.equal(await point.evaluate(el=>document.activeElement===el),true,label+' focus return');
     await values.click();
+    const reserveTrigger=button(overview,/Открыть подробности .* резерва/,false);
+    await reserveTrigger.click();const reserveDialog=page.getByTestId('terra-reserve-dialog');
+    await reserveDialog.waitFor({state:'visible'});await noOverflow(reserveDialog,label+' reserve');
+    await targetSize(reserveDialog.getByRole('textbox',{name:'Сумма вручную'}),label+' manual reserve input');
+    for(const action of await reserveDialog.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' reserve action');
+    await capture(page,'overview-reserve-'+label);await page.keyboard.press('Escape');await reserveDialog.waitFor({state:'hidden'});
+    assert.equal(await reserveTrigger.evaluate(el=>document.activeElement===el),true,label+' reserve focus return');
     await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
     if(mobile){
      const balance=overview.getByTestId('overview-balance-mobile');const rect=await balance.boundingBox();

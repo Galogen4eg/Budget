@@ -204,7 +204,7 @@ details.terra-settings-group>summary{min-height:44px;}
 @container(min-width:1040px){.terra-overview-toolbar{grid-template-columns:auto auto minmax(0,1fr);column-gap:16px;}.terra-overview-toolbar .terra-overview-scope{grid-column:2;grid-row:1;justify-self:start;}.terra-overview-toolbar-actions{grid-column:3;grid-row:1;}}
 .terra-overview-mobile-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:start;}
 .terra-overview-mobile-controls>div{grid-column:1/-1;min-width:0;}
-@container(min-width:390px){.terra-overview-mobile-controls>div{grid-column:span 2;}.terra-overview-mobile-controls>.terra-overview-month-open,.terra-overview-mobile-controls>.terra-overview-month-open+div,.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
+@container(min-width:375px){.terra-overview-mobile-controls>div{grid-column:span 2;}.terra-overview-mobile-controls>.terra-overview-month-open,.terra-overview-mobile-controls>.terra-overview-month-open+div,.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
 .terra-overview-main-amount[data-negative="true"]{color:var(--terra-danger-text);}
 /* Summary zones use shared grid tracks. */
 .terra-overview-summary-value{font-size:16px;line-height:1.35;}
@@ -269,3 +269,10 @@ details.terra-settings-group>summary{min-height:44px;}
  .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="main"]{grid-column:span 7;}
  .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="aside"]{grid-column:span 5;}
 }
+
+/* Overview v2.1: quiet selections, exact geometry and one scroll per detail dialog. */
+.terra-overview-mobile-controls:not(:has(.terra-overview-month-open)) [data-testid=overview-month-selector]>button{padding-inline:8px;gap:4px;}
+.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(70px,auto);}
+.terra-reserve-bill-actions{grid-column:2/-1;}
+@media(min-width:640px){.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(96px,auto) auto;}.terra-reserve-bill-actions{grid-column:auto;}}
+.terra-reserve-bill-actions:empty{display:none;}

@@ -53,7 +53,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           aria-pressed={budgetMode === 'family'}
           className={`h-11 min-w-0 flex items-center justify-center gap-1.5 px-3 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
             budgetMode === 'family'
-              ? FILTER_CHIP_ACTIVE
+              ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
               : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
           }`}
         >
@@ -66,7 +66,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           aria-pressed={budgetMode === 'personal'}
           className={`h-11 min-w-0 flex items-center justify-center gap-1.5 px-3 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
             budgetMode === 'personal'
-              ? FILTER_CHIP_ACTIVE
+              ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
               : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
           }`}
         >
@@ -98,7 +98,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                 className="fixed inset-0 z-20" 
                 onClick={() => setIsMonthPickerOpen(false)} 
               />
-              <div id="overview-month-options" role="group" aria-label="Доступные месяцы" className="absolute left-0 xl:left-auto xl:right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[#EAE6DD] dark:border-white/10 rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
+              <div id="overview-month-options" role="group" aria-label="Доступные месяцы" className="absolute left-0 xl:left-auto xl:right-0 top-full mt-2 w-48 max-h-[min(50dvh,22rem)] bg-[var(--terra-surface)] dark:bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl shadow-lg z-30 py-1.5 overflow-y-auto overscroll-y-contain font-sans terra-menu">
                 {monthOptions.map(m => {
                   const isSelected = 
                     m.date.getMonth() === activeMonth.getMonth() && 
@@ -111,12 +111,12 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                         onMonthChange(m.date);
                         setIsMonthPickerOpen(false);
                       }}
-                      className={`min-h-[44px] w-full text-left px-4 py-2 text-sm font-semibold flex items-center justify-between hover:bg-[#F2ECE1] dark:hover:bg-white/10 transition cursor-pointer ${
-                        isSelected ? 'text-[var(--terra-primary-text)] font-semibold bg-[var(--terra-primary-soft)]' : 'text-graphite dark:text-gray-300'
+                      className={`min-h-[44px] w-full text-left px-4 py-2 text-sm font-semibold flex items-center justify-between hover:bg-[var(--terra-soft)] transition cursor-pointer ${
+                        isSelected ? 'text-[var(--terra-primary-text)] font-semibold bg-[var(--terra-primary-soft)]' : 'text-[var(--terra-ink)]'
                       }`}
                     >
                       <span className="capitalize">{m.label}</span>
-                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#4A7C59]" />}
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--terra-primary-text)]" />}
                     </button>
                   );
                 })}

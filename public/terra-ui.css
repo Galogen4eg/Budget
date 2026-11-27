@@ -294,3 +294,6 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-event-editor[data-keyboard-open=true]{padding-top:0;}
 .terra-event-editor[data-keyboard-open=true] footer{padding-bottom:8px;}
 @media(max-width:375px){.terra-event-editor-header h1{font-size:15px;}.terra-event-editor [data-testid=event-editor-footer]{gap:4px;}}
+
+@container (min-width:1040px){.terra-layout-context .terra-plans-selected-day-jump{display:none;}}
+.terra-event-timing>label,.terra-event-timing>div{min-width:0;}

@@ -491,6 +491,114 @@ export const EventModal: React.FC<EventModalProps> = ({
                 />
               </section>
 
+          {/* Conflict Warning Banner (if any) */}
+          {conflict && (
+            <div className="rounded-xl p-2.5 bg-[#FEF7EC] dark:bg-amber-950/40 border border-[#F3D5A5] dark:border-amber-800/40 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle size={15} className="text-[#C58D33] shrink-0" />
+                <span className="text-xs text-stone-800 dark:text-stone-200 truncate">
+                  Конфликт: «{conflict.title}» ({conflict.time})
+                </span>
+              </div>
+              {suggestedSlot && (
+                <button
+                  type="button"
+                  onClick={applySuggestedSlot}
+                  className="min-h-[44px] px-2 py-1 rounded-lg bg-[var(--terra-soft)] border border-emerald-300 dark:border-emerald-800/50 text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  <span>Сдвинуть: {suggestedSlot.startTime}</span>
+                  <ArrowRight size={11} />
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
+            
+            {/* Left Column (md: 7 cols): Main Event Info, Timing, Participants */}
+            <div className="md:col-span-7 min-w-0 space-y-3">
+              
+              {/* Timing Grid: All 3 components completely unified in icon, layout, click handling */}
+              <section className="terra-event-section rounded-xl p-3 border border-[var(--terra-border)] space-y-2">
+                <span className="text-sm font-semibold text-[var(--terra-muted)] block">
+                  Дата и время
+                </span>
+
+                <div className="terra-event-timing grid grid-cols-2 gap-2 min-w-0">
+                  {/* Unified Date Field - 100% surface click target */}
+                  <div 
+                    onClick={handleOpenDate}
+                    className="col-span-2 min-w-0 relative bg-[var(--terra-soft)] p-2 rounded-xl border border-[var(--terra-border)] flex flex-col cursor-pointer motion-reduce:transition-none"
+                  >
+                    <div className="flex items-center justify-between text-[var(--terra-muted)] pointer-events-none">
+                      <div className="flex items-center gap-1">
+                        <CalendarIcon size={12} className="text-[#4A7C59]" />
+                        <span className="text-xs font-medium">Дата</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#4A7C59] uppercase">{shortWeekday}</span>
+                    </div>
+                    <div className="relative mt-1">
+                      <input 
+                        ref={dateInputRef}
+                        aria-label="Дата события"
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                        className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer py-0.5 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Unified Start Time Field - 100% surface click target without 'Старт' text */}
+                  <div 
+                    onClick={handleOpenTime}
+                    className="min-w-0 relative bg-[var(--terra-soft)] p-2 rounded-xl border border-[var(--terra-border)] flex flex-col cursor-pointer motion-reduce:transition-none"
+                  >
+                    <div className="flex items-center justify-between text-[var(--terra-muted)] pointer-events-none">
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} className="text-[#4A7C59]" />
+                        <span className="text-xs font-medium">Начало</span>
+                      </div>
+                    </div>
+                    <div className="relative mt-1">
+                      <input 
+                        ref={timeInputRef}
+                        aria-label="Время начала"
+                        type="time"
+                        value={time}
+                        onChange={e => setTime(e.target.value)}
+                        className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer py-0.5 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Unified Duration / End Time Field (clean options without duplicate end time in brackets) */}
+                  <label className="min-w-0 relative bg-[var(--terra-soft)] p-2 rounded-xl border border-[var(--terra-border)] flex flex-col cursor-pointer motion-reduce:transition-none">
+                    <div className="text-xs font-medium text-[var(--terra-muted)] [overflow-wrap:anywhere]">Длительность</div>
+                    <select aria-label="Длительность события"
+                      value={dur}
+                      onChange={e => setDur(e.target.value)}
+                      className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer mt-1 py-0.5"
+                    >
+                      <option value="0.25">15 мин</option>
+                      <option value="0.5">30 мин</option>
+                      <option value="0.75">45 мин</option>
+                      <option value="1">1 час</option>
+                      <option value="1.5">1.5 часа</option>
+                      <option value="2">2 часа</option>
+                      <option value="2.5">2.5 часа</option>
+                      <option value="3">3 часа</option>
+                      <option value="4">4 часа</option>
+                      <option value="5">5 часов</option>
+                      <option value="6">6 часов</option>
+                      <option value="8">8 часов</option>
+                      <option value="24">24 часа</option>
+                    </select>
+                  </label>
+                  <p className="col-span-2 text-sm text-[var(--terra-muted)]">Окончание: <strong data-testid="event-end-time" className="font-semibold text-[var(--terra-ink)] tabular-nums">{endTimeStr||"—"}</strong></p>
+                </div>
+              </section>
+
           <section className="terra-event-section space-y-2 rounded-xl border border-[var(--terra-border)] p-3">
             <div className="grid grid-cols-2 gap-2 min-w-0">
               <label className="min-w-0 text-sm font-medium text-[var(--terra-muted)]">Тип
@@ -526,118 +634,6 @@ export const EventModal: React.FC<EventModalProps> = ({
                 Задача выполнена
               </label>}
           </section>
-          {/* Conflict Warning Banner (if any) */}
-          {conflict && (
-            <div className="rounded-xl p-2.5 bg-[#FEF7EC] dark:bg-amber-950/40 border border-[#F3D5A5] dark:border-amber-800/40 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <AlertTriangle size={15} className="text-[#C58D33] shrink-0" />
-                <span className="text-xs text-stone-800 dark:text-stone-200 truncate">
-                  Конфликт: «{conflict.title}» ({conflict.time})
-                </span>
-              </div>
-              {suggestedSlot && (
-                <button
-                  type="button"
-                  onClick={applySuggestedSlot}
-                  className="min-h-[44px] px-2 py-1 rounded-lg bg-[var(--terra-soft)] border border-emerald-300 dark:border-emerald-800/50 text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
-                >
-                  <span>Сдвинуть: {suggestedSlot.startTime}</span>
-                  <ArrowRight size={11} />
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 min-w-0">
-            
-            {/* Left Column (md: 7 cols): Main Event Info, Timing, Participants */}
-            <div className="md:col-span-7 min-w-0 space-y-3">
-              
-              {/* Timing Grid: All 3 components completely unified in icon, layout, click handling */}
-              <section className="terra-event-section rounded-xl p-3 border border-[var(--terra-border)] space-y-2">
-                <span className="text-sm font-semibold text-[var(--terra-muted)] block">
-                  Дата и время
-                </span>
-
-                <div className="terra-event-timing grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {/* Unified Date Field - 100% surface click target */}
-                  <div 
-                    onClick={handleOpenDate}
-                    className="col-span-2 sm:col-span-1 min-w-0 relative bg-[#F5F2EB]/80 dark:bg-[#252528] hover:bg-[#EAE4D6]/70 dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between cursor-pointer transition min-h-[58px] group"
-                  >
-                    <div className="flex items-center justify-between text-[var(--terra-muted)] pointer-events-none">
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon size={12} className="text-[#4A7C59]" />
-                        <span className="text-xs font-medium">Дата</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-[#4A7C59] uppercase">{shortWeekday}</span>
-                    </div>
-                    <div className="relative mt-1">
-                      <input 
-                        ref={dateInputRef}
-                        aria-label="Дата события"
-                        type="date"
-                        value={date}
-                        onChange={e => setDate(e.target.value)}
-                        className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer py-0.5 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Unified Start Time Field - 100% surface click target without 'Старт' text */}
-                  <div 
-                    onClick={handleOpenTime}
-                    className="relative bg-[#F5F2EB]/80 dark:bg-[#252528] hover:bg-[#EAE4D6]/70 dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between cursor-pointer transition min-h-[58px] group"
-                  >
-                    <div className="flex items-center justify-between text-[var(--terra-muted)] pointer-events-none">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} className="text-[#4A7C59]" />
-                        <span className="text-xs font-medium">Начало</span>
-                      </div>
-                    </div>
-                    <div className="relative mt-1">
-                      <input 
-                        ref={timeInputRef}
-                        aria-label="Время начала"
-                        type="time"
-                        value={time}
-                        onChange={e => setTime(e.target.value)}
-                        className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer py-0.5 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Unified Duration / End Time Field (clean options without duplicate end time in brackets) */}
-                  <label className="relative bg-[#F5F2EB]/80 dark:bg-[#252528] hover:bg-[#EAE4D6]/70 dark:hover:bg-[#2E2E32] p-2.5 rounded-xl border border-[#EAE5DB] dark:border-white/10 flex flex-col justify-between cursor-pointer transition min-h-[58px] group">
-                    <div className="flex items-center justify-between text-[var(--terra-muted)] pointer-events-none">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} className="text-[#4A7C59]" />
-                        <span className="text-xs font-medium">Длительность</span>
-                      </div>
-                      <span className="text-xs font-medium text-[var(--terra-primary-text)]" title="Окончание события">{endTimeStr}</span>
-                    </div>
-                    <select aria-label="Длительность события"
-                      value={dur}
-                      onChange={e => setDur(e.target.value)}
-                      className="w-full min-w-0 min-h-[44px] bg-transparent font-semibold text-sm text-[var(--terra-ink)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer mt-1 py-0.5"
-                    >
-                      <option value="0.25">15 мин</option>
-                      <option value="0.5">30 мин</option>
-                      <option value="0.75">45 мин</option>
-                      <option value="1">1 час</option>
-                      <option value="1.5">1.5 часа</option>
-                      <option value="2">2 часа</option>
-                      <option value="2.5">2.5 часа</option>
-                      <option value="3">3 часа</option>
-                      <option value="4">4 часа</option>
-                      <option value="5">5 часов</option>
-                      <option value="6">6 часов</option>
-                      <option value="8">8 часов</option>
-                      <option value="24">24 часа</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
 
               {/* Participants */}
               <section className="terra-event-section rounded-xl p-3 border border-[var(--terra-border)] space-y-2">

@@ -250,11 +250,9 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
     };
   };
 
-  const getDayHeaderBadge = (dayEvents: FamilyEvent[], isWeekend: boolean) => {
-    if (dayEvents.length === 0 && isWeekend) {
-      return <span className="text-xs text-stone-400 dark:text-stone-500 font-normal">Выходной</span>;
-    }
-    return null;
+  const openSelectedDay=(day:Date)=>{
+    setSelectedDate(day);
+    requestAnimationFrame(()=>{const target=document.getElementById('plans-selected-day-desktop');target?.scrollIntoView({block:'nearest',behavior:'auto'});target?.focus({preventScroll:true});});
   };
 
   return (
@@ -478,7 +476,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                         )}
 
                         {dayEvents.length > 2 && (
-                          <button type="button" onClick={()=>setSelectedDate(dateObj)} aria-label={`Выбрать дату ${dateStr}, ещё ${calendarEventCountLabel(dayEvents.length-2)}`} className="min-h-[44px] w-full text-left text-xs text-[var(--terra-primary-text)] font-semibold px-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Ещё {dayEvents.length-2}</button>
+                          <button type="button" onClick={()=>openSelectedDay(dateObj)} aria-label={`Выбрать дату ${dateStr}, ещё ${calendarEventCountLabel(dayEvents.length-2)}`} className="min-h-[44px] w-full text-left text-xs text-[var(--terra-primary-text)] font-semibold px-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Ещё {dayEvents.length-2}</button>
                         )}
                       </div>
 
@@ -486,6 +484,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   );
                 })}
               </div>
+              <button type="button" onClick={()=>openSelectedDay(selectedDate)} className="terra-plans-selected-day-jump mt-2 min-h-[44px] text-sm font-semibold text-[var(--terra-primary-text)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">События дня ({filteredDayEvents.length})</button>
             </>
           )}
 
@@ -701,7 +700,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: Выбранный день */}
-      <aside data-testid="plans-selected-day" aria-label="События выбранного дня" className={`${SURFACE_CARD} terra-layout-surface flex flex-col space-y-3 min-w-0`}>
+      <aside id="plans-selected-day-desktop" tabIndex={-1} data-testid="plans-selected-day" aria-label="События выбранного дня" className={`${SURFACE_CARD} terra-layout-surface flex flex-col space-y-3 min-w-0`}>
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">

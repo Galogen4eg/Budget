@@ -18,7 +18,11 @@ test('mobile overview supports safe-area insets and long balance values', () => 
   assert.match(app, /data-terra-tabbar className="md:hidden shrink-0/);
   assert.match(css, /\.terra-shell \{padding-top:env\(safe-area-inset-top,0px\);\}/);
   assert.doesNotMatch(overview,/pb-\[calc\(6rem\+env/);
-  assert.match(overview, /break-words.*tabular-nums/);
+  const balanceClass = overview.match(/data-testid="overview-balance-value-mobile"\s+className="([^"]+)"/)?.[1];
+  assert.ok(balanceClass, 'mobile balance value must be present');
+  const tokens = balanceClass.split(/\s+/);
+  assert.ok(tokens.includes('tabular-nums'), 'mobile balance must use tabular figures');
+  assert.ok(tokens.includes('[overflow-wrap:anywhere]'), 'mobile balance must wrap long values');
 });
 test('mobile header and spending scale controls expose touch-size targets', () => {
   assert.match(overview, /addTitle="Добавить операцию"/);

@@ -38,10 +38,10 @@ export function OverviewExpenseChart({
     if (point) onPointSelect(point);
   };
   return <>
-    <div className="terra-chart-toolbar flex flex-wrap items-start justify-between gap-2">
+    <div data-overview-section-head className="terra-chart-toolbar terra-overview-section-head flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0">
         <h3 className={SECTION_HEADING}>Динамика расходов</h3>
-        <p className="mt-1 text-sm text-[var(--terra-muted)]">{subtitle}</p>
+        <p className="mt-0.5 text-xs text-[var(--terra-muted)]">{subtitle}</p>
       </div>
       <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL+" terra-chart-rail"}>
         {scales.map(value => <button key={value} type="button" aria-pressed={scale === value}
@@ -49,16 +49,16 @@ export function OverviewExpenseChart({
           onClick={() => setScale(value)}>{scaleLabels[value]}</button>)}
       </div>
     </div>
-    <dl className="flex flex-wrap gap-x-4 gap-y-2 text-sm tabular-nums">
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(average)}</dd></div>
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(maximum)}</dd></div>
+    <dl data-overview-chart-metrics className="terra-overview-chart-metrics grid gap-x-3 gap-y-2 text-sm tabular-nums">
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(average)}</dd></div>
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(maximum)}</dd></div>
       {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
     </dl>
     <div data-testid="overview-chart-plot" className={privacyMode||!hasExpenses?'min-h-[76px] flex items-center justify-center w-full min-w-0':'terra-overview-chart-plot w-full min-w-0'}>
       {privacyMode ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
         !hasExpenses ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 4}} accessibilityLayer={false}
+          <BarChart data={points} margin={{top: 8, right: 4, bottom: 0, left: 4}} accessibilityLayer={false}
             onClick={selectFromChart} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
@@ -76,7 +76,8 @@ export function OverviewExpenseChart({
           </BarChart>
         </ResponsiveContainer>}
     </div>
-    {!privacyMode && hasExpenses && <details className="border-t border-[var(--terra-border)]">
+    <div className="terra-overview-chart-footer border-t border-[var(--terra-border)]">
+    {!privacyMode && hasExpenses && <details className="terra-overview-chart-disclosure">
       <summary className="min-h-[44px] flex items-center cursor-pointer rounded-lg text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Значения графика</summary>
       <div data-testid="overview-chart-values" className="max-h-64 overflow-y-auto overscroll-y-contain divide-y divide-[var(--terra-border)]">
         {points.map((point,index) => <button key={index} type="button" onClick={() => onPointSelect(point)}
@@ -85,11 +86,10 @@ export function OverviewExpenseChart({
         </button>)}
       </div>
     </details>}
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--terra-border)] text-sm text-[var(--terra-muted)] pt-1">
-      {!privacyMode && <span className="flex-1 min-w-[120px]">{complianceText}</span>}
-      <button type="button" onClick={onOpenBudget} className="min-h-[44px] px-2 inline-flex items-center gap-1 font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+    <button type="button" onClick={onOpenBudget} className="terra-overview-chart-budget min-h-[44px] px-2 inline-flex items-center justify-end gap-1 text-sm font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
         К бюджету<ChevronRight size={15} aria-hidden="true"/>
       </button>
+      {!privacyMode && <span className="terra-overview-chart-note text-xs text-[var(--terra-muted)]">{complianceText}</span>}
     </div>
   </>;
 }

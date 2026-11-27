@@ -27,6 +27,129 @@ async function axisFits(locator,label){
  assert.ok(bounds.count>=2,label+' missing Y-axis ticks');
  assert.deepEqual(bounds.clipped,[],label+' clipped Y-axis labels');
 }
+
+
+// Verify computed grid tracks and actual page/card rails, not just class names.
+async function assertTerraLayoutGeometry(overview,label,width){
+ const layout=overview.locator('[data-terra-layout="'+(width<768?'mobile':'desktop')+'"]').filter({visible:true}).first();
+ const g=await layout.evaluate(root=>{
+  const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
+  const visible=e=>e&&e.getClientRects().length>0;
+  const grids=[...root.querySelectorAll('[data-terra-grid]')].filter(visible).map(e=>{const c=getComputedStyle(e);return {id:e.dataset.terraGrid,columns:c.gridTemplateColumns.trim().split(/\s+/).length,gap:parseFloat(c.columnGap),rect:rect(e),children:[...e.children].filter(visible).map(rect)};});
+  const cards=[...root.querySelectorAll('.terra-layout-surface')].filter(visible).map(e=>{const c=getComputedStyle(e),head=e.querySelector('[data-overview-section-head]');return {id:e.dataset.testid,rect:rect(e),padding:[c.paddingTop,c.paddingRight,c.paddingBottom,c.paddingLeft].map(parseFloat),head:visible(head)?rect(head):null,overflow:e.scrollWidth-e.clientWidth};});
+  const stacks=[...root.querySelectorAll('[data-terra-stack]')].filter(visible).map(e=>({id:e.dataset.terraStack,rect:rect(e),children:[...e.children].filter(visible).map(rect)}));
+  return {grids,cards,stacks};
+ });
+ const near=(a,b)=>Math.abs(a-b)<=1.5,mobile=width<768,gap=mobile?12:16;
+ assert.ok(g.cards.length>=5,label+' missing cards');
+ for(const card of g.cards){
+  assert.ok(card.padding.every(p=>near(p,gap)),label+' inconsistent card padding '+JSON.stringify(card));
+  assert.ok(card.overflow<=2,label+' card overflow '+card.id);
+  if(card.head)assert.ok(near(card.head.left-card.rect.left,gap+1)&&near(card.rect.right-card.head.right,gap+1),label+' card heading not on content rails '+card.id);
+ }
+ if(mobile){
+  const grid=g.grids.find(x=>x.id==='mobile');
+  assert.equal(grid.columns,4,label+' mobile grid');assert.ok(near(grid.gap,12),label+' mobile gap');
+  for(const [i,c] of grid.children.entries()){assert.ok(near(c.left,g.cards[0].rect.left)&&near(c.right,g.cards[0].rect.right),label+' mobile axes');if(i)assert.ok(near(c.top-grid.children[i-1].bottom,12),label+' mobile vertical gap');}
+ }else{
+  const grid=g.grids.find(x=>x.id==='workspace'),summary=g.grids.find(x=>x.id==='summary');
+  assert.ok([4,8,12].includes(grid.columns),label+' unexpected tracks');
+  assert.equal(grid.columns,summary.columns,label+' mismatched tracks');
+  assert.ok(near(grid.gap,16)&&near(grid.rect.left,summary.rect.left)&&near(grid.rect.right,summary.rect.right),label+' page axes');
+  for(const stack of g.stacks)for(const [i,c] of stack.children.entries()){assert.ok(near(c.left,stack.rect.left)&&near(c.right,stack.rect.right),label+' stack axes');if(i)assert.ok(near(c.top-stack.children[i-1].bottom,16),label+' stack gap');}
+  if(grid.columns===12){const [main,aside]=g.stacks,track=(grid.rect.width-11*grid.gap)/12;assert.ok(near(main.rect.width,track*8+grid.gap*7)&&near(aside.rect.width,track*4+grid.gap*3),label+' wrong 8/4 spans');assert.ok(near(main.rect.top,aside.rect.top)&&near(aside.rect.left-main.rect.right,grid.gap),label+' workspace axes');}
+ }
+ console.log('TERRA LAYOUT GEOMETRY '+label+' '+JSON.stringify(g));
+}
+
+// Full-width visual acceptance of the overview, with actual populated emulator data.
+async function overviewGeometryPilot(page,settingsRef){
+ const overview=page.locator('[data-tab-panel="overview"]');
+ const visibleInOverview=selector=>overview.locator(selector).filter({visible:true});
+ for(const theme of ['light','dark']){
+  await settingsRef.set({theme,privacyMode:false},{merge:true});
+  await page.waitForFunction(t=>document.documentElement.classList.contains('dark')===(t==='dark'),theme);
+  for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[768,1024],[1024,768],[1440,900],[1920,1080]]){
+   const label=theme+'-'+width;
+   await page.setViewportSize({width,height});
+   await button(page.locator('nav'),'Обзор').click();
+   const limit=overview.getByTestId('overview-month-limit').filter({visible:true}).first();
+   await limit.waitFor({state:'visible',timeout:20000});
+   assert.equal(await limit.getAttribute('data-limit-status'),'over',label+' known dense expense exceeds limit');
+   assert.match(await limit.innerText(),/Превышение:/);
+   const progress=limit.getByRole('progressbar');
+   assert.equal(await progress.getAttribute('aria-valuenow'),'100');
+   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(253, 164, 160)':'rgb(168, 50, 44)',label+' limit danger token');
+   await noOverflow(limit,label+' limit');
+   await assertTerraLayoutGeometry(overview,label,width);
+   const toolbar=visibleInOverview(width<768?'[data-overview-mobile-controls]':'[data-overview-toolbar]').first();
+   await noOverflow(toolbar,label+' controls');
+   const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));
+   assert.ok(controlBoxes.length>=3,label+' missing controls');
+   for(const box of controlBoxes)assert.ok(box.height>=44&&box.width>=44,label+' too small control '+JSON.stringify(box));
+   if(width>=390&&width<768||width>=1440)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
+   if(width>=768){
+    const summary=overview.getByTestId('overview-metrics-desktop');
+    const headings=summary.locator('[data-overview-summary-heading]');
+    const axes=await headings.evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().top));
+    if(width>=1440){
+     assert.equal(axes.length,3,label+' missing summary zones');
+     assert.ok(Math.max(...axes)-Math.min(...axes)<=1,label+' summary headings not aligned');
+     const bounds=await summary.boundingBox();
+     assert.ok(bounds.height<=212,label+' financial summary unnecessarily tall '+bounds.height);
+     const zones=await summary.locator('[data-overview-summary-zone]').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
+     assert.ok(zones[0].right<=zones[1].left+1&&zones[1].right<=zones[2].left+1,label+' zones overlap');
+    }
+    await noOverflow(summary,label+' financial summary');
+    const chartCard=overview.getByTestId('overview-chart-desktop');
+    const plot=chartCard.getByTestId('overview-chart-plot');
+    const plotBounds=await plot.boundingBox();
+    assert.ok(plotBounds.height<=224,label+' chart plot too tall');
+    const footer=chartCard.locator('.terra-overview-chart-footer');
+    const controls=await footer.locator('summary, .terra-overview-chart-budget').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
+    if(controls.length===2)assert.ok(Math.abs(controls[0].top-controls[1].top)<=1,label+' chart footer actions misaligned');
+    if(width>=1440)assert.ok((await chartCard.boundingBox()).height<=440,label+' graph card unnecessarily tall');
+   }
+   for(const header of await visibleInOverview('[data-overview-section-head]').all()){
+    await noOverflow(header,label+' section header');
+    for(const action of await header.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' section action');
+   }
+   await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
+   await capture(page,'overview-reaudit-main-'+label);
+   for(const kind of ['history','category']){
+    const rows=visibleInOverview('[data-overview-'+kind+'-row]');
+    assert.ok(await rows.count()>=4,label+' '+kind+' rows');
+    const boxes=await rows.evaluateAll((els,kind)=>els.map(row=>{
+      const rect=el=>el.getBoundingClientRect().toJSON();
+      const title=row.querySelector('[data-overview-'+kind+'-title]');
+      const amount=row.querySelector('[data-overview-'+kind+'-amount]');
+      const secondary=row.querySelector(kind==='history'?'[data-overview-history-meta]':'[data-overview-category-percent]');
+      return {row:rect(row),title:rect(title),amount:rect(amount),secondary:rect(secondary),overflow:row.scrollWidth-row.clientWidth,titleOverflow:title.scrollWidth-title.clientWidth,amountOverflow:amount.scrollWidth-amount.clientWidth};
+    }),kind);
+    const first=boxes[0];
+    for(const box of boxes){
+     assert.ok(Math.max(box.overflow,box.titleOverflow,box.amountOverflow)<=2,label+' '+kind+' overflow '+JSON.stringify(box));
+     assert.ok(box.title.right<=box.amount.left+1,label+' '+kind+' text overlaps amount');
+     if(kind==='history')assert.ok(box.amount.width<=Math.max(88,box.row.width*.34)+1,label+' history amount column too wide');
+     assert.ok(Math.abs((box.row.right-box.amount.right)-(first.row.right-first.amount.right))<=1,label+' '+kind+' amount right axis');
+     assert.ok(Math.abs((box.title.left-box.row.left)-(first.title.left-first.row.left))<=1,label+' '+kind+' title left axis');
+     if(kind==='history')assert.ok(Math.abs(box.secondary.left-box.title.left)<=1&&box.secondary.top>=box.title.bottom-1,label+' history author/date alignment');
+     else assert.ok(Math.abs(box.secondary.right-box.amount.right)<=1&&box.secondary.top>=box.amount.bottom-1,label+' category percentage alignment');
+    }
+    const card=overview.getByTestId((kind==='category'?'overview-categories':'overview-history')+(width<768?'-mobile':'-desktop'));
+    await card.scrollIntoViewIfNeeded();
+    await capture(page,'overview-reaudit-'+kind+'-'+label);
+    await card.screenshot({path:out+'/overview-reaudit-card-'+kind+'-'+label+'.png',animations:'disabled'});
+    await rows.last().scrollIntoViewIfNeeded();
+    await capture(page,'overview-reaudit-'+kind+'-end-'+label);
+   }
+   console.log('PASS TERRA OVERVIEW GEOMETRY '+label+' limit, row axes, metadata and overflow');
+  }
+ }
+ await settingsRef.set({theme:'light',privacyMode:false},{merge:true});
+ await page.setViewportSize({width:1440,height:900});
+}
+
 export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Pilot requires isolated emulator');
  await mkdir(out,{recursive:true});
@@ -456,6 +579,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     console.log('PASS TERRA ACCOUNT PILOT '+label+' actual login, invalid input, masked password and responsive form');
    }
   }
+  await overviewGeometryPilot(page,settingsRef);
   assert.equal(await ledger(),before,'UI pilot changed transaction records');
  }finally{
   await page.emulateMedia({reducedMotion:'no-preference'});

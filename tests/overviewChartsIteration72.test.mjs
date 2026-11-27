@@ -47,8 +47,15 @@ test('iteration 72: chart aggregates expenses without floating-point drift',()=>
 
 test('iteration 72: categories have real empty states and keyboard navigation',()=>{
  assert.ok(!source.includes('const fallbackList = ['));
- assert.ok(source.includes('За выбранный период расходов по категориям пока нет.'));
- const names=source.match(/aria-label=\{.?Аналитика категории:/g)||[];
- assert.ok(names.length>=2,'mobile and desktop categories should both have labelled controls');
- assert.ok(source.includes('min-h-[44px] w-full text-left'));
+ const mobile=source.split('data-testid="overview-categories-mobile"')[1].split('</section>')[0];
+ const desktop=source.split('data-testid="overview-categories-desktop"')[1].split('{/* RIGHT COLUMN')[0];
+ for(const section of [mobile,desktop]){
+  assert.match(section,/mobileCategories.length\s*===\s*0/);
+  assert.match(section,/За выбранный период пока нет расходов по категориям\./);
+  assert.match(section,/renderCategoryRows\(\)/);
+ }
+ const row=source.split('const renderCategoryRows=')[1].split('return (')[0];
+ assert.match(row,/<button type="button"/);
+ assert.match(row,/aria-label=\{.?Аналитика категории:/);
+ assert.match(row,/min-h-\[56px\] w-full text-left/);
 });

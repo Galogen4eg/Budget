@@ -12,9 +12,9 @@ test('dashboard charts share card and tooltip tokens, stable plot geometry and n
  assert.match(chart,/className=\{CHART_TOOLTIP\}/);
  assert.match(chart,/<Bar dataKey="amount"[^>]*isAnimationActive=\{false\}/);
  assert.match(chart,/terra-overview-chart-plot/);
- assert.match(css,/\.terra-overview-chart-plot\s*\{height:208px;\}/);
- assert.match(css,/@media\(min-width:768px\)\{\.terra-overview-chart-plot\{height:248px;\}\}/);
- assert.match(css,/@media\(min-width:1024px\)\{\.terra-overview-chart-plot\{height:264px;\}\}/);
+ assert.match(css,/\.terra-overview-chart-plot\s*\{height:184px;\}/);
+ assert.match(css,/@media\(min-width:768px\)\{\.terra-overview-chart-plot\{height:208px;\}\}/);
+ assert.match(css,/@media\(min-width:1024px\)\{\.terra-overview-chart-plot\{height:224px;\}\}/);
 });
 test('motion respects OS preferences without changing scroll or data',()=>{
  assert.match(read('index.tsx'),/MotionConfig reducedMotion="user"/);
@@ -65,7 +65,16 @@ test('desktop metric cards use shared surfaces and readable wrapping labels',()=
  const overview=read('components/TerraOverview.tsx');
  const section=overview.split('data-testid="overview-metrics-desktop"')[1]?.split('</section>')[0];
  assert.ok(section);
- assert.equal((section.match(/\$\{DASHBOARD_CARD\}/g)||[]).length,3);
+ assert.match(overview,/data-testid="overview-metrics-desktop" className=\{DASHBOARD_CARD\+/);
+ assert.match(section,/terra-overview-summary-main/);
+ assert.match(section,/terra-overview-summary-side/);
+ assert.match(section,/data-overview-summary-zone="balance"/);
+ assert.match(section,/data-overview-summary-zone="period"/);
+ assert.match(section,/data-overview-summary-zone="today"/);
+ assert.match(section,/\{monthMoneyPair\}/);
+ assert.match(section,/data-testid="overview-daily-reserve-desktop"/);
+ assert.match(section,/\{monthlySummary\}/);
+ assert.match(section,/Открыть подробности семейного резерва/);
  assert.doesNotMatch(section,/whitespace-nowrap|uppercase tracking-wider|shadow-sm/);
  assert.match(section,/focus-visible:ring-2/);
  for(const name of ['sharedLedger','reservedAmount'])assert.match(section,new RegExp('formatAmount\\('+name+'\\)'));
@@ -84,11 +93,16 @@ test('overview transaction history uses compact rows and preserves edit actions'
   const section=overview.split('data-testid="'+marker+'"')[1]?.split(end)[0];
   assert.ok(section,marker);
   assert.match(section,/divide-y divide-\[var\(--terra-border\)\]/);
-  assert.match(section,/min-h-\[56px\]/);
-  assert.match(section,/onEditTransaction\(tx\)/);
-  assert.match(section,/formatAmount\(tx.amount\)/);
+  assert.match(section,marker.endsWith('mobile')?/renderHistoryRows\(recentMobileTransactions\)/:/renderHistoryRows\(recentTransactions\)/);
   assert.doesNotMatch(section,/СЕГОДНЯ|whitespace-nowrap/);
  }
+ const row=overview.split('const renderHistoryRows=')[1].split('const renderCategoryRows=')[0];
+ assert.match(row,/min-h-\[56px\]/);
+ assert.match(row,/<button type="button"/);
+ assert.match(row,/onEditTransaction\(tx\)/);
+ assert.match(row,/formatAmount\(tx.amount\)/);
+ assert.match(row,/data-overview-history-meta/);
+ assert.match(row,/data-overview-history-amount/);
 });
 
 
@@ -97,8 +111,14 @@ test('desktop overview widgets retain actions and avoid decorative card clutter'
  const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Reserve Details Modal */}')[0];
  assert.ok(section);
  assert.doesNotMatch(section,/КАТЕГОРИИ РАСХОДОВ|СПИСОК ПОКУПОК|СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ|Все покупки сделаны!|whitespace-nowrap/);
- for(const action of ['onDrillDown(cat.id)','handleToggleShopping(item)','handleAddShoppingInline','onEditEvent(ev)','formatAmount(cat.amount)'])assert.ok(section.includes(action),action);
- assert.match(section,/aria-label="Добавить в список покупок"/);
+ for(const action of ['renderCategoryRows()','handleToggleShopping={handleToggleShopping}','handleAddShoppingInline','onEditEvent(ev)'])assert.ok(section.includes(action),action);
+ assert.match(section,/<QuickShoppingWidget/);
+ assert.match(read('components/QuickShoppingWidget.tsx'),/aria-label=\{desktop\?"Добавить в список покупок":"Добавить покупку"\}/);
+ const row=overview.split('const renderCategoryRows=')[1].split('return (')[0];
+ assert.match(row,/onDrillDown\(cat.id\|\|'all'\)/);
+ assert.match(row,/formatAmount\(cat.amount\)/);
+ assert.match(row,/data-overview-category-percent/);
+ assert.match(section,/aria-label="Управление категориями"/);
  assert.match(section,/min-h-\[44px\] min-w-\[44px\]/);
 });
 

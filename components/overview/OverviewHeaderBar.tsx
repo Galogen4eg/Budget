@@ -43,14 +43,15 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   onOpenAIChat
 }) => {
   return (
-    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 pb-1 w-full min-w-0">
+    <header data-overview-toolbar className="terra-overview-toolbar w-full min-w-0">
+      <h1 className="font-headline text-2xl font-bold text-[var(--terra-ink)]">Обзор</h1>
       {/* Mode Selector (Family / Personal) */}
-      {!householdPersonal&&<div data-testid="overview-scope-desktop" role="group" aria-label="Область бюджета" className="w-full sm:w-auto grid grid-cols-2 sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[var(--terra-soft)] p-1 rounded-xl justify-self-start">
+      {!householdPersonal&&<div data-testid="overview-scope-desktop" role="group" aria-label="Область бюджета" className="terra-overview-scope grid grid-cols-2 items-center gap-0.5 bg-[var(--terra-soft)] rounded-xl min-w-0">
         <button
           type="button"
           onClick={() => setBudgetMode('family')}
           aria-pressed={budgetMode === 'family'}
-          className={`min-h-[44px] flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
+          className={`h-11 min-w-0 flex items-center justify-center gap-1.5 px-3 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
             budgetMode === 'family'
               ? FILTER_CHIP_ACTIVE
               : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
@@ -63,7 +64,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           type="button"
           onClick={() => setBudgetMode('personal')}
           aria-pressed={budgetMode === 'personal'}
-          className={`min-h-[44px] flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
+          className={`h-11 min-w-0 flex items-center justify-center gap-1.5 px-3 rounded-xl text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer ${
             budgetMode === 'personal'
               ? FILTER_CHIP_ACTIVE
               : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
@@ -76,7 +77,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
       </div>}
 
       {/* Toolbar Controls Subgrid: Auto-flowing columns pinned to the right edge */}
-      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full xl:w-auto min-w-0">
+      <div data-overview-toolbar-actions className="terra-overview-toolbar-actions flex flex-wrap items-center justify-end gap-2 min-w-0">
         {/* Month Picker Dropdown */}
         <div className="relative">
           <button
@@ -128,7 +129,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={() => updateSettings({ privacyMode: !settings.privacyMode })}
-          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
+          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} !w-11 !px-0 cursor-pointer`}
           title={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
           aria-label={settings.privacyMode ? 'Показать суммы' : 'Скрыть суммы'}
           aria-pressed={settings.privacyMode}
@@ -140,7 +141,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         <button
           type="button"
           onClick={onOpenAIChat}
-          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} cursor-pointer`}
+          className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_IDLE} !w-11 !px-0 cursor-pointer`}
           title="Спросить ИИ-помощника"
           aria-label="Спросить ИИ-помощника"
         >
@@ -154,10 +155,10 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
           className={`${TOOLBAR_ACTION} ${TOOLBAR_ACTION_PRIMARY} cursor-pointer terra-press`}
         >
           <Plus size={16} />
-          <span>Запись</span>
+          <span>Операция</span>
         </button>
       </div>
-    </div>
+    </header>
   );
 };
 

@@ -7,8 +7,16 @@ test('overview uses content-width layout and matching dashboard card surfaces',(
  assert.match(s,/terra-overview-layout/);
  assert.match(s,/data-testid="overview-balance-mobile" className=\{\x60\$\{DASHBOARD_CARD\}/);
  assert.match(s,/data-testid="overview-chart-mobile" className=\{\x60\$\{DASHBOARD_CARD\}/);
- assert.match(css,/\.terra-overview-layout \{container-type:inline-size;\}/);
- assert.match(css,/@container \(min-width:1120px\)/);
+ // The shared layout context replaces the old overview-only container.
+ assert.match(s,/className="terra-layout-context[^"]*" data-terra-layout="mobile"/);
+ assert.match(s,/data-terra-layout="desktop" className="terra-layout-context[^"]*terra-layout-page/);
+ assert.match(s,/data-terra-grid="workspace" className="terra-layout-grid/);
+ assert.match(css,/\.terra-layout-context\s*\{[^}]*container-type:\s*inline-size\s*;/);
+ assert.match(css,/\.terra-layout-grid\s*\{[^}]*--terra-grid-columns:\s*4\s*;[^}]*grid-template-columns:\s*repeat\(var\(--terra-grid-columns\),minmax\(0,1fr\)\)[^}]*align-items:\s*start/);
+ for (const [width, tracks] of [[520,8],[1040,12]]) {
+  const breakpoint = new RegExp('@container\\s*\\(min-width:\\s*'+width+'px\\)\\s*\\{\\s*\\.terra-layout-grid\\[data-terra-grid="workspace"\\],\\s*\\.terra-layout-grid\\[data-terra-grid="summary"\\]\\s*\\{[^}]*--terra-grid-columns:\\s*'+tracks+'\\s*;');
+  assert.match(css,breakpoint);
+ }
  assert.doesNotMatch(s,/fontSize:\s*(9|10)\b/);
  assert.doesNotMatch(s,/Резерв .* бюджета скорректирован/);
 });

@@ -24,9 +24,12 @@ test('iteration 73: hidden currency stays hidden in mobile graph and description
 });
 
 test('iteration 73: desktop and mobile operation rows are buttons',()=>{
- const labels=src.match(/aria-label=\{\x60Редактировать операцию:/g)||[];
- assert.ok(labels.length>=2,'two labelled operation rows');
- assert.match(src,/min-h-\[48px\]/);
+ const row=src.split('const renderHistoryRows=')[1].split('const renderCategoryRows=')[0];
+ assert.match(row,/<button type="button"/);
+ assert.match(row,/aria-label=\{\x60Редактировать операцию:/);
+ assert.match(row,/min-h-\[56px\]/);
+ assert.match(src,/\{renderHistoryRows\(recentMobileTransactions\)\}/);
+ assert.match(src,/renderHistoryRows\(recentTransactions\)/);
 });
 
 test('iteration 73: reusable recent history component navigates to existing Budget tab',()=>{

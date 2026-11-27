@@ -58,7 +58,7 @@ async function inventory(id){
    const mobile=innerWidth<768;
    const chart=el.querySelector('[data-testid="overview-chart-'+(mobile?'mobile':'desktop')+'"]');
    const metrics=el.querySelector('[data-testid="overview-metrics-desktop"]');
-   const balance=mobile?el.querySelector('[data-testid="overview-balance-mobile"]'):metrics?.firstElementChild;
+   const balance=mobile?el.querySelector('[data-testid="overview-balance-mobile"]'):metrics;
    if(!chart||!balance)return null;
    const style=e=>{const s=getComputedStyle(e);return [s.backgroundColor,s.borderRadius,s.borderTopColor];};
    return {sameSurface:JSON.stringify(style(chart))===JSON.stringify(style(balance)),chartFits:chart.scrollWidth<=chart.clientWidth+1,chartWidth:chart.clientWidth,metricsFit:mobile||Array.from(metrics.children).every(e=>e.scrollWidth<=e.clientWidth+1)};

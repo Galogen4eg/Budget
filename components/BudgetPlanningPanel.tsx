@@ -61,7 +61,7 @@ export default function BudgetPlanningPanel({
    finally{mutationPending.current=false;setSaving(false);}
  };
  return (
-  <section data-testid="budget-planning" className={SURFACE_CARD+" space-y-4 min-w-0"}>
+  <section data-testid="budget-planning" className={SURFACE_CARD+" terra-layout-surface space-y-4 min-w-0"}>
    <div className="flex justify-between items-start gap-2">
      <div>
        <h3 className={SECTION_HEADING}>Лимиты по категориям</h3>

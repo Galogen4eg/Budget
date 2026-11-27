@@ -28,5 +28,7 @@ test('budget mobile section shortcuts fit without an overflowing rail and deskto
  assert.match(shortcuts,/grid-cols-4/);
  assert.doesNotMatch(shortcuts,/FILTER_RAIL/);
  assert.match(desktop,/Итоги месяца/);
- assert.equal((desktop.match(/!p-3\.5/g)||[]).length,3);
+ assert.equal((desktop.match(/terra-layout-surface/g)||[]).length,3);
+ assert.doesNotMatch(desktop,/!p-/);
+ assert.match(source,/data-terra-grid="workspace"/);
 });

@@ -411,7 +411,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* ========================================================= */}
       {/* MOBILE VIEW (Strictly matching user HTML mockup on < md)  */}
       {/* ========================================================= */}
-      <div data-testid="budget-scroll-container" className="md:hidden flex flex-col min-w-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-y-contain no-scrollbar bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-gray-100 selection:bg-primary/20">
+      <div data-testid="budget-scroll-container" data-terra-layout="mobile" className="terra-layout-context md:hidden flex flex-col min-w-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-y-contain no-scrollbar bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-gray-100 selection:bg-primary/20">
         {/* Unified Mobile Header */}
         <TerraMobileHeader
           title="Бюджет"
@@ -422,7 +422,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           onOpenSettings={onOpenSettings}
           onOpenNotifications={onOpenNotifications}
         />
-        <div className="px-4 pt-3 space-y-2" data-testid="budget-month-selector">
+        <div className="terra-layout-inset pt-3 space-y-2" data-testid="budget-month-selector">
               <button 
                 type="button"
                 onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
@@ -474,9 +474,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 gap-3 max-w-3xl mx-auto">
+        <div data-terra-grid="mobile" className="terra-layout-grid terra-layout-inset w-full pb-4 pt-3 max-w-3xl mx-auto">
           {/* KPI & Family Overview Card */}
-          <section data-testid="budget-metrics-mobile" className={`${SURFACE_CARD} flex flex-col gap-2`}>
+          <section data-testid="budget-metrics-mobile" className={`${SURFACE_CARD} terra-layout-surface flex flex-col gap-2`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
             {isCurrentMonthView&&<div className="flex flex-wrap items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
@@ -511,7 +511,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </div>
               <div className="w-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] h-2.5 rounded-full overflow-hidden flex">
                 <div 
-                  className={`${monthIncome > 0 && monthExpense > monthIncome ? "bg-[#B83230]" : "bg-[#4A7C59]"} h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none`}
+                  className={`${monthIncome > 0 && monthExpense > monthIncome ? "bg-[#B83230]" : "bg-[#4A7C59]"} h-full rounded-full terra-progress`}
                   style={{ width: `${!settings.privacyMode && monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
                 />
               </div>
@@ -570,7 +570,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits'],['Платежи','payments']] as const).map(([label,id])=><button key={id} type="button" className={'min-h-[44px] min-w-0 rounded-xl px-1 py-2 text-xs font-semibold leading-tight text-center transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
           </div>
           {/* Shared history controls retain day/member context */}
-          <section id="budget-history-mobile" tabIndex={-1} aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
+          <section id="budget-history-mobile" tabIndex={-1} aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' terra-layout-surface space-y-3'}>
             <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
               historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
               historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
@@ -598,7 +598,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type}
                     onClick={() => onEditTransaction(tx)}
                     aria-label={`Редактировать операцию: ${displayTitle}`}
-                    className="min-h-[48px] w-full flex items-center justify-between gap-2 px-1 py-2.5 text-left hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="min-h-[48px] w-full flex items-center justify-between gap-2 py-2.5 text-left hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
@@ -632,7 +632,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
 
           {/* Financial Calendar Section */}
-          <section id="budget-calendar-mobile" tabIndex={-1} data-testid="budget-calendar-mobile" className={`${SURFACE_CARD} flex flex-col min-w-0 gap-2.5`}>
+          <section id="budget-calendar-mobile" tabIndex={-1} data-testid="budget-calendar-mobile" className={`${SURFACE_CARD} terra-layout-surface flex flex-col min-w-0 gap-2.5`}>
             {/* Header with full-width controls */}
             <div className="w-full flex items-center justify-between p-1 rounded-xl bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)]">
               <button 
@@ -801,7 +801,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Selected Day Details & Transactions */}
-          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
+          <section className={`${SURFACE_CARD} terra-layout-surface flex flex-col gap-3`}>
             {/* Selected Day Banner */}
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
@@ -833,7 +833,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Scheduled Monthly Mandatory Payments */}
-          <section id="budget-payments-mobile" tabIndex={-1} className={`${SURFACE_CARD} flex flex-col gap-3`}>
+          <section id="budget-payments-mobile" tabIndex={-1} className={`${SURFACE_CARD} terra-layout-surface flex flex-col gap-3`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A] shrink-0" />
@@ -910,7 +910,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Top Spending Categories Section */}
-          <section className={`${SURFACE_CARD} flex flex-col min-w-0 gap-3`}>
+          <section className={`${SURFACE_CARD} terra-layout-surface flex flex-col min-w-0 gap-3`}>
             <div className="flex items-center justify-between">
               <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Категории расходов</span>
               <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">
@@ -948,7 +948,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   </div>
                   <div className="w-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] h-2 rounded-full overflow-hidden">
                     <div 
-                      className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+                      className="h-full rounded-full terra-progress"
                       style={{ width: `${settings.privacyMode?0:Math.min(100, cat.percent)}%`, backgroundColor: cat.color || '#4A7C59' }}
                     />
                   </div>
@@ -993,7 +993,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* ========================================================= */}
       {/* DESKTOP VIEW (Visible on md and up)                       */}
       {/* ========================================================= */}
-      <div className="terra-budget-layout hidden md:flex flex-col min-w-0 min-h-0 flex-1 overflow-y-auto no-scrollbar w-full max-w-[1600px] mx-auto p-6 lg:p-8 pb-8 gap-5 text-[var(--terra-ink)]">
+      <div data-terra-layout="desktop" className="terra-layout-context terra-layout-inset terra-budget-layout hidden md:flex flex-col min-w-0 min-h-0 flex-1 overflow-y-auto no-scrollbar w-full max-w-[1600px] mx-auto text-[var(--terra-ink)]">
         {/* 1. TOP HEADER: Title, Month, Family Filters, Actions */}
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-border/70 dark:border-white/10">
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
@@ -1110,9 +1110,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </header>
 
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
-      <section data-testid="budget-metrics-desktop" className="terra-budget-metrics grid gap-3" data-current-period={isCurrentMonthView}>
+      <section data-testid="budget-metrics-desktop" className="terra-layout-grid terra-budget-metrics" data-terra-grid="summary" data-current-period={isCurrentMonthView}>
         {/* Card 1: Дневной безопасный лимит */}
-        {isCurrentMonthView&&<div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
+        {isCurrentMonthView&&<div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center">
               <span className="text-sm font-semibold text-primary-dark dark:text-green-400">
@@ -1145,13 +1145,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
         {/* Current-day metrics do not apply to historical months. */}
         {isCurrentMonthView && (
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
+        <div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
               {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
-              settings.privacyMode ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
+              (settings.privacyMode || safeDailyLimit <= 0) ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
                 ? 'bg-emerald-50 text-emerald-800 dark:bg-green-950/40 dark:text-green-400 border border-emerald-200 dark:border-green-800/40' 
                 : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400 border border-red-200'
             }`}>
@@ -1171,7 +1171,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
             <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div 
-                className={`h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none ${todayReserve >= 0 ? 'bg-primary' : 'bg-red-500'}`}
+                className={`h-full rounded-full terra-progress ${todayReserve >= 0 ? 'bg-primary' : 'bg-red-500'}`}
                 style={{ width: `${!settings.privacyMode && safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
               />
             </div>
@@ -1180,14 +1180,14 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-graphite-muted dark:text-gray-400">
             <span>{personalOnly?'Вчера (личные)':'Вчера (семья)'}: {settings.privacyMode?'•••':formatBudgetMoney(yesterdaySpent)+' ₽'}</span>
             <span className="text-emerald-700 dark:text-green-400 font-semibold">
-              {!settings.privacyMode && yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
+              {!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
             </span>
           </div>
         </div>
         )}
 
                 {/* Card 3: Итоги месяца */}
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
+        <div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
               {isCurrentMonthView?'Итоги месяца':'Итоги выбранного месяца'}
@@ -1213,11 +1213,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </section>
 
       {/* 3. MAIN WORKSPACE: 7-col Interactive Calendar + 5-col Analytics Sidebar */}
-      <div className="terra-budget-columns grid gap-5">
+      <div className="terra-layout-grid terra-budget-columns" data-terra-grid="workspace">
         {/* LEFT / CENTER: Full Calendar & Selected Day Detail (7 cols) */}
-        <div className="min-w-0 flex flex-col gap-4">
+        <div className="terra-layout-stack min-w-0" data-terra-stack="main">
           {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
-          <section className={`${SURFACE_CARD} min-w-0 flex flex-col gap-3`}
+          <section className={`${SURFACE_CARD} terra-layout-surface min-w-0 flex flex-col gap-3`}
             aria-label="История операций бюджета" data-testid="budget-history-desktop">
             <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
               historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
@@ -1236,7 +1236,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 return (
                   <button type="button" key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type} onClick={() => onEditTransaction(tx)}
                     aria-label={`Редактировать операцию: ${title}`}
-                    className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[var(--terra-surface)] dark:hover:bg-[var(--terra-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    className="min-h-[48px] w-full flex items-center justify-between gap-3 py-2.5 rounded-lg text-left hover:bg-[var(--terra-soft)] dark:hover:bg-[var(--terra-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-graphite dark:text-white break-words">{title}</span>
                       <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
@@ -1256,7 +1256,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>}
           </section>
           {/* Full Interactive Calendar Card */}
-          <div data-testid="budget-calendar-desktop" className={`${SURFACE_CARD} min-w-0`}>
+          <div data-testid="budget-calendar-desktop" className={`${SURFACE_CARD} terra-layout-surface min-w-0`}>
             {/* Calendar Header */}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-surface-border/70 dark:border-white/10">
               <div className="flex items-center gap-2">
@@ -1409,7 +1409,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </div>
 
           {/* Selected Day Detail Box + Quick Add Form (выровнен по нижнему краю с правой колонкой) */}
-          <div className={`${SURFACE_CARD} min-w-0 flex-1 flex flex-col justify-between`}>
+          <div className={`${SURFACE_CARD} terra-layout-surface min-w-0 flex-1 flex flex-col justify-between`}>
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-surface-border/70 dark:border-white/10 shrink-0">
               <div className="flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-lg bg-primary text-white text-xs font-bold flex items-center justify-center font-headline shadow-xs">
@@ -1572,9 +1572,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         </div>
 
         {/* RIGHT: Analytics Sidebar (5 cols) */}
-        <div className="min-w-0 flex flex-col gap-4">
+        <div className="terra-layout-stack min-w-0" data-terra-stack="aside">
           {/* 1. Category Breakdown Card */}
-          <div className={`${SURFACE_CARD} min-w-0`}>
+          <div className={`${SURFACE_CARD} terra-layout-surface min-w-0`}>
             <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-surface-border/70 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
@@ -1622,7 +1622,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       </div>
                       <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
                         <div 
-                          className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+                          className="h-full rounded-full terra-progress"
                           style={{ width: `${settings.privacyMode?0:pct}%`, backgroundColor: cat.color }}
                         />
                       </div>
@@ -1665,7 +1665,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}
-          <div className={`${SURFACE_CARD} min-w-0`}>
+          <div className={`${SURFACE_CARD} terra-layout-surface min-w-0`}>
             <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-surface-border/70 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-xl bg-accent-gold/20 text-[#C4A66A] flex items-center justify-center font-bold">

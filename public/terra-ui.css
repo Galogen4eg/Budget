@@ -61,9 +61,8 @@ html.dark {
 .terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
 
 /* Width belongs to the working area, not the browser viewport. */
-.terra-budget-layout,.terra-shopping-layout {container-type:inline-size;}
-.terra-budget-columns,.terra-shopping-columns {grid-template-columns:minmax(0,1fr);}
-@container (min-width:1060px) {.terra-budget-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
+.terra-shopping-layout {container-type:inline-size;}
+.terra-shopping-columns {grid-template-columns:minmax(0,1fr);}
 @container (min-width:920px) {.terra-shopping-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
 
 [data-terra-dialog]:focus {outline:none;}
@@ -104,9 +103,6 @@ html.dark {
 @container (min-width:920px){.terra-shopping-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
 
 /* Financial workspace: use content width, not viewport width. */
-.terra-budget-metrics {grid-template-columns:minmax(0,1fr);}
-@container (min-width:620px){.terra-budget-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}}
-@container (min-width:960px){.terra-budget-metrics {grid-template-columns:minmax(0,1.25fr) repeat(2,minmax(0,1fr));}}
 .terra-history-controls {container-type:inline-size;}
 .terra-history-toolbar {display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;}
 @container (min-width:560px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr);}.terra-history-filters{grid-column:1/-1;}}
@@ -130,7 +126,6 @@ html.dark {
 .terra-month-totals dd{margin:0;text-align:right;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 
 /* Archive has only month totals; current-day guidance is not an archive metric. */
-.terra-budget-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1fr);}
 @container (min-width:620px){.terra-budget-metrics[data-current-period="false"] .terra-month-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div{display:block;border-top:0;border-bottom:0;padding:4px 8px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div+div{border-left:1px solid var(--terra-border);}.terra-budget-metrics[data-current-period="false"] .terra-month-totals dd{text-align:left;font-size:20px;margin-top:4px;}}
 @media(min-width:1024px){.terra-menu-settings-grid>section:nth-child(2){grid-column:auto;}}
 @media(max-width:359px){.terra-active-shopping-row{column-gap:4px;}.terra-active-shopping-row .terra-shopping-name{flex-basis:118px;}.terra-active-shopping-row .terra-shopping-stepper{max-width:100%;}.terra-active-shopping-row .terra-shopping-stepper>span{max-width:64px;}}
@@ -262,3 +257,15 @@ details.terra-settings-group>summary{min-height:44px;}
 
 /* Keep the 44px chart controls, remove surplus vertical rail padding. */
 .terra-layout-context .terra-overview-chart-card .terra-chart-rail{padding-block:2px;}
+
+/* Budget uses the same content-width grid and surface rails as Overview. */
+.terra-budget-layout{padding-block:var(--terra-layout-page-block);gap:var(--terra-layout-gap);}
+@container(min-width:520px){
+ .terra-budget-metrics[data-current-period="true"]>div{grid-column:span 4;}
+ .terra-budget-metrics[data-current-period="true"]>div:last-child{grid-column:1/-1;}
+}
+@container(min-width:1040px){
+ .terra-budget-metrics[data-current-period="true"]>div:last-child{grid-column:span 4;}
+ .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="main"]{grid-column:span 7;}
+ .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="aside"]{grid-column:span 5;}
+}

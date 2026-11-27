@@ -331,8 +331,11 @@ async function checkButtons(){
  });
  await buttonScenario('BUD-05-day-details',async()=>{
   await nav('budget','Бюджет');action='open day details';await button(panel('budget'),mobile()?'Операции за выбранный день':'Операции за день').click();
-  const body=first(page.getByText('Финансовые операции и детальный баланс дня',{exact:true}));await expectVisible(body);
-  action='close day details';await first(page.getByTitle('Закрыть',{exact:true})).click();await body.waitFor({state:'hidden'});
+  const body=page.getByTestId('terra-day-detail');await expectVisible(body);
+  check(await body.getAttribute('aria-modal')==='true','Day details modal semantics');
+  for(const metric of ['day-detail-net','day-detail-income','day-detail-expense'])await expectVisible(body.getByTestId(metric));
+  const close=button(body,'Закрыть детали дня');check(meetsTouchTarget(await close.boundingBox()),'Day details close target too small');
+  action='close day details';await close.click();await body.waitFor({state:'hidden'});
  });
  await buttonScenario('BUD-history-shared-filters',async()=>{
   await nav('budget','Бюджет');const p=panel('budget');

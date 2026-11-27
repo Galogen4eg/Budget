@@ -386,6 +386,32 @@ await scenario('PLN-03/04/06 event create, cross-user edit, checklist, delete',a
  await eventDialog(b).waitFor({state:'hidden'});
  await currentDoc(saved.ref,x=>!x.exists,'event deletion');
 });
+await scenario('OVR quick shopping decimal units and two-account completion',async()=>{
+ const shopping=family.collection('shopping');
+ const ledgerBefore=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+ await nav(b,'overview','Обзор');
+ const card=panel(b,'overview').getByTestId('overview-shopping-card').filter({visible:true}).first();
+ const input=card.getByRole('textbox',{name:'Название новой покупки'});
+ phase='overview decimal preview';
+ await input.fill('QA молоко точность 1,5 л; QA сыр точность 25 г');
+ const preview=card.getByTestId('overview-shopping-preview');
+ await preview.getByText('1,5 л',{exact:true}).waitFor({state:'visible'});
+ await preview.getByText('25 г',{exact:true}).waitFor({state:'visible'});
+ phase='save both quantities';
+ await btn(card,'Добавить в список покупок').click();
+ const milk=await findOne('shopping','title','QA молоко точность');
+ const cheese=await findOne('shopping','title','QA сыр точность');
+ assert.equal(milk.data().amount,'1.5');assert.equal(milk.data().unit,'л');
+ assert.equal(cheese.data().amount,'25');assert.equal(cheese.data().unit,'г');
+ phase='other account sees and completes item';
+ await nav(a,'shopping','Покупки');
+ await btn(panel(a,'shopping'),'Редактировать товар: QA молоко точность').waitFor({state:'visible'});
+ await btn(card,'Отметить покупку «QA молоко точность» как выполненную').click();
+ await currentDoc(milk.ref,s=>s.exists&&s.data().completed===true&&typeof s.data().completedAt==='number','overview completion timestamp');
+ await btn(panel(a,'shopping'),'Редактировать товар: QA молоко точность').waitFor({state:'hidden'});
+ assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),ledgerBefore,'Quick shopping changed ledger');
+ await Promise.all([milk.ref.delete(),cheese.ref.delete()]);
+});
 await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/restore, delete',async()=>{
  await nav(b,'shopping','Покупки');let p=panel(b,'shopping');
  phase='shopping quick add';

@@ -99,7 +99,7 @@ export function mergeOrRestoreShoppingItems(
       // CASE 2: Item already in active list -> Merge quantities
       const existing = resultList[activeIdx];
       const currentQty = parseFloat(String(existing.amount || '1').replace(',', '.')) || 1;
-      const mergedQty = Math.round((currentQty + incomingQty) * 10) / 10;
+      const mergedQty = (Math.round(currentQty * 1000) + Math.round(incomingQty * 1000)) / 1000;
 
       const mergedItem: ShoppingItem = {
         ...existing,

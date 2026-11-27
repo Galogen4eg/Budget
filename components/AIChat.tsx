@@ -650,7 +650,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                     }}
                     className="flex min-h-[44px] items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
-                    <span className="text-base">🎙️</span>
+                    <span aria-hidden="true" className="text-base">🎙️</span>
                     <span>Голосовой ввод / Запись</span>
                   </button>
 
@@ -665,7 +665,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                     }}
                     className="flex min-h-[44px] items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
-                    <span className="text-base">🛒</span>
+                    <span aria-hidden="true" className="text-base">🛒</span>
                     <span>Быстрый список покупок</span>
                   </button>
                 </div>

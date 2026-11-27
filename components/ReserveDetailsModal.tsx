@@ -197,7 +197,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                     <p className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{item.subtitle|| (isDebt?'Кредит / долг':'Бытовой счёт')}</p>
                     <p className={`text-xs ${isPaid?'text-[var(--terra-primary-text)]':item.isOverdue?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}`}>{isPaid?'Оплачено':item.isOverdue?'Просрочено':`До ${item.expense.day} числа`}</p>
                   </div>
-                  <span className="text-sm font-semibold tabular-nums text-right min-w-0 [overflow-wrap:anywhere]">{!isPaid&&<span className="block text-xs font-normal text-[var(--terra-muted)]">К оплате</span>}{formatMoney(isPaid?item.expense.amount:item.amountNeeded)} {!privacyMode&&currency}</span>
+                  <span className="text-sm font-semibold tabular-nums text-right min-w-0 [overflow-wrap:anywhere]">{!isPaid&&<span className="block text-xs font-normal text-[var(--terra-muted)]">К оплате</span>}{formatMoney(isPaid?item.expense.amount:item.amountNeeded)} {!privacyMode&&currency}{!isPaid&&(item.paidAmount??0)>0&&<span className="block text-xs font-normal text-[var(--terra-muted)]">Оплачено: {formatMoney(item.paidAmount!)} {!privacyMode&&currency}</span>}</span>
                   <div className="terra-reserve-bill-actions flex flex-wrap justify-end gap-1 min-w-0">
                     {onEditExpense&&<button type="button" disabled={busy} onClick={e=>{e.preventDefault();e.stopPropagation();onEditExpense(item.expense);onClose();}}
                       aria-label={`Редактировать обязательный платеж: ${item.expense.name}`} className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><Edit3 size={16}/></button>}

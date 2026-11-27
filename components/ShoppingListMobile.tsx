@@ -200,7 +200,7 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     e.preventDefault();
     const title = newItemTitle.trim();
     if (!title) return;
-    const parsedQuantity = parseShoppingQuantity(newItemAmount.trim() || '1');
+    const parsedQuantity = parseShoppingQuantity(newItemAmount.trim() || '1', newItemUnit);
     if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     try {
     const validMemberId = getShoppingMember(newItemMemberId);

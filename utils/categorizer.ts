@@ -1,6 +1,6 @@
 
-import { Category, LearnedRule } from '../types';
-import { alfaBankCategoryToCanonicalId } from './alfaBankCategory';
+import type { Category, LearnedRule } from '../types';
+import { alfaBankCategoryToCanonicalId } from './alfaBankCategory.ts';
 
 export const MERCHANT_DATA: Record<string, [string, string?, string?]> = {
   // Продукты и супермаркеты (Центр, Северо-Запад, Поволжье, Урал, Сибирь, Юг)

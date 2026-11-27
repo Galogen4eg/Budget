@@ -81,3 +81,8 @@ test('iteration 76: existing Firestore item is not duplicated after an add respo
  assert.equal(merged.length,1);
  assert.equal(merged[0].amount,'2');
 });
+
+test('merging fractional kilograms preserves grams',()=>{
+ const result=mergeOrRestoreShoppingItems([item('a','Сыр','0.125','кг')],[incoming('Сыр','0.025','кг')],'person-b');
+ assert.equal(result.itemsToUpdateInDb[0].amount,'0.15');
+});

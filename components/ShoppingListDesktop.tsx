@@ -970,9 +970,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                         <div 
                           key={item.id ? `desk-item-${item.id}` : `desk-item-idx-${dept.id}-${itemIdx}`}
                           onClick={() => openEditModal(item)}
-                          data-terra-shopping-item data-shopping-id={item.id} className="group relative flex flex-wrap items-center justify-between gap-2 p-2.5 transition-colors cursor-pointer hover:bg-[var(--terra-soft)]"
+                          data-terra-shopping-item data-shopping-id={item.id} className="terra-active-shopping-row terra-shopping-desktop-row group relative p-2.5 transition-colors cursor-pointer hover:bg-[var(--terra-soft)]"
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="terra-shopping-name">
                             {/* Custom checkmark */}
                             <label 
                               onClick={(e) => e.stopPropagation()}
@@ -990,42 +990,38 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                               </span>
                             </label>
 
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-2">
-                                <button type="button"
-                                  onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
-                                  aria-label={`Редактировать товар: ${item.title}`}
-                                  className="min-h-[44px] min-w-0 text-left font-semibold text-sm text-[var(--terra-ink)] dark:text-white break-words rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-                                  {item.title}
-                                </button>
-                                {item.priority === 'high' && (
-                                  <span className="px-2 py-0.5 rounded-md bg-[#F8E0A8] dark:bg-amber-950/40 text-[#554020] dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
-                                    <Zap size={11} className="text-[#705C30]" /> Срочно
-                                  </span>
-                                )}
-                              </div>
-                              {members.find(member=>member.id===item.memberId)&&<span className="text-xs text-[var(--terra-muted)] break-words">{members.find(member=>member.id===item.memberId)?.name}</span>}
-                              {item.note&&<span className="text-xs text-[var(--terra-muted)] break-words">{item.note}</span>}
-                            </div>
+                            <button type="button"
+                              onClick={(event) => { event.stopPropagation(); openEditModal(item); }}
+                              aria-label={`Редактировать товар: ${item.title}`}
+                              aria-describedby={`shopping-author-${item.id}`}
+                              className="terra-shopping-copy min-h-[44px] text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+                              <span data-shopping-title className="text-sm font-semibold text-[var(--terra-ink)] leading-snug">{item.title}</span>
+                              <span className="terra-shopping-meta">
+                                <span id={`shopping-author-${item.id}`} data-shopping-author className="text-xs text-[var(--terra-muted)]">{members.find(member=>member.id===item.memberId)?.name||'Участник не указан'}</span>
+                                {item.priority==='high'&&<span className="terra-shopping-priority inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[var(--terra-offline-text)] text-xs font-semibold"><Zap size={10} aria-hidden="true"/><span>Срочно</span></span>}
+                              </span>
+                              {item.note&&<span data-shopping-note className="text-xs text-[var(--terra-muted)]">{item.note}</span>}
+                            </button>
                           </div>
 
                           {/* Stepper & Actions */}
-                          <div className="flex flex-wrap items-center gap-1 shrink-0 max-w-full" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center bg-[var(--terra-soft)] dark:bg-stone-800 rounded-xl px-1.5 py-1">
+                          <div data-shopping-controls className="terra-shopping-actions flex items-start gap-1" onClick={(e) => e.stopPropagation()}>
+                            <div role="group" aria-label={`Количество: ${item.title}`} className="terra-shopping-stepper">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
                                 aria-label={`Уменьшить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                                className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 -
                               </button>
-                              <span className="px-3 text-xs font-bold text-[var(--terra-ink)] dark:text-white font-mono whitespace-nowrap">
-                                {item.amount || '1'} {item.unit || 'шт'}
+                              <span data-shopping-quantity className="terra-shopping-quantity text-sm font-semibold text-[var(--terra-ink)] text-center tabular-nums">
+                                {item.amount || '1'}
                               </span>
+          <span data-shopping-unit className="terra-shopping-unit text-xs text-[var(--terra-muted)]">{item.unit || 'шт'}</span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
                                 aria-label={`Увеличить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                                className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 +
                               </button>

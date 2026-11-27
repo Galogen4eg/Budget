@@ -27,7 +27,84 @@ async function axisFits(locator,label){
  assert.ok(bounds.count>=2,label+' missing Y-axis ticks');
  assert.deepEqual(bounds.clipped,[],label+' clipped Y-axis labels');
 }
-export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
+
+// Actual browser geometry, not an overflow-only proxy. Disposable emulator data.
+async function shoppingAlignmentPilot(page,{settingsRef,shoppingRef,membersRef}){
+ const section=page.locator('[data-tab-panel="shopping"]');
+ const records=[
+  {id:'qa-geometry-short',title:'QA выравнивание — Хлеб',memberId:'a',priority:'medium',amount:'1',unit:'шт'},
+  {id:'qa-geometry-urgent',title:'QA выравнивание — Молоко',memberId:'b',priority:'high',amount:'12.5',unit:'л'},
+  {id:'qa-geometry-long',title:'QA выравнивание — Бумажные полотенца для кухни с очень длинным названием',memberId:'b',priority:'medium',amount:'123.5',unit:'упаковка',note:'Длинное примечание для проверки переноса слов без смещения участника.'}
+ ];
+ const member=membersRef.doc('b');
+ const saved=await member.get();
+ assert.ok(saved.exists);
+ const previousName=saved.data().name;
+ try{
+  await member.update({name:'Длинное имя участника семьи для QA'});
+  for(const record of records)await shoppingRef.doc(record.id).set({...record,category:'other',completed:false});
+  for(const theme of ['light','dark']){
+   await settingsRef.set({theme,privacyMode:false},{merge:true});
+   await page.waitForFunction(t=>document.documentElement.classList.contains('dark')===(t==='dark'),theme);
+   for(const [width,height] of [[320,568],[360,800],[390,844],[768,1024],[1024,768],[1440,900],[1920,1080]]){
+    const label=theme+'-'+width;
+    await page.setViewportSize({width,height});
+    await button(page.locator('nav'),'Покупки').click();
+    const search=section.getByRole('textbox',{name:'Поиск по товарам в семейном списке'}).filter({visible:true}).first();
+    await search.waitFor({state:'visible',timeout:20000});
+    await search.fill('QA выравнивание');
+    const rows=section.locator('[data-terra-shopping-item][data-shopping-id^="qa-geometry-"]');
+    await rows.first().waitFor({state:'visible'});
+    assert.equal(await rows.count(),3,label+' missing alignment samples');
+    await rows.locator('[data-shopping-author]').filter({hasText:'Длинное имя участника семьи для QA'}).first().waitFor({state:'visible'});
+    const boxes=await rows.evaluateAll(elements=>elements.map(row=>{
+      const rect=el=>el.getBoundingClientRect().toJSON();
+      const title=row.querySelector('[data-shopping-title]'),author=row.querySelector('[data-shopping-author]'),controls=row.querySelector('[data-shopping-controls]'),name=row.querySelector('.terra-shopping-name'),edit=row.querySelector('.terra-shopping-copy'),quantity=row.querySelector('[data-shopping-quantity]'),unit=row.querySelector('[data-shopping-unit]');
+      const range=document.createRange();range.selectNodeContents(unit);
+      const unitLines=range.getClientRects().length;
+      const buttons=[...row.querySelectorAll('.terra-shopping-stepper>button')].map(rect);
+      return {id:row.getAttribute('data-shopping-id'),row:rect(row),title:rect(title),author:rect(author),controls:rect(controls),name:rect(name),edit:rect(edit),quantity:rect(quantity),overflow:row.scrollWidth-row.clientWidth,titleOverflow:title.scrollWidth-title.clientWidth,authorOverflow:author.scrollWidth-author.clientWidth,quantityOverflow:quantity.scrollWidth-quantity.clientWidth,unitLines,unitText:unit.textContent.trim(),unitOverflow:unit.scrollWidth-unit.clientWidth,buttons};
+    }));
+    for(const box of boxes){
+     assert.ok(Math.abs(box.title.left-box.author.left)<=1,label+' author shifted '+box.id);
+     assert.ok(box.author.top>=box.title.bottom-1,label+' author overlaps title '+box.id);
+     assert.ok(box.edit.height>=44&&box.edit.width>=44,label+' edit target too small '+box.id);
+     assert.ok(Math.max(box.overflow,box.titleOverflow,box.authorOverflow,box.quantityOverflow)<=2,label+' row text overflow '+JSON.stringify(box));
+     assert.equal(box.unitLines,1,label+' unit broken across lines '+box.id+' '+box.unitText);
+     assert.ok(box.unitOverflow<=2,label+' unit overflow '+box.id);
+     assert.equal(box.buttons.length,2);
+     for(const btn of box.buttons)assert.ok(btn.width>=44&&btn.height>=44,label+' quantity touch target '+box.id);
+     if(width>=480){
+      assert.ok(box.name.right<=box.controls.left+1,label+' controls overlap title '+box.id);
+      assert.ok(Math.abs(box.name.top-box.controls.top)<=1,label+' uneven controls '+box.id);
+     }else assert.ok(box.name.bottom<=box.controls.top+1,label+' narrow controls overlap '+box.id);
+    }
+    const first=boxes[0];
+    for(const box of boxes.slice(1)){
+     assert.ok(Math.abs((box.title.left-box.row.left)-(first.title.left-first.row.left))<=1,label+' titles off grid '+box.id);
+     assert.ok(Math.abs((box.row.right-box.controls.right)-(first.row.right-first.controls.right))<=1,label+' control right edges off grid '+box.id);
+     assert.ok(Math.abs(box.quantity.width-first.quantity.width)<=1,label+' quantity widths differ '+box.id);
+    }
+    await rows.first().scrollIntoViewIfNeeded();
+    await capture(page,'shopping-alignment-'+label);
+    const long=section.locator('[data-shopping-id="qa-geometry-long"]');
+    await long.scrollIntoViewIfNeeded();
+    await capture(page,'shopping-alignment-long-'+label);
+    await long.screenshot({path:out+'/shopping-long-row-'+label+'.png',animations:'disabled'});
+    await search.fill('');
+    await button(page.locator('nav'),'Обзор').click();
+    console.log('PASS TERRA SHOPPING ALIGNMENT '+label+' author, title, fixed controls, long text and tap targets');
+   }
+  }
+ }finally{
+  await Promise.all(records.map(record=>shoppingRef.doc(record.id).delete()));
+  await member.update({name:previousName});
+  await settingsRef.set({theme:'light',privacyMode:false},{merge:true});
+  await page.setViewportSize({width:1440,height:900});
+ }
+}
+
+export async function runTerraV2Pilot(page,{settingsRef,transactionsRef,shoppingRef,membersRef}){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Pilot requires isolated emulator');
  await mkdir(out,{recursive:true});
  const ledger=async()=>JSON.stringify((await transactionsRef.get()).docs.map(doc=>[doc.id,doc.data()]));
@@ -456,6 +533,7 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     console.log('PASS TERRA ACCOUNT PILOT '+label+' actual login, invalid input, masked password and responsive form');
    }
   }
+  await shoppingAlignmentPilot(page,{settingsRef,shoppingRef,membersRef});
   assert.equal(await ledger(),before,'UI pilot changed transaction records');
  }finally{
   await page.emulateMedia({reducedMotion:'no-preference'});

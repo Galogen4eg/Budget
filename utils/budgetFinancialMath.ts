@@ -152,6 +152,6 @@ export function daysUntilNextSalary(today: Date, configuredDays: readonly number
 /** Exact signed amounts for financial drill-downs. Privacy never exposes a sign or currency. */
 export function formatSignedBudgetMoney(value:number,privacy=false,showSign=false):string {
  if(privacy)return '•••';
- const normalized=money(cents(value));
+ const normalized=money(cents(value))||0;
  return (showSign&&normalized>0?'+':'')+formatBudgetMoney(normalized)+' ₽';
 }

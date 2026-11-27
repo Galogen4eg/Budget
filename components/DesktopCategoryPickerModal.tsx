@@ -291,7 +291,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/25 backdrop-blur-[2px] overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 overflow-y-auto"
           {...surface} role="dialog"
           aria-modal="true" aria-label="Выбор категории"
         >
@@ -300,12 +300,12 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.94, opacity: 0, y: 18 }}
         transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-        className="relative max-w-4xl lg:max-w-5xl w-full bg-[var(--terra-surface)] rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
+        className="relative max-w-4xl lg:max-w-5xl w-full bg-[var(--terra-surface)] rounded-2xl border border-[var(--terra-border)] shadow-lg overflow-hidden font-sans text-[#2D332D] dark:text-stone-100 flex flex-col max-h-[92vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Top Header */}
-        <div className="px-6 py-5 bg-[var(--terra-surface)] border-b border-[#E8E4DA] dark:border-white/10 flex items-center justify-between gap-4 select-none shrink-0 relative z-30">
+        <div className="px-6 py-5 bg-[var(--terra-surface)] border-b border-[var(--terra-border)] flex items-center justify-between gap-4 select-none shrink-0 relative z-30">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold tracking-tight text-[#1E261E] dark:text-white font-headline">
               Выбор категории
@@ -324,7 +324,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
               type="button"
               onClick={onClose}
               aria-label="Закрыть"
-              className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-stone-500 hover:text-stone-800 hover:bg-[#EAE6DE] dark:text-stone-400 dark:hover:text-white dark:hover:bg-white/10 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
+              className="w-11 h-11 rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-stone-500 hover:text-stone-800 hover:bg-[#EAE6DE] dark:text-[var(--terra-muted)] dark:hover:text-white dark:hover:bg-white/10 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -339,11 +339,11 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="overflow-hidden border-b border-[#E8E4DA] dark:border-white/10 bg-[#EFECE3]/80 dark:bg-[#252528] px-6 py-4 shrink-0 relative z-20"
+              className="overflow-hidden border-b border-[var(--terra-border)] bg-[#EFECE3]/80 dark:bg-[#252528] px-6 py-4 shrink-0 relative z-20"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-[var(--terra-muted)]">
                     Быстрое создание категории
                   </span>
                   <button 
@@ -353,7 +353,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                       e.stopPropagation();
                       setIsCreatePanelOpen(false);
                     }}
-                    className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white font-semibold transition-colors hover:underline cursor-pointer relative z-30 p-1 rounded"
+                    className="text-xs text-stone-500 dark:text-[var(--terra-muted)] hover:text-stone-900 dark:hover:text-white font-semibold transition-colors hover:underline cursor-pointer relative z-30 p-1 rounded"
                   >
                     Скрыть форму
                   </button>
@@ -370,7 +370,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       placeholder="Название категории..."
-                      className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs font-medium"
+                      className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[var(--terra-control-border)] rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs font-medium"
                     />
                   </div>
                   <div>
@@ -390,12 +390,12 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                           }
                         }}
                         placeholder="Добавить подкатегорию..."
-                        className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[#DDD8CB] dark:border-white/10 rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs"
+                        className="w-full bg-white dark:bg-[#1A1A1C] text-stone-800 dark:text-white border border-[var(--terra-control-border)] rounded-xl px-3.5 py-2 text-xs outline-none transition-all focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs"
                       />
                       <button 
                         type="button"
                         onClick={handleAddSubcategoryTag}
-                        className="w-8 h-8 rounded-xl bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 flex items-center justify-center shrink-0 transition-all shadow-sm cursor-pointer"
+                        className="w-8 h-8 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] hover:bg-[var(--terra-primary-hover)] active:scale-95 flex items-center justify-center shrink-0 transition-all shadow-sm cursor-pointer"
                         title="Добавить подкатегорию"
                       >
                         <Plus size={15} />
@@ -410,14 +410,14 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                     {subcategoryTags.map((tag, idx) => (
                       <span 
                         key={`${tag}-${idx}`}
-                        className="tag-item inline-flex items-center gap-1 bg-[#EFECE3] dark:bg-[#1E2023] border border-[#DDD8CB] dark:border-white/10 text-stone-700 dark:text-stone-300 text-xs px-2.5 py-1 rounded-lg transition-transform hover:-translate-y-0.5"
+                        className="tag-item inline-flex items-center gap-1 bg-[#EFECE3] dark:bg-[#1E2023] border border-[var(--terra-control-border)] text-stone-700 dark:text-stone-300 text-xs px-2.5 py-1 rounded-lg transition-transform hover:-translate-y-0.5"
                       >
                         <span>{tag}</span>
                         <button 
                           type="button"
                           onClick={() => handleRemoveTag(idx)}
                           aria-label="Удалить тег"
-                          className="text-stone-400 hover:text-stone-700 dark:hover:text-white ml-0.5 transition-colors cursor-pointer"
+                          className="text-[var(--terra-muted)] hover:text-stone-700 dark:hover:text-white ml-0.5 transition-colors cursor-pointer"
                         >
                           <X size={12} />
                         </button>
@@ -428,7 +428,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                   <button 
                     type="button"
                     onClick={handleSaveCategoryBundle}
-                    className="btn-shine-effect bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 px-4 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all shadow-sm cursor-pointer self-end sm:self-auto"
+                    className="bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] hover:bg-[var(--terra-primary-hover)] active:scale-95 px-4 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all shadow-sm cursor-pointer self-end sm:self-auto"
                   >
                     Сохранить категорию
                   </button>
@@ -441,21 +441,21 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         {/* Search Input Area */}
         <div className="p-6 pb-2 shrink-0">
           <div className="relative group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-[#3E6543] transition-colors" size={17} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] group-focus-within:text-[#3E6543] transition-colors" size={17} />
             <input 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Быстрый поиск категории или подкатегории..."
               aria-label="Поиск по категориям"
-              className="w-full bg-white dark:bg-[#1A1A1C] rounded-2xl border border-[#DDD8CB] dark:border-white/10 pl-10 pr-9 py-2.5 text-xs text-stone-800 dark:text-white placeholder:text-stone-400 outline-none transition-all duration-200 focus:border-[#3E6543] focus:ring-2 focus:ring-[#3E6543]/20 shadow-xs"
+              className="w-full min-h-[44px] bg-[var(--terra-surface)] rounded-xl border border-[var(--terra-control-border)] pl-10 pr-12 py-2 text-sm text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
             />
             {searchQuery && (
               <button 
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Очистить поиск"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-transform active:scale-90 cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >
                 <X size={15} />
               </button>
@@ -463,7 +463,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           </div>
 
           {filteredParents.length === 0 && (
-            <div className="text-center py-8 text-stone-500 dark:text-stone-400 text-xs">
+            <div className="text-center py-8 text-stone-500 dark:text-[var(--terra-muted)] text-xs">
               <p className="font-semibold text-sm text-stone-700 dark:text-stone-200">Категории не найдены</p>
               <p className="mt-1">Попробуйте другой запрос или создайте новую категорию выше.</p>
             </div>
@@ -471,7 +471,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         </div>
 
         {/* Category Accordion List */}
-        <div className="flex-1 overflow-y-auto px-6 py-3 space-y-3 no-scrollbar" id="categoryListContainer">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-3 space-y-2" id="categoryListContainer">
           {filteredParents.map(parent => {
             const subcats = subcategoriesByParent.get(parent.id) || [];
             const isExpanded = Boolean(expandedCatIds[parent.id]);
@@ -484,8 +484,8 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                 key={parent.id}
                 className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                   isParentSelected || hasActiveChild
-                    ? 'border-2 border-[#3E6543] bg-white dark:bg-[#202225] shadow-sm'
-                    : 'border-[#E8E4DA] dark:border-white/10 bg-white dark:bg-[#1E2023] hover:border-[#DDD8CB] dark:hover:border-white/20'
+                    ? 'border-2 border-[var(--terra-primary-text)] bg-[var(--terra-surface)] shadow-sm'
+                    : 'border-[var(--terra-border)] bg-[var(--terra-surface)] hover:border-[#DDD8CB] dark:hover:border-white/20'
                 }`}
               >
                 {/* Accordion Trigger Header */}
@@ -507,7 +507,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                       <h4 className="text-sm font-bold text-[#1E261E] dark:text-white font-headline truncate">
                         {parent.label}
                       </h4>
-                      <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                      <p className="text-[11px] text-stone-500 dark:text-[var(--terra-muted)] mt-0.5">
                         {subcats.length} {subcats.length === 1 ? 'подкатегория' : subcats.length < 5 ? 'подкатегории' : 'подкатегорий'}
                         {parentTxCount > 0 ? `, ${parentTxCount} операций` : ''}
                       </p>
@@ -521,14 +521,14 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                         e.stopPropagation();
                         handleQuickAddSubcategoryForParent(parent.label);
                       }}
-                      className="text-xs font-semibold text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white px-2.5 py-1 rounded-lg border border-[#DDD8CB] dark:border-white/10 hover:bg-stone-100 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                      className="text-xs font-semibold text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white px-2.5 py-1 rounded-lg border border-[var(--terra-control-border)] hover:bg-stone-100 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Plus size={13} />
                       <span>Подкатегория</span>
                     </button>
                     <ChevronDown 
                       size={18} 
-                      className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
+                      className={`text-[var(--terra-muted)] transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
                     />
                   </div>
                 </div>
@@ -552,18 +552,18 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                             className={`text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                               activeSelectedId === parent.id
                                 ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
-                                : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
+                                : 'border-[var(--terra-border)] bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
                             }`}
                           >
                             <div className="min-w-0 pr-2">
                               <span className={`text-xs font-bold block truncate ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
                                 Все расходы ({parent.label})
                               </span>
-                              <span className={`text-[10px] block truncate ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                              <span className={`text-[10px] block truncate ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-[var(--terra-muted)]'}`}>
                                 Общая категория
                               </span>
                             </div>
-                            <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${activeSelectedId === parent.id ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
+                            <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${activeSelectedId === parent.id ? 'text-white' : 'text-[var(--terra-muted)] group-hover:text-[#3E6543]'}`} />
                           </button>
 
                           {/* Subcategory Buttons with Move Action */}
@@ -577,18 +577,18 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                                   className={`flex-1 text-left p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                                     isSubSelected
                                       ? 'border-[#3E6543] bg-[#3E6543] text-white shadow-xs'
-                                      : 'border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
+                                      : 'border-[var(--terra-border)] bg-[#FBF9F5] dark:bg-[#18191C] hover:border-[#3E6543] hover:bg-white dark:hover:bg-[#202225] text-stone-800 dark:text-stone-200 group'
                                   }`}
                                 >
                                   <div className="min-w-0 pr-2">
                                     <span className={`text-xs font-bold block truncate ${isSubSelected ? 'text-white' : 'text-stone-800 dark:text-stone-200 group-hover:text-[#3E6543]'}`}>
                                       {sub.label}
                                     </span>
-                                    <span className={`text-[10px] block truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                                    <span className={`text-[10px] block truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-[var(--terra-muted)]'}`}>
                                       {parent.label}
                                     </span>
                                   </div>
-                                  <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${isSubSelected ? 'text-white' : 'text-stone-400 group-hover:text-[#3E6543]'}`} />
+                                  <ArrowRight size={15} className={`shrink-0 transition-transform group-hover:translate-x-1 ${isSubSelected ? 'text-white' : 'text-[var(--terra-muted)] group-hover:text-[#3E6543]'}`} />
                                 </button>
 
                                 <button
@@ -598,7 +598,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                                     e.stopPropagation();
                                     setMovingSubcategory(sub);
                                   }}
-                                  className="p-2.5 rounded-xl border border-[#E8E4DA] dark:border-white/10 bg-[#FBF9F5] dark:bg-[#18191C] hover:bg-[#3E6543] hover:text-white dark:hover:bg-[#3E6543] text-stone-500 dark:text-stone-300 transition-all cursor-pointer shrink-0"
+                                  className="p-2.5 rounded-xl border border-[var(--terra-border)] bg-[#FBF9F5] dark:bg-[#18191C] hover:bg-[#3E6543] hover:text-white dark:hover:bg-[#3E6543] text-stone-500 dark:text-stone-300 transition-all cursor-pointer shrink-0"
                                 >
                                   <FolderOutput size={14} />
                                 </button>
@@ -610,7 +610,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                           <button 
                             type="button"
                             onClick={() => handleQuickAddSubcategoryForParent(parent.label)}
-                            className="text-left p-3 rounded-xl border border-dashed border-[#DDD8CB] dark:border-white/20 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-white hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-white/5 active:scale-[0.98] flex items-center justify-center gap-1.5 transition-all text-xs font-medium cursor-pointer"
+                            className="text-left p-3 rounded-xl border border-dashed border-[#DDD8CB] dark:border-white/20 text-stone-500 dark:text-[var(--terra-muted)] hover:text-stone-800 dark:hover:text-white hover:border-stone-400 hover:bg-stone-50 dark:hover:bg-white/5 active:scale-[0.98] flex items-center justify-center gap-1.5 transition-all text-xs font-medium cursor-pointer"
                           >
                             <Plus size={14} />
                             <span>Подкатегория</span>
@@ -626,7 +626,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-[var(--terra-surface)] border-t border-[#E8E4DA] dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 select-none shrink-0 relative z-30">
+        <div className="px-6 py-4 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-col sm:flex-row items-center justify-between gap-3 select-none shrink-0 relative z-30">
           {/* Left Selection Indicator */}
           <div className="flex items-center gap-2 text-xs font-medium text-stone-700 dark:text-stone-300 w-full sm:w-auto">
             <span>
@@ -645,7 +645,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
             <button 
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-[#DDD8CB] dark:border-white/10 hover:bg-[#EAE6DE] dark:hover:bg-white/10 active:scale-95 text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+              className="min-h-[44px] px-4 py-2 border border-[var(--terra-control-border)] hover:bg-[#EAE6DE] dark:hover:bg-white/10 active:scale-95 text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl transition-all cursor-pointer"
             >
               Отмена
             </button>
@@ -653,7 +653,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
               type="button"
               onClick={handleConfirm}
               disabled={!activeSelectedId}
-              className={`btn-shine-effect bg-[#3E6543] text-white hover:bg-[#345538] active:scale-95 font-semibold text-xs rounded-xl shadow-sm px-5 py-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`min-h-[44px] bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] hover:bg-[var(--terra-primary-hover)] active:scale-95 font-semibold text-xs rounded-xl shadow-sm px-5 py-2 flex items-center gap-1.5 transition-all cursor-pointer ${
                 !activeSelectedId ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -666,20 +666,20 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
         {/* Modal Dialog for Moving Subcategory */}
         {movingSubcategory && (
           <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-[#E8E4DA] dark:border-white/10 shadow-2xl p-5 max-w-md w-full space-y-4">
-              <div className="flex items-center justify-between border-b border-[#E8E4DA] dark:border-white/10 pb-3">
+            <div className="bg-[var(--terra-surface)] rounded-2xl border border-[var(--terra-border)] shadow-2xl p-5 max-w-md w-full space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--terra-border)] pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-[#1E261E] dark:text-white">
                     Перенос подкатегории
                   </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                  <p className="text-xs text-stone-500 dark:text-[var(--terra-muted)]">
                     «{movingSubcategory.label}»
                   </p>
                 </div>
                 <button 
                   type="button" 
                   onClick={() => setMovingSubcategory(null)}
-                  className="text-stone-400 hover:text-stone-700 dark:hover:text-white cursor-pointer"
+                  className="text-[var(--terra-muted)] hover:text-stone-700 dark:hover:text-white cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -695,10 +695,10 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                     key={p.id}
                     type="button"
                     onClick={() => handleMoveSubcategoryToParent(p)}
-                    className="w-full text-left p-3 rounded-xl border border-[#E8E4DA] dark:border-white/10 hover:border-[#3E6543] hover:bg-[#F5F1EA] dark:hover:bg-[#2A2A2E] text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center justify-between transition-all cursor-pointer"
+                    className="w-full text-left p-3 rounded-xl border border-[var(--terra-border)] hover:border-[#3E6543] hover:bg-[#F5F1EA] dark:hover:bg-[#2A2A2E] text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center justify-between transition-all cursor-pointer"
                   >
                     <span>{p.label}</span>
-                    <ArrowRight size={14} className="text-stone-400" />
+                    <ArrowRight size={14} className="text-[var(--terra-muted)]" />
                   </button>
                 ))}
               </div>
@@ -707,7 +707,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
                 <button
                   type="button"
                   onClick={() => setMovingSubcategory(null)}
-                  className="px-4 py-2 border border-[#DDD8CB] dark:border-white/10 text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl hover:bg-[#EAE6DE] cursor-pointer"
+                  className="px-4 py-2 border border-[var(--terra-control-border)] text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl hover:bg-[#EAE6DE] cursor-pointer"
                 >
                   Отмена
                 </button>

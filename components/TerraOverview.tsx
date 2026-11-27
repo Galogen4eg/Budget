@@ -34,6 +34,8 @@ import { toast } from 'sonner';
 
 interface TerraOverviewProps {
   onOpenAddModal: () => void;
+  onOpenAddModalForDate?:(date:Date)=>void;
+  onAddCategory?:(category:Category)=>void|Promise<void>;
   onOpenAIChat: () => void;
   onOpenSettings: () => void;
   onOpenNotifications?: () => void;
@@ -51,6 +53,7 @@ const OVERVIEW_CATEGORY_PREVIEW_LIMIT = 6;
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
   onOpenAddModal,
+  onOpenAddModalForDate,onAddCategory,
   onOpenAIChat,
   onOpenSettings,
   onOpenNotifications,
@@ -124,7 +127,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   
   // Russian Month Label (e.g. "Май 2025")
   const currentMonthName = useMemo(() => {
-    const raw = activeMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+    const raw = activeMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s+г\.?$/u, '');
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [activeMonth]);
 
@@ -143,7 +146,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const base = new Date();
     for (let offset = -5; offset <= 1; offset++) {
       const d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
-      const label = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+      const label = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s+г\.?$/u, '');
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       list.push({ key, label, date: d });
     }
@@ -316,7 +319,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [todayTransactions]);
 
   const isOverDailyLimit = dailyLimit > 0 && spentToday > dailyLimit;
-  const overLimitDelta = Math.max(0, spentToday - dailyLimit);
+  const overLimitDelta = money(Math.max(0,cents(spentToday)-cents(dailyLimit)));
   const dailyLimitDisplay=overviewLimitState(spentToday,dailyLimit);
   const dailyUsagePercent=dailyLimitDisplay?.barWidth??0;
   const dailyUsageLabel=(dailyLimitDisplay?.percentage??0).toLocaleString("ru-RU",{maximumFractionDigits:1})+"%";
@@ -726,7 +729,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           }
         />
         <div data-overview-mobile-controls className="terra-overview-mobile-controls terra-layout-inset pt-2">
-        <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector">
+        <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector" onKeyDown={e=>{if(e.key==='Escape'&&isMonthPickerOpen){e.stopPropagation();setIsMonthPickerOpen(false);e.currentTarget.querySelector('button')?.focus();}}}>
           <button type="button" onClick={()=>setIsMonthPickerOpen(open=>!open)}
             aria-label={`Выбрать месяц: ${currentMonthName}`} aria-expanded={isMonthPickerOpen} aria-controls="overview-month-controls-mobile"
             className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' w-full max-w-full terra-press'}>
@@ -1249,7 +1252,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           onPayExpenses={handlePayMandatoryExpenses}
           onEditExpense={onEditMandatoryExpense}
           privacyMode={settings.privacyMode}
-          currency="₽"
+          currency="₽" period={currentMonthName}
         />
       )}
 
@@ -1268,6 +1271,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           currentMonth={activeMonth}
           settings={settings}
           initialCategoryId={selectedCatModalId}
+          onAddCategory={onAddCategory}
           onSelectCategory={(catId) => {
             setIsCatModalOpen(false);
             onDrillDown(catId);
@@ -1286,10 +1290,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           members={members}
           onEditTransaction={onEditTransaction}
           onAddTransactionForDay={() => {
-            setSelectedDayDetailDate(null);
-            onOpenAddModal();
+            if(onOpenAddModalForDate)onOpenAddModalForDate(selectedDayDetailDate);
+            else {setSelectedDayDetailDate(null);onOpenAddModal();}
           }}
-          dailySafeLimit={dailyLimit}
+          dailySafeLimit={chartDailyLimit}
           privacyMode={settings.privacyMode}
         />
       )}

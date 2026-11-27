@@ -79,7 +79,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
       {/* Toolbar Controls Subgrid: Auto-flowing columns pinned to the right edge */}
       <div data-overview-toolbar-actions className="terra-overview-toolbar-actions flex flex-wrap items-center justify-end gap-2 min-w-0">
         {/* Month Picker Dropdown */}
-        <div className="relative">
+        <div className="relative" onKeyDown={e=>{if(e.key==="Escape"&&isMonthPickerOpen){e.stopPropagation();setIsMonthPickerOpen(false);e.currentTarget.querySelector("button")?.focus();}}}>
           <button
             type="button"
             onClick={() => setIsMonthPickerOpen(prev => !prev)}
@@ -110,6 +110,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
                       onClick={() => {
                         onMonthChange(m.date);
                         setIsMonthPickerOpen(false);
+                        const trigger=document.querySelector<HTMLButtonElement>('[aria-controls="overview-month-options"]');trigger?.focus({preventScroll:true});
                       }}
                       className={`min-h-[44px] w-full text-left px-4 py-2 text-sm font-semibold flex items-center justify-between hover:bg-[var(--terra-soft)] transition cursor-pointer ${
                         isSelected ? 'text-[var(--terra-primary-text)] font-semibold bg-[var(--terra-primary-soft)]' : 'text-[var(--terra-ink)]'

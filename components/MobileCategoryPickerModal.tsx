@@ -289,7 +289,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black/25 backdrop-blur-[2px] overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black/40 overflow-y-auto"
           {...surface} role="dialog"
           aria-modal="true" aria-label="Выбор категории"
         >
@@ -298,12 +298,12 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="relative w-full h-full sm:h-auto sm:max-w-2xl bg-[var(--terra-canvas)] sm:rounded-3xl border border-[#E8E4DA] dark:border-white/10 shadow-2xl overflow-hidden font-body text-[#2E3230] dark:text-stone-100 flex flex-col my-auto"
+        className="relative w-full h-[100dvh] sm:h-auto max-h-[100dvh] min-h-0 sm:max-w-2xl bg-[var(--terra-canvas)] sm:rounded-2xl border border-[var(--terra-border)] shadow-2xl overflow-hidden font-body text-[#2E3230] dark:text-stone-100 flex flex-col my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Top Header */}
-        <header className="px-4 py-3 bg-[#FAF6F0]/90 dark:bg-[#121214]/90 backdrop-blur-md border-b border-[#E8E4DA]/80 dark:border-white/10 flex items-center justify-between gap-2 shrink-0 select-none relative z-30">
+        <header className="px-4 py-3 bg-[var(--terra-surface)] border-b border-[#E8E4DA]/80 dark:border-white/10 flex items-center justify-between gap-2 shrink-0 select-none relative z-30">
           <div className="flex items-center gap-2">
             <button 
               type="button"
@@ -321,12 +321,12 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
         </header>
 
         {/* Scrollable Modal Content */}
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-28 no-scrollbar">
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pb-3">
           
           {/* Section Header with Add Category Button */}
           <div className="px-5 pt-3 pb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Wallet size={20} className="text-[#4A7C59] dark:text-green-400" />
+              <Wallet size={20} className="text-[var(--terra-primary-text)]" />
               <p className="font-headline font-semibold text-base text-[#2E3230] dark:text-white tracking-tight">
                 Структура бюджета
               </p>
@@ -351,7 +351,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                 className="overflow-hidden px-4 mb-2"
               >
-                <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-xs border border-[#E8E4DA] dark:border-white/10 space-y-3">
+                <div className="bg-[var(--terra-surface)] rounded-2xl p-4 shadow-xs border border-[var(--terra-border)] space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-[#E8E4DA]/60 dark:border-white/10">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-[#F0E8DB] dark:bg-white/10 flex items-center justify-center text-[#2E3230] dark:text-white">
@@ -372,24 +372,24 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
 
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 mb-1 uppercase tracking-wider font-label">
+                      <label className="block text-[11px] font-semibold text-stone-500 dark:text-[var(--terra-muted)] mb-1 uppercase tracking-wider font-label">
                         Название категории
                       </label>
                       <div className="flex items-center bg-[#F5F1EA] dark:bg-[#252528] rounded-xl px-3 py-2">
-                        <Tag size={16} className="text-stone-400 mr-2 shrink-0" />
+                        <Tag size={16} className="text-[var(--terra-muted)] mr-2 shrink-0" />
                         <input 
                           ref={newCatNameInputRef}
                           type="text"
                           value={newCategoryName}
                           onChange={(e) => setNewCategoryName(e.target.value)}
                           placeholder="Например: Домашние питомцы"
-                          className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-stone-400 focus:outline-none font-medium"
+                          className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-[var(--terra-muted)] focus:outline-none font-medium"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 mb-1 uppercase tracking-wider font-label">
+                      <label className="block text-[11px] font-semibold text-stone-500 dark:text-[var(--terra-muted)] mb-1 uppercase tracking-wider font-label">
                         Подкатегории
                       </label>
                       <div className="flex items-center gap-2 mb-2">
@@ -406,7 +406,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                               }
                             }}
                             placeholder="Добавить пункт..."
-                            className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-stone-400 focus:outline-none"
+                            className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-[var(--terra-muted)] focus:outline-none"
                           />
                         </div>
                         <button 
@@ -438,7 +438,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                     <button 
                       type="button"
                       onClick={handleSaveCategoryBundle}
-                      className="w-full mt-2 h-10 bg-[#4A7C59] text-white rounded-xl font-label font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xs hover:bg-[#3D684A] cursor-pointer"
+                      className="w-full mt-2 h-10 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] rounded-xl font-label font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xs hover:bg-[#3D684A] cursor-pointer"
                     >
                       <Check size={16} />
                       <span>Сохранить категорию</span>
@@ -451,20 +451,20 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
 
           {/* Live Search Bar */}
           <div className="px-4 mb-3">
-            <div className="relative flex items-center bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xs px-3.5 py-2.5 border border-[#E8E4DA] dark:border-white/10 focus-within:border-[#4A7C59] transition-all">
-              <Search size={18} className="text-stone-400 mr-2.5 shrink-0" />
+            <div className="relative flex items-center bg-[var(--terra-surface)] rounded-xl px-2 border border-[var(--terra-border)] focus-within:border-[#4A7C59] transition-all">
+              <Search size={18} className="text-[var(--terra-muted)] mr-2.5 shrink-0" />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Быстрый поиск категории..."
-                className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-stone-400 focus:outline-none font-medium"
+                placeholder="Поиск категории"
+                aria-label="Поиск по категориям" className="w-full min-w-0 min-h-[44px] bg-transparent text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               />
               {searchQuery && (
                 <button 
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-stone-400 hover:text-stone-700 dark:hover:text-white ml-1 cursor-pointer"
+                  aria-label="Очистить поиск" className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 >
                   <X size={15} />
                 </button>
@@ -483,10 +483,10 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               return (
                 <div 
                   key={parent.id}
-                  className={`bg-white dark:bg-[#1C1C1E] rounded-2xl p-4 shadow-2xs border transition-all ${
+                  className={`bg-[var(--terra-surface)] rounded-2xl p-4 shadow-2xs border transition-all ${
                     isParentSelected || hasActiveChild
-                      ? 'border-2 border-[#4A7C59] shadow-xs'
-                      : 'border-[#E8E4DA] dark:border-white/10'
+                      ? 'border-2 border-[var(--terra-primary-text)] shadow-xs'
+                      : 'border-[var(--terra-border)]'
                   }`}
                 >
                   {/* Category Header */}
@@ -496,7 +496,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div 
-                        className="w-11 h-11 rounded-2xl bg-[#F5F1EA] dark:bg-white/10 flex items-center justify-center text-[#4A7C59] dark:text-green-400 shrink-0"
+                        className="w-11 h-11 rounded-2xl bg-[#F5F1EA] dark:bg-white/10 flex items-center justify-center text-[var(--terra-primary-text)] shrink-0"
                         style={parent.color ? { color: parent.color } : undefined}
                       >
                         {getIconById(parent.icon, 22)}
@@ -505,7 +505,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                         <h4 className="font-headline font-semibold text-sm text-[#2E3230] dark:text-white truncate">
                           {parent.label}
                         </h4>
-                        <p className="text-xs text-stone-500 dark:text-stone-400 font-body truncate">
+                        <p className="text-xs text-stone-500 dark:text-[var(--terra-muted)] font-body truncate">
                           {subcats.length} {subcats.length === 1 ? 'подкатегория' : 'подкатегорий'}
                         </p>
                       </div>
@@ -525,7 +525,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                       </button>
                       <ChevronDown 
                         size={18} 
-                        className={`text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
+                        className={`text-[var(--terra-muted)] transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
                       />
                     </div>
                   </div>
@@ -547,7 +547,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                             onClick={() => handleSelect(parent.id)}
                             className={`subcat-card subcat-item p-3 rounded-xl cursor-pointer flex flex-col justify-between min-h-[64px] border ${
                               activeSelectedId === parent.id
-                                ? 'is-selected bg-[#4A7C59] text-white shadow-xs border-[#4A7C59]'
+                                ? 'is-selected bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-xs border-[#4A7C59]'
                                 : 'bg-[#F5F1EA] dark:bg-[#252528] text-[#2E3230] dark:text-stone-200 border-transparent hover:bg-[#EAE6DE]'
                             }`}
                           >
@@ -561,7 +561,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                                 <div className="w-4 h-4 rounded-full border border-stone-300 dark:border-stone-600 shrink-0" />
                               )}
                             </div>
-                            <span className={`text-[10px] ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                            <span className={`text-[10px] ${activeSelectedId === parent.id ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-[var(--terra-muted)]'}`}>
                               Общая категория
                             </span>
                           </div>
@@ -574,7 +574,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                                 key={sub.id}
                                 className={`subcat-card subcat-item p-3 rounded-xl cursor-pointer flex flex-col justify-between min-h-[64px] border relative group ${
                                   isSubSelected
-                                    ? 'is-selected bg-[#4A7C59] text-white shadow-xs border-[#4A7C59]'
+                                    ? 'is-selected bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-xs border-[#4A7C59]'
                                     : 'bg-[#F5F1EA] dark:bg-[#252528] text-[#2E3230] dark:text-stone-200 border-transparent hover:bg-[#EAE6DE]'
                                 }`}
                                 onClick={() => handleSelect(sub.id)}
@@ -594,7 +594,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                                       className={`p-1 rounded-md transition-colors ${
                                         isSubSelected 
                                           ? 'hover:bg-white/20 text-white' 
-                                          : 'hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-400'
+                                          : 'hover:bg-stone-200 dark:hover:bg-stone-700 text-[var(--terra-muted)]'
                                       }`}
                                     >
                                       <FolderOutput size={13} />
@@ -606,7 +606,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                                     )}
                                   </div>
                                 </div>
-                                <span className={`text-[10px] truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-stone-400'}`}>
+                                <span className={`text-[10px] truncate ${isSubSelected ? 'text-[#DCE7DA]' : 'text-stone-500 dark:text-[var(--terra-muted)]'}`}>
                                   {parent.label}
                                 </span>
                               </div>
@@ -617,7 +617,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                           <button 
                             type="button"
                             onClick={() => handleQuickAddSubcategoryForParent(parent.label)}
-                            className="p-3 rounded-xl bg-[#F5F1EA]/60 dark:bg-white/5 text-[#4A7C59] dark:text-green-400 cursor-pointer hover:bg-[#EAE6DE] flex flex-col items-center justify-center gap-1 min-h-[64px] active:scale-95 transition-transform border border-dashed border-[#4A7C59]/30"
+                            className="p-3 rounded-xl bg-[#F5F1EA]/60 dark:bg-white/5 text-[var(--terra-primary-text)] cursor-pointer hover:bg-[#EAE6DE] flex flex-col items-center justify-center gap-1 min-h-[64px] active:scale-95 transition-transform border border-dashed border-[#4A7C59]/30"
                           >
                             <Plus size={18} />
                             <span className="font-label font-bold text-[11px] tracking-tight">Подкатегория</span>
@@ -633,9 +633,9 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
           </div>
 
           {/* Live Selection Status Strip */}
-          <div className="mt-4 mx-4 p-3 rounded-xl bg-white dark:bg-[#1C1C1E] flex items-center justify-between text-xs text-stone-600 dark:text-stone-300 font-body border border-[#E8E4DA] dark:border-white/10">
+          <div className="mt-4 mx-4 p-3 rounded-xl bg-[var(--terra-surface)] flex items-center justify-between text-xs text-stone-600 dark:text-stone-300 font-body border border-[var(--terra-border)]">
             <div className="flex items-center gap-2 min-w-0 pr-2">
-              <Check size={16} className="text-[#4A7C59] dark:text-green-400 shrink-0" />
+              <Check size={16} className="text-[var(--terra-primary-text)] shrink-0" />
               <span className="truncate">
                 Выбрано: <strong className="font-semibold text-[#2E3230] dark:text-white">
                   {currentSelectionInfo ? `${currentSelectionInfo.categoryName} / ${currentSelectionInfo.subcategoryName}` : 'Не выбрано'}
@@ -646,7 +646,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               <button 
                 type="button"
                 onClick={() => setActiveSelectedId(null)}
-                className="text-xs text-[#4A7C59] dark:text-green-400 font-semibold hover:underline shrink-0 cursor-pointer"
+                className="text-xs text-[var(--terra-primary-text)] font-semibold hover:underline shrink-0 cursor-pointer"
               >
                 Сбросить
               </button>
@@ -656,7 +656,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
         </main>
 
         {/* Fixed Bottom Actions Bar */}
-        <div className="fixed bottom-0 w-full z-50 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] bg-[#FAF6F0]/95 dark:bg-[#121214]/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(46,50,48,0.06)] border-t border-[#E8E4DA]/60 dark:border-white/10">
+        <div className="shrink-0 w-full pb-[env(safe-area-inset-bottom,0px)] bg-[var(--terra-surface)] shadow-[0_-4px_20px_rgba(46,50,48,0.06)] border-t border-[#E8E4DA]/60 dark:border-white/10">
           <div className="h-16 px-5 flex items-center justify-between gap-3">
             <button 
               type="button"
@@ -669,7 +669,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               type="button"
               onClick={handleConfirm}
               disabled={!activeSelectedId}
-              className={`flex-1 h-11 px-5 flex items-center justify-center gap-2 rounded-xl bg-[#4A7C59] text-white font-label text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer ${
+              className={`flex-1 h-11 px-5 flex items-center justify-center gap-2 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] font-label text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer ${
                 !activeSelectedId ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -682,20 +682,20 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
         {/* Modal Dialog for Moving Subcategory */}
         {movingSubcategory && (
           <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-[#E8E4DA] dark:border-white/10 shadow-2xl p-4 max-w-sm w-full space-y-3">
-              <div className="flex items-center justify-between border-b border-[#E8E4DA] dark:border-white/10 pb-2">
+            <div className="bg-[var(--terra-surface)] rounded-2xl border border-[var(--terra-border)] shadow-2xl p-4 max-w-sm w-full space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--terra-border)] pb-2">
                 <div>
                   <h3 className="text-xs font-bold text-[#1E261E] dark:text-white">
                     Перенос подкатегории
                   </h3>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  <p className="text-[11px] text-stone-500 dark:text-[var(--terra-muted)]">
                     «{movingSubcategory.label}»
                   </p>
                 </div>
                 <button 
                   type="button" 
                   onClick={() => setMovingSubcategory(null)}
-                  className="text-stone-400 hover:text-stone-700 dark:hover:text-white cursor-pointer"
+                  className="text-[var(--terra-muted)] hover:text-stone-700 dark:hover:text-white cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -711,10 +711,10 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                     key={p.id}
                     type="button"
                     onClick={() => handleMoveSubcategoryToParent(p)}
-                    className="w-full text-left p-2.5 rounded-xl border border-[#E8E4DA] dark:border-white/10 hover:border-[#4A7C59] hover:bg-[#F5F1EA] dark:hover:bg-[#2A2A2E] text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center justify-between transition-all cursor-pointer"
+                    className="w-full text-left p-2.5 rounded-xl border border-[var(--terra-border)] hover:border-[#4A7C59] hover:bg-[#F5F1EA] dark:hover:bg-[#2A2A2E] text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center justify-between transition-all cursor-pointer"
                   >
                     <span>{p.label}</span>
-                    <ArrowRight size={13} className="text-stone-400" />
+                    <ArrowRight size={13} className="text-[var(--terra-muted)]" />
                   </button>
                 ))}
               </div>
@@ -723,7 +723,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                 <button
                   type="button"
                   onClick={() => setMovingSubcategory(null)}
-                  className="px-3 py-1.5 border border-[#DDD8CB] dark:border-white/10 text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl hover:bg-[#EAE6DE] cursor-pointer"
+                  className="px-3 py-1.5 border border-[var(--terra-control-border)] text-stone-700 dark:text-stone-300 font-semibold text-xs rounded-xl hover:bg-[#EAE6DE] cursor-pointer"
                 >
                   Отмена
                 </button>

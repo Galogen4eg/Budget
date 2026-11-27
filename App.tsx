@@ -243,6 +243,7 @@ export default function App() {
   const [targetService, setTargetService] = useState<string | null>(null);
   const navigateMenu=(id:string)=>{if(id==='services')setTargetService('menu');setActiveTab(id);};
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newTransactionDate,setNewTransactionDate]=useState<Date|null>(null);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -276,7 +277,7 @@ export default function App() {
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string, budgetMemberId?:string, budgetMonthScope?:boolean} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   useEffect(()=>{
-    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+    setMemberFilter('all');setSelectedTx(null);setNewTransactionDate(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
   },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(()=>typeof window==='undefined'||window.innerWidth>=1024);
   
@@ -497,7 +498,7 @@ export default function App() {
     }
   };
 
-  const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
+  const handleEditTransaction = (tx: Transaction) => { setNewTransactionDate(null);setSelectedTx(tx); setIsAddModalOpen(true); };
 
   const handleToggleMandatoryPaid = async (expenseId: string) => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -1121,7 +1122,9 @@ export default function App() {
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<TerraOverview 
                     onOpenNotifications={()=>setShowNotifications(true)}
-                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenAddModal={()=>{setNewTransactionDate(null);setSelectedTx(null);setIsAddModalOpen(true);}}
+                    onOpenAddModalForDate={date=>{setNewTransactionDate(date);setSelectedTx(null);setIsAddModalOpen(true);}}
+                    onAddCategory={handleAddCategory}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onEditTransaction={handleEditTransaction}
@@ -1285,13 +1288,13 @@ export default function App() {
         <AnimatePresence>
             {isAddModalOpen && <AddTransactionModal 
                 key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} 
-                onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
+                onClose={() => { setIsAddModalOpen(false); setSelectedTx(null);setNewTransactionDate(null); }} 
                 onSubmit={handleTransactionSubmit} 
                 settings={financialSettings} 
                 members={householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members} 
                 categories={categories} 
                 learnedRules={learnedRules}
-                initialTransaction={selectedTx} 
+                initialTransaction={selectedTx} initialDate={newTransactionDate??undefined} 
                 onLearnRule={handleLearnRule} 
                 onAddCategory={handleAddCategory} 
                 transactions={transactions} 

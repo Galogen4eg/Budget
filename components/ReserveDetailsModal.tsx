@@ -51,6 +51,7 @@ export interface ReserveDetailsModalProps {
   onEditExpense?: (expense: MandatoryExpense) => void;
   privacyMode?: boolean;
   currency?: string;
+  period?:string;
   [key: string]: any;
 }
 
@@ -70,7 +71,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
   onPayExpenses,
   onEditExpense,
   privacyMode = false,
-  currency = '₽'
+  currency = '₽',period
 }) => {
   useBodyScrollLock(isOpen ?? true);
   useModalBackHandler(isOpen??true,onClose);
@@ -160,7 +161,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
           <h2 id="terra-reserve-heading" className="text-lg font-headline font-semibold min-w-0">Структура резерва</h2>
           <button type="button" onClick={onClose} aria-label="Закрыть" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><X size={18}/></button>
         </header>
-        <div data-testid="terra-reserve-scroll" className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-4 space-y-3">
+        <div data-testid="terra-reserve-scroll" className="terra-reserve-content flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-4 space-y-3">
           <section aria-label="Состав резерва" className="rounded-xl border border-[var(--terra-border)] p-3 space-y-3">
             <div>
               <h3 className="text-sm text-[var(--terra-muted)]">Всего в резерве</h3>
@@ -183,7 +184,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
             <p className="text-xs text-[var(--terra-muted)]">Свободная сумма — расчётный остаток по текущим данным, не гарантия достаточности средств.</p>
           </section>
           <section aria-label="Обязательные платежи" className="space-y-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="text-base font-semibold">Обязательные платежи ({rawBillsList.length})</h3><span className="text-xs text-[var(--terra-muted)]">{currentMonthName}</span></div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="text-base font-semibold">Обязательные платежи ({rawBillsList.length})</h3><span className="text-xs text-[var(--terra-muted)]">{period||currentMonthName}</span></div>
             <div className="divide-y divide-[var(--terra-border)] border-y border-[var(--terra-border)]">
               {rawBillsList.length===0&&<p className="py-3 text-sm text-[var(--terra-muted)]">Нет обязательных платежей</p>}
               {rawBillsList.map(item=>{
@@ -196,7 +197,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                     <p className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{item.subtitle|| (isDebt?'Кредит / долг':'Бытовой счёт')}</p>
                     <p className={`text-xs ${isPaid?'text-[var(--terra-primary-text)]':item.isOverdue?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}`}>{isPaid?'Оплачено':item.isOverdue?'Просрочено':`До ${item.expense.day} числа`}</p>
                   </div>
-                  <span className="text-sm font-semibold tabular-nums text-right min-w-0 [overflow-wrap:anywhere]">{formatMoney(item.expense.amount)} {!privacyMode&&currency}</span>
+                  <span className="text-sm font-semibold tabular-nums text-right min-w-0 [overflow-wrap:anywhere]">{!isPaid&&<span className="block text-xs font-normal text-[var(--terra-muted)]">К оплате</span>}{formatMoney(isPaid?item.expense.amount:item.amountNeeded)} {!privacyMode&&currency}</span>
                   <div className="terra-reserve-bill-actions flex flex-wrap justify-end gap-1 min-w-0">
                     {onEditExpense&&<button type="button" disabled={busy} onClick={e=>{e.preventDefault();e.stopPropagation();onEditExpense(item.expense);onClose();}}
                       aria-label={`Редактировать обязательный платеж: ${item.expense.name}`} className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><Edit3 size={16}/></button>}

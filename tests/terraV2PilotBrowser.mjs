@@ -131,7 +131,7 @@ async function overviewGeometryPilot(page,settingsRef){
    const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));
    assert.ok(controlBoxes.length>=3,label+' missing controls');
    for(const box of controlBoxes)assert.ok(box.height>=44&&box.width>=44,label+' too small control '+JSON.stringify(box));
-   if(width>=375&&width<768||width>=1440)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
+   if(width>=375&&width<768||width>=1024)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
    if(width>=768){
     const summary=overview.getByTestId('overview-metrics-desktop');
     const headings=summary.locator('[data-overview-summary-heading]');
@@ -260,6 +260,21 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await noOverflow(dayDialog,label+' day detail');
     for(const action of await dayDialog.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' day detail action');
     await capture(page,'overview-day-detail-'+label);
+    const addForDay=button(dayDialog,/Добавить операцию/,false);
+    await addForDay.click();
+    const dayEditor=page.getByRole('dialog',{name:'Новая операция',exact:true});
+    await dayEditor.waitFor({state:'visible'});
+    const expectedDay=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
+    assert.equal(await dayEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedDay,label+' wrong date in day editor');
+    await noOverflow(dayEditor,label+' day editor');await capture(page,'overview-day-new-operation-'+label);
+    const pickerTrigger=button(dayEditor,'Выбрать категорию');await pickerTrigger.click();
+    const nestedPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
+    await nestedPicker.waitFor({state:'visible'});await noOverflow(nestedPicker,label+' nested category picker');await capture(page,'overview-day-category-picker-'+label);
+    await page.keyboard.press('Escape');await nestedPicker.waitFor({state:'hidden'});
+    assert.equal(await pickerTrigger.evaluate(el=>document.activeElement===el),true,label+' category picker focus return');
+    await button(dayEditor,'Закрыть модальное окно').click();await dayEditor.waitFor({state:'hidden'});
+    await dayDialog.waitFor({state:'visible'});
+    assert.equal(await addForDay.evaluate(el=>document.activeElement===el),true,label+' day editor focus return');
     await button(dayDialog,'Закрыть детали дня').focus();
     await page.keyboard.press('Escape');
     await dayDialog.waitFor({state:'hidden'});
@@ -294,6 +309,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.ok(countMatch&&Number(countMatch[1])>=30,label+' full active root category count missing');
     await noOverflow(categoryCard,label+' dense categories');
     await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
+    const manage=button(categoryCard,'Управление категориями');await manage.click();
+    const managementPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
+    await managementPicker.waitFor({state:'visible'});const search=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
+    await targetSize(search,label+' category search');await search.fill('терра-нет-категории');
+    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear search');await button(managementPicker,'Очистить поиск').click();
+    await noOverflow(managementPicker,label+' category management');await capture(page,'overview-category-picker-'+label);
+    await page.keyboard.press('Escape');await managementPicker.waitFor({state:'hidden'});
+    assert.equal(await manage.evaluate(el=>document.activeElement===el),true,label+' category management focus return');
     const allCategories=button(categoryCard,'Все категории расходов');
     await targetSize(allCategories,label+' all categories');
     await allCategories.click();

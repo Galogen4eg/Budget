@@ -29,6 +29,7 @@ interface AddTransactionModalProps {
   categories: Category[];
   learnedRules?: LearnedRule[];
   initialTransaction?: Transaction | null;
+  initialDate?:Date;
   onLearnRule: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   transactions: Transaction[];
@@ -67,7 +68,7 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
     <button 
       type="button"
       onClick={onBack} 
-      className="text-primary dark:text-green-400 flex items-center text-sm font-semibold hover:opacity-80 active:scale-95 transition"
+      className="text-[var(--terra-primary-text)] flex items-center text-sm font-semibold hover:opacity-80 active:scale-95 transition"
     >
       <ChevronLeft size={20} className="-ml-1 mr-0.5" />
       <span>Назад</span>
@@ -79,7 +80,7 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
+  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, initialDate, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Lock body scroll with scrollbar compensation when modal is open
   useBodyScrollLock();
@@ -128,7 +129,7 @@ export default function AddTransactionModal({
   
   // Date & Telegram Notification State
   const [date, setDate] = useState(() => {
-    const targetDate = initialTransaction ? new Date(initialTransaction.date) : new Date();
+    const targetDate = initialTransaction ? new Date(initialTransaction.date) : initialDate ?? new Date();
     const year = targetDate.getFullYear();
     const month = String(targetDate.getMonth() + 1).padStart(2, '0');
     const day = String(targetDate.getDate()).padStart(2, '0');
@@ -394,7 +395,7 @@ export default function AddTransactionModal({
 
               {/* Validation Alert */}
               {validationError && (
-                <div role="alert" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-xs font-semibold px-6 py-2 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
+                <div role="alert" className="bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)] text-xs font-semibold px-6 py-2 border-b border-[var(--terra-border)] flex items-center justify-between">
                   <span>{validationError}</span>
                   <button onClick={() => setValidationError(null)} className="text-xs font-bold hover:underline">Закрыть</button>
                 </div>
@@ -480,7 +481,7 @@ export default function AddTransactionModal({
                               ? 'text-lg sm:text-xl' 
                               : 'text-xl sm:text-2xl'
                           } ${
-                            type === 'expense' ? 'text-[#D95C48]' : 'text-primary dark:text-green-400'
+                            type === 'expense' ? 'text-[#D95C48]' : 'text-[var(--terra-primary-text)]'
                           }`}>
                             {settings.currency || '₽'}
                           </span>
@@ -624,7 +625,7 @@ export default function AddTransactionModal({
                         >
                           <div className="bg-[var(--terra-surface)] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[10px] font-mono uppercase font-bold text-primary dark:text-green-400 block">
+                              <label className="text-[10px] font-mono uppercase font-bold text-[var(--terra-primary-text)] block">
                                 КЛЮЧЕВОЕ СЛОВО (ДЛЯ АВТО-ПРАВИЛА)
                               </label>
                               {initialTransaction?.rawNote && (
@@ -632,7 +633,7 @@ export default function AddTransactionModal({
                                   <button
                                     type="button"
                                     onClick={() => setCleanKeyword(extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note))}
-                                    className="text-primary dark:text-green-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    className="text-[var(--terra-primary-text)] font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
                                     title="Восстановить авто-очищенное ключевое слово"
                                   >
                                     <RotateCcw size={10} />
@@ -915,7 +916,7 @@ export default function AddTransactionModal({
                         <div className="flex items-center gap-3 overflow-hidden">
                           <MemberMarker member={mem} size="sm" />
                           <div className="text-left">
-                            <div className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
+                            <div className={`text-sm truncate ${isSelected ? 'text-[var(--terra-primary-text)] font-bold' : 'text-graphite dark:text-white'}`}>
                               {mem.name}
                             </div>
                             {mem.id === auth.currentUser?.uid && (
@@ -923,7 +924,7 @@ export default function AddTransactionModal({
                             )}
                           </div>
                         </div>
-                        {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                        {isSelected && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                       </button>
                     );
                   })}
@@ -954,7 +955,7 @@ export default function AddTransactionModal({
                       <X size={18} className="text-graphite-muted" />
                       <span className="text-sm font-medium text-graphite dark:text-white">Не привязывать</span>
                     </div>
-                    {boundExpenseId === '' && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                    {boundExpenseId === '' && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                   </button>
                   
                   {mandatoryExpenses.map((exp) => {
@@ -977,7 +978,7 @@ export default function AddTransactionModal({
                             <Repeat size={16} />
                           </div>
                           <div className="text-left min-w-0">
-                            <div className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
+                            <div className={`text-sm truncate ${isSelected ? 'text-[var(--terra-primary-text)] font-bold' : 'text-graphite dark:text-white'}`}>
                               {exp.name}
                             </div>
                             <div className="text-[11px] text-graphite-muted dark:text-gray-400 font-mono">
@@ -985,7 +986,7 @@ export default function AddTransactionModal({
                             </div>
                           </div>
                         </div>
-                        {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                        {isSelected && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                       </button>
                     );
                   })}

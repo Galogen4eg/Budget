@@ -92,7 +92,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
               <div className="col-span-2 sm:col-span-1 min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Баланс дня</dt><dd data-testid="day-detail-net" className={`text-lg font-semibold [overflow-wrap:anywhere] ${!privacyMode&&net<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatSignedBudgetMoney(net,privacyMode,true)}</dd></div>
               <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Доходы</dt><dd data-testid="day-detail-income" className="text-base font-semibold [overflow-wrap:anywhere] text-[var(--terra-primary-text)]">{formatSignedBudgetMoney(income,privacyMode,true)}</dd></div>
               <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Расходы</dt><dd data-testid="day-detail-expense" className="text-base font-semibold [overflow-wrap:anywhere]">{formatSignedBudgetMoney(-expense,privacyMode)}</dd></div>
-              <div className="col-span-full flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--terra-border)] pt-2 text-sm"><dt className="text-[var(--terra-muted)]">Дневной ориентир</dt><dd className="font-medium tabular-nums">{privacyMode?'•••':formatBudgetMoney(dailySafeLimit)+' ₽/день'}</dd></div>
+              <div className="col-span-full flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--terra-border)] pt-2 text-sm"><dt className="text-[var(--terra-muted)]">Дневной ориентир</dt><dd className="font-medium tabular-nums">{privacyMode?'•••':dailySafeLimit>0?formatBudgetMoney(dailySafeLimit)+' ₽/день':'Не задан'}</dd></div>
             </dl>
         {/* Transactions list */}
         <div className="space-y-2">
@@ -107,7 +107,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
             </div>
 
             {dayTransactions.length === 0 ? (
-              <div className="text-center py-10 text-graphite-muted dark:text-gray-500 text-xs italic bg-[#FAF9F6] dark:bg-[#252528] rounded-xl border border-dashed border-surface-border dark:border-white/10">
+              <div className="text-center py-6 text-[var(--terra-muted)] text-sm bg-[var(--terra-soft)] rounded-xl">
                 Трат и доходов в этот день не зафиксировано
               </div>
             ) : (
@@ -126,14 +126,14 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                     >
                       <div className="contents">
                         <div className="w-9 h-9 shrink-0">
-                          <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="md" />
+                          <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="sm" className="w-9 h-9"/>
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex flex-wrap items-center gap-1">
                             <h5 className="text-sm font-medium text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                               {displayTitle}
                             </h5>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                               tx.type === 'income' 
                                 ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]' 
                                 : 'bg-[var(--terra-soft)] text-[var(--terra-muted)]'

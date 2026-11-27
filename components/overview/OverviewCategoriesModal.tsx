@@ -25,7 +25,7 @@ export function OverviewCategoriesModal({items,total,period,privacyMode,onClose,
     <header className="flex items-start justify-between gap-2 p-4 border-b border-[var(--terra-border)] shrink-0">
      <div className="min-w-0">
       <h2 id="overview-all-categories-title" className="font-headline text-lg font-semibold">Категории расходов</h2>
-      <p className="text-sm text-[var(--terra-muted)]">{period} · {items.length} категорий</p>
+      <p className="text-sm text-[var(--terra-muted)]">{period} · Категорий: {items.length}</p>
       <p className="mt-1 text-sm tabular-nums [overflow-wrap:anywhere]">Всего: <strong data-testid="overview-all-categories-total">{amount(total)}</strong></p>
      </div>
      <button type="button" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE+' shrink-0'} aria-label="Закрыть список категорий" onClick={onClose}><X size={18} aria-hidden="true"/></button>

@@ -1,6 +1,7 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import {terraTransition} from '../utils/uiMotion';
 import { X, AlertTriangle } from 'lucide-react';
 
 interface ConfirmationModalProps {
@@ -25,6 +26,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   isDestructive = true
 }) => {
   const [loading, setLoading] = useState(false);
+  const reduced=Boolean(useReducedMotion());
   const [error,setError]=useState('');
   const surface=useModalSurface(()=>{if(!loading)onClose();},{enabled:isOpen,initialSelector:'[data-confirm-cancel]'});
 
@@ -51,23 +53,23 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={()=>{if(!loading)onClose();}}
-            className="absolute inset-0 bg-[#2C251D]/60 dark:bg-black/75 backdrop-blur-xs"
+            className="absolute inset-0 bg-black/40"
           />
 
           {/* Modal Card */}
           <motion.div {...surface} role="alertdialog" aria-modal="true" aria-label={title} aria-busy={loading}
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="bg-[var(--terra-surface)] border border-surface-border dark:border-white/10 rounded-3xl shadow-xl max-w-sm w-full overflow-hidden relative z-10 flex flex-col p-6 space-y-4"
+            initial={reduced?false:{opacity:0,y:6}}
+            animate={{opacity:1,y:0}}
+            exit={{opacity:0,y:6}}
+            transition={terraTransition(reduced,.18)}
+            className="bg-[var(--terra-surface)] border border-surface-border dark:border-white/10 rounded-2xl shadow-lg max-w-sm w-full max-h-[90dvh] overflow-y-auto relative z-10 flex flex-col p-4 space-y-3"
           >
             {/* Header Icon & Title */}
             <div className="flex items-start gap-3.5">
               <div className={`p-2.5 rounded-2xl shrink-0 ${
                 isDestructive 
-                  ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400' 
-                  : 'bg-primary-light/40 dark:bg-primary/20 text-[#4A7C59] dark:text-green-400'
+                  ? 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]' 
+                  : 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
               }`}>
                 <AlertTriangle size={22} />
               </div>
@@ -90,7 +92,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
             {error&&<p role="alert" className="text-sm text-[var(--terra-danger-text)]">{error}</p>}
             {/* Buttons Row */}
-            <div className="flex items-center gap-2 pt-1 justify-end">
+            <div className="flex flex-wrap items-center gap-2 pt-1 justify-end">
               <button
                 type="button"
                 onClick={onClose} data-confirm-cancel

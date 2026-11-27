@@ -951,10 +951,10 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        data-terra-shopping-item data-shopping-id={item.id} className="terra-active-shopping-row relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item data-shopping-id={item.id} className="terra-active-shopping-row relative z-10 bg-[var(--terra-surface)] p-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="terra-shopping-name flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
+        <div className="terra-shopping-name">
           <button 
             type="button"
             onClick={(e) => {
@@ -967,34 +967,23 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             <Check size={14} className="text-transparent" />
           </button>
 
-          <div className="min-w-0 flex-1">
-            <button type="button"
-              onClick={(e) => { e.stopPropagation(); onOpenEdit(item); }}
-              aria-label={`Редактировать товар: ${item.title}`}
-              className="min-h-[44px] w-full text-left text-sm font-semibold text-[var(--terra-ink)] dark:text-white break-words leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-              {item.title}
-            </button>
-            
-            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              {isUrgent && (
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[var(--terra-offline-text)] text-xs font-semibold">
-                  <Zap size={10} className="fill-current" />
-                  <span>Срочно</span>
-                </span>
-              )}
-              {memberName&&<span className="text-xs text-[var(--terra-muted)] break-words">{memberName}</span>}
-              {item.note && (
-                <span className="text-xs text-[var(--terra-muted)] break-words [overflow-wrap:anywhere] max-w-full">
-                  {item.note}
-                </span>
-              )}
-            </div>
-          </div>
+          <button type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenEdit(item); }}
+            aria-label={`Редактировать товар: ${item.title}`}
+            aria-describedby={`shopping-author-${item.id}`}
+            className="terra-shopping-copy min-h-[44px] text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+            <span data-shopping-title className="text-sm font-semibold text-[var(--terra-ink)] leading-snug">{item.title}</span>
+            <span className="terra-shopping-meta">
+              <span id={`shopping-author-${item.id}`} data-shopping-author className="text-xs text-[var(--terra-muted)]">{memberName||'Участник не указан'}</span>
+              {isUrgent&&<span className="terra-shopping-priority inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEF3C7] dark:bg-[#3B301A] text-[var(--terra-offline-text)] text-xs font-semibold"><Zap size={10} aria-hidden="true"/><span>Срочно</span></span>}
+            </span>
+            {item.note&&<span data-shopping-note className="text-xs text-[var(--terra-muted)]">{item.note}</span>}
+          </button>
         </div>
 
         {/* Quantity Stepper Pill */}
         <div 
-          className="terra-shopping-stepper flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5 shrink-0 max-w-full" 
+          data-shopping-controls className="terra-shopping-actions terra-shopping-stepper flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5" 
           onClick={(e) => e.stopPropagation()}
         >
           <button 
@@ -1008,7 +997,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
           >
             -
           </button>
-          <span className="text-sm font-semibold text-[var(--terra-ink)] px-1.5 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
+          <span data-shopping-quantity className="terra-shopping-quantity text-sm font-semibold text-[var(--terra-ink)] text-center tabular-nums">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 

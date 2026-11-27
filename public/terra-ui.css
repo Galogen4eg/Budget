@@ -139,7 +139,21 @@ html.dark {
 .terra-budget-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1fr);}
 @container (min-width:620px){.terra-budget-metrics[data-current-period="false"] .terra-month-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div{display:block;border-top:0;border-bottom:0;padding:4px 8px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div+div{border-left:1px solid var(--terra-border);}.terra-budget-metrics[data-current-period="false"] .terra-month-totals dd{text-align:left;font-size:20px;margin-top:4px;}}
 @media(min-width:1024px){.terra-menu-settings-grid>section:nth-child(2){grid-column:auto;}}
-@media(max-width:359px){.terra-active-shopping-row{column-gap:4px;}.terra-active-shopping-row .terra-shopping-name{flex-basis:118px;}.terra-active-shopping-row .terra-shopping-stepper{max-width:100%;}.terra-active-shopping-row .terra-shopping-stepper>span{max-width:64px;}}
+/* Active shopping rows: same text axis, fixed controls, explicit narrow fallback.
+   The participant is the first metadata item, never shifted by priority or a note. */
+.terra-active-shopping-row{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:8px;min-width:0;}
+.terra-active-shopping-row .terra-shopping-name{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:start;gap:8px;min-width:0;}
+.terra-shopping-copy{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:2px;min-width:0;width:100%;padding-block:3px;}
+.terra-shopping-copy :is([data-shopping-title],[data-shopping-author],[data-shopping-note]){min-width:0;max-width:100%;overflow-wrap:anywhere;text-align:left;}
+.terra-shopping-meta{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:4px 6px;min-width:0;width:100%;}
+.terra-shopping-priority{flex:none;white-space:nowrap;}
+.terra-shopping-actions{justify-self:end;min-width:0;max-width:100%;align-self:start;}
+.terra-shopping-stepper{flex-shrink:0;}
+.terra-shopping-quantity{display:block;flex:none;width:52px;padding-inline:3px;overflow-wrap:anywhere;}
+@media(max-width:359px){
+ .terra-active-shopping-row{grid-template-columns:minmax(0,1fr);row-gap:4px;}
+ .terra-active-shopping-row .terra-shopping-actions{justify-self:end;}
+}
 
 /* Settings v3: actual workspace width, flat semantic groups and consistent field geometry. */
 .terra-settings-body {width:100%;max-width:900px;margin-inline:0;container-type:inline-size;min-width:0;}

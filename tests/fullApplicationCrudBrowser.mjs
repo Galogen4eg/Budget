@@ -203,7 +203,7 @@ if(process.argv.includes('--navigation')){
   await close(b).click();
   assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),beforeLedger,'Limit editor changed financial ledger');
   console.log('PASS TERRA category limit invalid input, exact decimal save, other account update and restored ledger');
-  await runTerraV2Pilot(b,{settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),transactionsRef:rows});
+  await runTerraV2Pilot(b,{settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),transactionsRef:rows,shoppingRef:family.collection('shopping'),membersRef:family.collection('members')});
  }
  const result=await runNavigationAudit(b,{captureScreens:true,includeInventoryDetails:true,extraViewports:[[320,568],[360,800],[375,812],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(result.failures.length)process.exitCode=1;

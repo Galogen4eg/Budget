@@ -27,7 +27,10 @@ test('plans span past, present and future without financial links; related goal 
  assert.ok(f.events.some(e=>e.date==='2026-11-26'));
  assert.ok(f.events.some(e=>e.date>'2026-11-26'&&e.recurrence==='weekly'));
  assert.ok(f.events.some(e=>e.kind==='task'&&e.checklist?.length));
- for(const e of f.events)assert.ok(!('linkedExpenseId' in e));
+ for(const e of f.events){
+  assert.ok(!('linkedExpenseId' in e));
+  assert.ok(e.duration===1||e.duration===1.5,'fixture duration is in hours, not minutes');
+ }
  for(const g of f.goals){
   const sum=f.transactions.filter(r=>r.linkedGoalId===g.id).reduce((n,r)=>n+Math.round(r.amount*100)*(r.type==='expense'?1:-1),0);
   assert.equal(Math.round(g.currentAmount*100),sum);

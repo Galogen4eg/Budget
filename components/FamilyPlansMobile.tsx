@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Plus, 
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight, ChevronDown, 
   Clock, 
   LayoutGrid, 
   Columns, 
@@ -20,7 +20,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { formatReminderLabel } from './EventModal';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
@@ -85,9 +85,11 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
   const [selectedConflictPair, setSelectedConflictPair] = useState<{ eventA: FamilyEvent; eventB: FamilyEvent } | null>(null);
 
+  const visiblePeriod=useMemo(()=>calendarViewPeriod(currentDate,selectedDate,viewMode),[currentDate,selectedDate,viewMode]);
+  const periodEvents=useMemo(()=>events.filter(e=>e.date>=visiblePeriod.from&&e.date<=visiblePeriod.to),[events,visiblePeriod]);
   const { conflictingEventIds, conflictPairs } = useMemo(() => {
-    return findEventConflicts(events);
-  }, [events]);
+    return findEventConflicts(events,visiblePeriod);
+  }, [events,visiblePeriod]);
 
   const formatDateKey = (date: Date): string => {
     const year = date.getFullYear();
@@ -128,14 +130,14 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
   // Member filter chips data with counts
   const memberFilterStats = useMemo(() => {
-    const allCount = events.length;
+    const allCount = periodEvents.length;
     const stats: Array<{ id: string; label: string; count: number; color: string; isConflict?: boolean }> = [
       { id: 'all', label: 'Все', count: allCount, color: '#4A7C59' }
     ];
 
     // Show member chip ONLY if they have at least 1 event
     members.forEach(m => {
-      const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
+      const count = periodEvents.filter(e => matchesCalendarMember(e,m.id,memberIds)).length;
       {
         stats.push({
           id: m.id,
@@ -146,7 +148,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       }
     });
 
-    const commonCount = events.filter(e => matchesCalendarMember(e,'common',memberIds)).length;
+    const commonCount = periodEvents.filter(e => matchesCalendarMember(e,'common',memberIds)).length;
     if (members.length > 1) {
       stats.push({
         id: 'common',
@@ -157,7 +159,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     }
 
     return stats;
-  }, [events, members, memberIds]);
+  }, [periodEvents, members, memberIds]);
 
   // Selected Day calculations
   const selectedDateStr = formatDateKey(selectedDate);
@@ -171,11 +173,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
   // Selected Day title (e.g., "24 сентября, Четверг")
   const selectedDayFormattedTitle = useMemo(() => {
-    const day = selectedDate.getDate();
-    const monthName = selectedDate.toLocaleString('ru-RU', { month: 'long' });
-    const weekday = selectedDate.toLocaleString('ru-RU', { weekday: 'long' });
-    const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-    return `${day} ${monthName}, ${capitalizedWeekday}`;
+    const date=selectedDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+    const weekday=selectedDate.toLocaleDateString('ru-RU',{weekday:'long'});
+    return date+', '+weekday.charAt(0).toUpperCase()+weekday.slice(1);
   }, [selectedDate]);
 
   // Month title & days count
@@ -204,10 +204,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       name: m.name,
       count: monthEvents.filter(e => e.memberIds && e.memberIds.includes(m.id)).length
     }));
-    const commonCount = monthEvents.filter(e => !e.memberIds || e.memberIds.length === 0 || e.memberIds.length === members.length).length;
+    const commonCount = monthEvents.filter(e => matchesCalendarMember(e,'common',memberIds)).length;
 
     return { total, memberCounts, commonCount };
-  }, [events, currentDate, members]);
+  }, [events, currentDate, members, memberIds]);
 
   // Week View Calculations
   const currentWeekDays = useMemo(() => {
@@ -244,20 +244,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     return currentWeekDays.some(d => formatDateKey(d) === todayStr);
   }, [currentWeekDays]);
 
-  const weekPeriodTitle = useMemo(() => {
-    if (currentWeekDays.length === 0) return '';
-    const start = currentWeekDays[0];
-    const end = currentWeekDays[6];
-    const startDay = start.getDate();
-    const endDay = end.getDate();
-    const startMonth = start.toLocaleString('ru-RU', { month: 'long' });
-    const endMonth = end.toLocaleString('ru-RU', { month: 'long' });
-
-    if (start.getMonth() === end.getMonth()) {
-      return `${startDay} — ${endDay} ${endMonth}`;
-    }
-    return `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
-  }, [currentWeekDays]);
+  const weekPeriodTitle=useMemo(()=>currentWeekDays.length?formatCalendarWeekRange(currentWeekDays[0],currentWeekDays[6],false):'', [currentWeekDays]);
 
   const weekMonthYearTitle = useMemo(() => {
     if (currentWeekDays.length === 0) return '';
@@ -437,9 +424,13 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         </div>
 
         {/* 7-Column Month Grid */}
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1.5" data-testid="plans-month-grid">
           {cells}
         </div>
+        <button type="button" onClick={()=>{const target=document.getElementById('plans-selected-day-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}
+          className="min-h-[44px] w-full flex items-center justify-between gap-2 rounded-xl px-2 text-sm font-semibold text-[var(--terra-primary-text)] hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+          <span>События дня ({eventsForSelectedDay.length})</span><ChevronDown size={16} aria-hidden="true"/>
+        </button>
       </div>
     );
   };
@@ -791,7 +782,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   </span>
                 </div>
                 <p className="text-sm font-medium text-[var(--terra-ink)] break-words mt-0.5">
-                  Обнаружено наложение по времени ({conflictPairs.length} {conflictPairs.length === 1 ? 'событие' : 'события'})
+                  Пересечения в выбранном периоде: {conflictPairs.length}
                 </p>
               </div>
             </div>
@@ -887,7 +878,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 3: Chip Filters (Все, Папа, Мама, Пересечения) */}
-          <div role="group" aria-label="Фильтр участников планов" className={FILTER_RAIL}>
+          <div role="group" aria-label="Фильтр участников планов" className="flex flex-wrap items-center gap-1.5 min-w-0 w-full">
             {memberFilterStats.map(stat => {
               const isSelected = filterMemberId === stat.id;
 
@@ -897,11 +888,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   type="button"
                   onClick={() => setFilterMemberId(stat.id as any)}
                   aria-pressed={isSelected}
-                  className={`${FILTER_CHIP} cursor-pointer ${
-                    isSelected
-                      ? FILTER_CHIP_ACTIVE
-                      : FILTER_CHIP_IDLE
-                  }`}
+                  className={`inline-flex min-h-[44px] min-w-[44px] max-w-full items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${isSelected?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}
                 >
                   {stat.id !== 'all' && (
                     stat.isConflict ? (
@@ -916,7 +903,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                       />
                     )
                   )}
-                  <span>{stat.label}</span>
+                  <span className="max-w-[7rem] truncate" title={stat.label}>{stat.label}</span>
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-xs ${
                       isSelected
@@ -936,11 +923,10 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         {viewMode === 'month' && renderCalendarGrid()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'list' && renderScheduleList()}
-        {beforeContent}
 
-        {/* CARD 3: Selected Day Card & Monthly Summary (Image 1 Spec) */}
+        {/* Selected day immediately follows the calendar, before the general agenda. */}
         {viewMode !== 'list' && (
-          <div className={`${SURFACE_CARD} space-y-4`}>
+          <section id="plans-selected-day-mobile" data-testid="plans-selected-day" tabIndex={-1} aria-label="События выбранного дня" className={`${SURFACE_CARD} space-y-3 scroll-mt-2`}>
             
             {/* Header: Circle Day Badge, Title, Today Badge & Add Button */}
             <div className="flex items-center justify-between gap-3">
@@ -971,6 +957,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 type="button"
                 onClick={() => onOpenEvent(null, { date: selectedDateStr })}
                 className="w-11 h-11 rounded-xl bg-primary hover:bg-primary-dark text-white flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-primary shrink-0 cursor-pointer"
+                aria-label="Добавить событие"
                 title="Добавить событие"
               >
                 <Plus size={22} strokeWidth={2.4} />
@@ -984,7 +971,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   const primaryMemberId = ev.memberIds && ev.memberIds[0];
                   const memberMeta = primaryMemberId ? getMemberMeta(primaryMemberId) : null;
                   const isConflict = conflictingEventIds.has(ev.id);
-                  const isCommon = !ev.memberIds || ev.memberIds.length === 0 || ev.memberIds.length === members.length;
+                  const isCommon = matchesCalendarMember(ev,'common',memberIds);
 
                   return (
                     <div
@@ -1122,8 +1109,9 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 )}
               </div>
             </div>
-          </div>
+          </section>
         )}
+        {beforeContent}
       </div>
 
       <ConflictResolverModal

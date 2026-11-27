@@ -171,6 +171,55 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await button(overview,'Показать суммы').click();
     await chart.getByText('График скрыт в режиме приватности',{exact:true}).waitFor({state:'hidden'});
     console.log('PASS TERRA V2 PILOT '+label+' overview/analytics, period, targets, chart geometry and privacy');
+    // Budget uses the exact same populated family and selected month.
+    await button(page.locator('nav'),'Бюджет').click();
+    const budget=page.locator('[data-tab-panel="budget"]');
+    const metrics=budget.getByTestId(mobile?'budget-metrics-mobile':'budget-metrics-desktop');
+    await metrics.waitFor({state:'visible'});
+    await noOverflow(metrics,label+' budget summary');
+    if(mobile){
+     const shortcuts=budget.getByRole('group',{name:'Разделы бюджета'});
+     await noOverflow(shortcuts,label+' budget shortcuts');
+     const rail=await shortcuts.boundingBox();
+     for(const shortcut of await shortcuts.getByRole('button').all()){
+      await targetSize(shortcut,label+' budget shortcut');
+      const rect=await shortcut.boundingBox();
+      assert.ok(rect&&rail&&rect.x>=rail.x-1&&rect.x+rect.width<=rail.x+rail.width+1,label+' clipped budget shortcut');
+     }
+    }
+    await metrics.scrollIntoViewIfNeeded();await capture(page,'budget-summary-'+label);
+    const budgetHistory=budget.getByTestId(mobile?'budget-history-mobile':'budget-history-desktop');
+    const controls=budgetHistory.getByTestId('budget-history-controls');
+    const historyPeriod=controls.getByRole('group',{name:'Период истории операций'});
+    await button(historyPeriod,'Весь месяц').click();
+    const budgetRows=budgetHistory.locator('[data-history-row]');
+    assert.equal(await budgetRows.count(),20,label+' initial month history window');
+    const firstIds=await budgetRows.evaluateAll(nodes=>nodes.map(el=>el.dataset.historyRow));
+    const totalText=await controls.getByRole('status').innerText();
+    assert.ok(Number(totalText.split(' из ')[0])>=500,label+' month history dataset too small');
+    await controls.scrollIntoViewIfNeeded();await capture(page,'budget-month-history-'+label);
+    const more=button(budgetHistory,/^Показать ещё /,false);
+    await targetSize(more,label+' history next page');await more.click();
+    assert.equal(await budgetRows.count(),40,label+' expanded month history window');
+    assert.deepEqual((await budgetRows.evaluateAll(nodes=>nodes.map(el=>el.dataset.historyRow))).slice(0,20),firstIds);
+    await button(historyPeriod,/^День ·/,false).click();
+    const budgetAll=button(budget,'Все категории расходов');
+    await targetSize(budgetAll,label+' budget full categories');await budgetAll.scrollIntoViewIfNeeded();
+    await capture(page,'budget-category-preview-'+label);
+    await budgetAll.click();
+    const budgetCategories=page.getByTestId('budget-all-categories');
+    await budgetCategories.waitFor({state:'visible'});
+    const categoryItems=budgetCategories.locator('[data-category-id]');
+    assert.ok(await categoryItems.count()>=30,label+' budget active root categories');
+    await noOverflow(budgetCategories,label+' budget all categories');
+    await capture(page,'budget-all-categories-'+label);
+    await categoryItems.last().scrollIntoViewIfNeeded();
+    await targetSize(categoryItems.last(),label+' budget last category');
+    await page.keyboard.press('Escape');
+    await budgetCategories.waitFor({state:'hidden'});
+    assert.equal(await budgetAll.evaluate(el=>document.activeElement===el),true,label+' budget categories focus return');
+    await button(page.locator('nav'),'Обзор').click();
+    console.log('PASS TERRA BUDGET PILOT '+label+' summary, all shortcuts, month history 20/40, full categories, focus');
    }
   }
   assert.equal(await ledger(),before,'UI pilot changed transaction records');

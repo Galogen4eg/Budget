@@ -566,8 +566,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </section>
 
-          <div role="group" aria-label="Разделы бюджета" className={FILTER_RAIL}>
-            {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits'],['Платежи','payments']] as const).map(([label,id])=><button key={id} type="button" className={FILTER_CHIP+' '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
+          <div role="group" aria-label="Разделы бюджета" className="grid w-full min-w-0 grid-cols-4 gap-1">
+            {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits'],['Платежи','payments']] as const).map(([label,id])=><button key={id} type="button" className={'min-h-[44px] min-w-0 rounded-xl px-1 py-2 text-xs font-semibold leading-tight text-center transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
           </div>
           {/* Shared history controls retain day/member context */}
           <section id="budget-history-mobile" tabIndex={-1} aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
@@ -1055,8 +1055,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     aria-pressed={isSelected}
                     className={`${FILTER_CHIP} cursor-pointer ${
                       isSelected 
-                        ? 'bg-[#2E3230] text-white shadow-xs dark:bg-white dark:text-[#1C1C1E]' 
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/10'
+                        ? FILTER_CHIP_ACTIVE
+                        : FILTER_CHIP_IDLE
                     }`}
                     type="button"
                   >
@@ -1112,7 +1112,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
       <section data-testid="budget-metrics-desktop" className="terra-budget-metrics grid gap-3" data-current-period={isCurrentMonthView}>
         {/* Card 1: Дневной безопасный лимит */}
-        {isCurrentMonthView&&<div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-2`}>
+        {isCurrentMonthView&&<div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center">
               <span className="text-sm font-semibold text-primary-dark dark:text-green-400">
@@ -1145,7 +1145,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
         {/* Current-day metrics do not apply to historical months. */}
         {isCurrentMonthView && (
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-2`}>
+        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
               {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
@@ -1187,10 +1187,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         )}
 
                 {/* Card 3: Итоги месяца */}
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-2`}>
+        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-start gap-1.5 !p-3.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
-              {isCurrentMonthView?'Месячный прогресс бюджета':'Итоги выбранного месяца'}
+              {isCurrentMonthView?'Итоги месяца':'Итоги выбранного месяца'}
             </span>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[var(--terra-soft)] dark:bg-white/5 text-graphite dark:text-white">
               {isCurrentMonthView?`${currentDayNum} из ${totalDaysInMonth} дней`:'Архив'}
@@ -1200,7 +1200,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
             <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}</dd></div>
             <div><dt>Расходы</dt><dd className="text-[var(--terra-ink)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</dd></div>
-            <div><dt>Результат месяца<span className="block text-xs font-normal text-[var(--terra-muted)]">Доходы − расходы</span></dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
+            <div><dt title="Доходы − расходы" aria-label="Результат месяца: доходы минус расходы">Результат месяца</dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
           </dl>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">

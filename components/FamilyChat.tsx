@@ -1,11 +1,12 @@
-import { Bell, Settings } from 'lucide-react';
-import React, { useState, useEffect, useRef } from 'react';
+import { Bell, Settings, Search, ArrowDown, ArrowLeft, Send } from 'lucide-react';
+import { ICON_ACTION } from './filterUiTokens';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { subscribeToWorkspaceCollection, addItem, setChatHeart } from '../utils/db';
 import { triggerHaptic } from '../utils/haptics';
 import { toast } from 'sonner';
-import { isOwnChatMessage, chatMessageTime, shouldFollowChat } from '../utils/familyWorkspace';
+import { isOwnChatMessage, chatMessageTime, shouldFollowChat, filterChatMessages } from '../utils/familyWorkspace';
 import { useVirtualMessageList, CHAT_VIRTUALIZATION_THRESHOLD } from '../hooks/useVirtualMessageList';
 
 export interface ChatMessage {
@@ -62,6 +63,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   const retryAfter=useRef(0);
   const retryChat=()=>{if(Date.now()<retryAfter.current){toast.info('Повторная проверка временно недоступна');return;}retryAfter.current=Date.now()+10000;setChatRetry(n=>n+1);};
   const followChat=useRef(true);
+  const [nearEnd,setNearEnd]=useState(true);
   const pendingHearts=useRef(new Set<string>());
   const sendingRef=useRef(false);
   const [heartBusy,setHeartBusy]=useState<string[]>([]);
@@ -73,28 +75,57 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   useEffect(()=>{const el=composerRef.current;if(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,128)+'px';}},[inputText]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const searchTrigger=useRef<HTMLButtonElement>(null);
+  const beforeSearch=useRef<{top:number;follow:boolean}|null>(null);
+  const restoreSearch=useRef<{top:number;follow:boolean}|null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<ChatMessage['receiptData'] | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   // Mobile View Navigation State: 'list' (topic folders) vs 'chat' (active conversation)
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('chat');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const activeTopic = topics.find(t => t.id === activeTopicId) || topics[0];
   const currentMessages = loadedScope===scope?(messagesMap[activeTopicId] || []):[];
 
-  // Auto-scroll to bottom on topic change or message addition
-  useEffect(() => {
-    if (active&&followChat.current&&messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+  const jumpToLatest=()=>{
+    const el=messagesContainerRef.current;
+    followChat.current=true;setNearEnd(true);
+    if(el)el.scrollTop=el.scrollHeight;
+  };
+  const closeSearch=()=>{
+    restoreSearch.current=beforeSearch.current;
+    beforeSearch.current=null;
+    setSearchQuery('');setIsSearching(false);
+    searchTrigger.current?.focus({preventScroll:true});
+  };
+  const toggleSearch=()=>{
+    if(isSearching){closeSearch();return;}
+    beforeSearch.current={top:messagesContainerRef.current?.scrollTop||0,follow:followChat.current};
+    setSearchQuery('');setIsSearching(true);
+  };
+  // Search restores the prior reading position; arriving messages never interrupt a search.
+  useLayoutEffect(()=>{
+    const el=messagesContainerRef.current;
+    if(!el||!active)return;
+    if(isSearching){el.scrollTop=0;return;}
+    const previous=restoreSearch.current;
+    if(previous){
+      restoreSearch.current=null;followChat.current=previous.follow;
+      el.scrollTop=previous.follow?el.scrollHeight:previous.top;
+      setNearEnd(shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop));
     }
-  }, [active,activeTopicId, currentMessages.length, mobileView]);
+  },[active,isSearching,searchQuery]);
+  useEffect(()=>{
+    const el=messagesContainerRef.current;
+    if(active&&!isSearching&&followChat.current&&el){
+      el.scrollTop=el.scrollHeight;setNearEnd(true);
+    }
+  },[active,activeTopicId,currentMessages.length,mobileView,isSearching]);
 
   // Keep each message in its own topic. Empty snapshots must clear stale messages.
-  useEffect(()=>{setInputText('');setSearchQuery('');setActiveTopicId('general');followChat.current=true;},[scope]);
+  useEffect(()=>{setInputText('');setSearchQuery('');setIsSearching(false);setActiveTopicId('general');setMobileView('chat');setSelectedReceipt(null);setIsReceiptModalOpen(false);beforeSearch.current=null;restoreSearch.current=null;followChat.current=true;setNearEnd(true);},[scope]);
   useEffect(() => {
     setMessagesMap({ general: [] });setTopics(INITIAL_TOPICS);
     setLoadedScope(null);setLoadError(false);setChatStale(false);
@@ -135,7 +166,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
   // Topic Switcher
   const handleSelectTopic = (topicId: string) => {
     triggerHaptic('light');
-    followChat.current=true;
+    followChat.current=true;setNearEnd(true);beforeSearch.current=null;restoreSearch.current=null;
     setActiveTopicId(topicId);
     setMobileView('chat');
     setIsSearching(false);
@@ -167,7 +198,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
       await addItem(familyId, 'chat', newMsg);
       if(currentScopeRef.current!==scope)return;
       triggerHaptic('medium');
-      followChat.current=true;
+      beforeSearch.current=null;restoreSearch.current=null;setIsSearching(false);setSearchQuery('');jumpToLatest();
       setInputText(prev => prev.trim() === text ? '' : prev);
       setTopics(prev => prev.map(t => t.id === topicId ? {
         ...t,
@@ -193,25 +224,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
     finally{pendingHearts.current.delete(msg.id);setHeartBusy(prev=>prev.filter(id=>id!==msg.id));}
   };
 
-  // Deleting a local topic would leave its messages in Firestore.
-  const handleDeleteActiveTopic = () => {
-    setIsDeleteModalOpen(false);
-    toast.info('Удаление тем пока недоступно: история хранится в семейном пространстве.');
-  };
-
-  // Attachment Handler
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      toast.warning('Отправка файлов в чате пока не поддерживается. Файл не прикреплён.');
-      e.target.value = '';
-    }
-  };
-
-  const filteredMessages = (loadedScope===scope?currentMessages:[]).filter(msg => {
-    if (!searchQuery.trim()) return true;
-    return (msg.text||'').toLowerCase().includes(searchQuery.toLowerCase().trim());
-  });
+  const filteredMessages=filterChatMessages(currentMessages,searchQuery,isSearching);
 
   // Dynamic virtualization: activates when exceeding 500 records
   const {
@@ -253,6 +266,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 key={t.id}
                 type="button"
                 onClick={() => handleSelectTopic(t.id)}
+                aria-pressed={isActive}
                 className={`w-full min-h-[64px] p-2.5 rounded-xl text-left flex items-start gap-2.5 transition-colors cursor-pointer ${
                   isActive 
                     ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-border)]' 
@@ -294,18 +308,18 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                 type="button"
                 aria-label="К спискам чатов" 
                 onClick={() => setMobileView('list')}
-                className="md:hidden w-11 h-11 -ml-1 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0 cursor-pointer"
+                className={ICON_ACTION+" md:hidden -ml-1 text-[var(--terra-muted)] hover:bg-[var(--terra-soft)]"}
               >
-                <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
+                <ArrowLeft size={20} aria-hidden="true"/>
               </button>
 
-              <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline font-semibold text-sm shrink-0 shadow-[0_2px_8px_rgba(74,124,89,0.15)]">
+              <div className="hidden sm:flex w-10 h-10 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] items-center justify-center font-semibold text-sm shrink-0">
                 {activeTopic.icon}
               </div>
 
               <div className="flex flex-col min-w-0 flex-1">
                 <h2 className="text-[15px] font-headline font-semibold text-on-surface dark:text-white truncate leading-snug">
-                  {activeTopic.title}
+                  {activeTopic.id==='general'?'Семейный чат':activeTopic.title}
                 </h2>
                 <p className="text-[11.5px] font-body text-on-surface-variant dark:text-stone-400 truncate leading-none mt-0.5">
                   {activeTopic.subtitle}
@@ -314,23 +328,10 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             </div>
 
             <div className="flex items-center gap-0.5 shrink-0">
-              <button 
-                type="button"
-                aria-label="Поиск" 
-                onClick={() => setIsSearching(!isSearching)}
-                className="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant dark:text-stone-300 hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[22px]">search</span>
-              </button>
-
-              <button 
-                type="button"
-                aria-label="Удалить чат" 
-                onClick={() => setIsDeleteModalOpen(true)}
-                className="w-11 h-11 flex items-center justify-center rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                title="Удалить чат"
-              >
-                <span className="material-symbols-outlined text-[22px]">delete</span>
+              <button type="button" ref={searchTrigger} aria-label="Поиск" aria-expanded={isSearching}
+                aria-controls="chat-search" onClick={toggleSearch}
+                className={ICON_ACTION+" text-[var(--terra-muted)] hover:bg-[var(--terra-soft)]"}>
+                <Search size={20} aria-hidden="true"/>
               </button>
 
               {onOpenNotifications&&<button type="button" onClick={onOpenNotifications} aria-label="Уведомления" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Bell size={18} aria-hidden="true"/></button>}{onOpenSettings&&<button type="button" onClick={onOpenSettings} aria-label="Настройки и профиль" className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-xl hover:bg-[var(--terra-soft)]"><Settings size={18} aria-hidden="true"/></button>}
@@ -340,19 +341,20 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
 
           {/* Collapsible Search Bar */}
           {isSearching && (
-            <div className="px-4 py-2 bg-surface-container-low dark:bg-[var(--terra-surface)] border-t border-surface-variant/40 dark:border-white/10 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">search</span>
+            <div id="chat-search" className="px-3 py-2 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex items-center gap-2">
+              <Search size={17} className="shrink-0 text-[var(--terra-muted)]" aria-hidden="true"/>
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск по сообщениям..." aria-label="Поиск по сообщениям"
-                className="w-full bg-transparent text-xs text-on-surface dark:text-white placeholder:text-on-surface-variant/60 outline-none"
+                className="min-w-0 flex-1 min-h-[44px] bg-transparent text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] outline-none"
+                onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeSearch();}}}
                 autoFocus
               />
               <button 
                 type="button"
-                onClick={() => { setIsSearching(false); setSearchQuery(''); }}
+                onClick={closeSearch}
                 className="min-h-[44px] min-w-[44px] text-sm font-semibold text-[var(--terra-muted)] hover:text-[var(--terra-ink)] px-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >
                 Закрыть
@@ -362,19 +364,19 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
         </header>
 
         {/* Messages Feed */}
-        <main className="flex-1 min-h-0 flex flex-col w-full bg-background dark:bg-[var(--terra-canvas)] overflow-hidden">
+        <main className="relative flex-1 min-h-0 flex flex-col w-full bg-[var(--terra-canvas)] overflow-hidden">
           <div 
             ref={messagesContainerRef}
-            onScroll={e=>{const el=e.currentTarget;followChat.current=shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop);}}
+            onScroll={e=>{if(isSearching)return;const el=e.currentTarget;const following=shouldFollowChat(el.scrollHeight,el.clientHeight,el.scrollTop);followChat.current=following;setNearEnd(following);}}
             data-testid="chat-messages-scroll-container"
-            className="px-3 md:px-6 py-3 flex-1 overflow-y-auto overscroll-y-contain flex flex-col gap-3 min-h-0 custom-scrollbar"
+            className="px-3 md:px-6 py-3 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y flex flex-col gap-3 min-h-0 custom-scrollbar"
           >
             {(loadError||chatStale)&&<div role="status" className="rounded-xl p-3 bg-[var(--terra-soft)] text-sm text-[var(--terra-ink)]">{loadError?'Не удалось обновить сообщения':'Сообщения не подтверждены сервером'}. <button type="button" onClick={retryChat} className="min-h-[44px] px-3 text-[var(--terra-primary-text)] font-semibold">Повторить загрузку</button></div>}
             {/* Date Separator */}
-            <div className="flex items-center justify-center my-1">
-              <div className="px-3.5 py-1 rounded-full bg-surface-container dark:bg-white/10 text-secondary dark:text-stone-300 text-xs font-body font-medium shadow-sm flex items-center gap-1.5">
-                <span>{searchQuery.trim()?'Результаты поиска':'История сообщений'}</span>
-                {isVirtual && (
+            <div className="flex shrink-0 items-center justify-center my-1">
+              <div className="px-3 py-1 text-[var(--terra-muted)] text-xs font-medium flex items-center gap-1.5">
+                <span>{isSearching&&searchQuery.trim()?'Результаты поиска':'История сообщений'}</span>
+                {(isVirtual||(isSearching&&searchQuery.trim())) && (
                   <span className="text-[10.5px] bg-[#4A7C59]/15 text-[var(--terra-primary)] dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-full" aria-label="Количество найденных сообщений">
                     {filteredMessages.length} сообщ.
                   </span>
@@ -383,7 +385,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             </div>
 
             {topSpacerHeight > 0 && (
-              <div style={{ height: topSpacerHeight }} aria-hidden="true" />
+              <div className="shrink-0" style={{ height: topSpacerHeight }} aria-hidden="true" />
             )}
 
             {virtualItems.map(({ index }) => {
@@ -409,7 +411,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                       {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2 px-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
                         <span className="text-xs font-body text-[var(--terra-muted)]">
                           {chatMessageTime(msg.timestamp)}
@@ -462,12 +464,12 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
 
               if (!isMe) {
                 return (
-                  <div key={msg.id} data-chat-message-id={msg.id} className="flex items-start gap-2.5 max-w-[90%]">
+                  <div key={msg.id} data-chat-message-id={msg.id} className="flex shrink-0 items-start gap-2.5 max-w-[92%]">
                     <div className="w-9 h-9 rounded-full bg-[#e8a598] text-[#5c241a] font-headline font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
                       {(msg.userName||'Участник').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1.5 min-w-0">
-                      <div className="flex items-baseline gap-2 px-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
                         <span className="font-headline font-semibold text-[13px] text-on-surface dark:text-white">{msg.userName}</span>
                         <span className="text-xs font-body text-[var(--terra-muted)]">
                           {chatMessageTime(msg.timestamp)}
@@ -492,8 +494,8 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               }
 
               return (
-                <div key={msg.id} className="flex flex-col items-end gap-1 self-end max-w-[88%] ml-auto">
-                  <div className="flex items-baseline gap-2 px-1">
+                <div key={msg.id} data-chat-message-id={msg.id} className="flex shrink-0 flex-col items-end gap-1 self-end max-w-[88%] ml-auto">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
                     <span className="text-xs font-body text-[var(--terra-muted)]">
                       {chatMessageTime(msg.timestamp)}
                     </span>
@@ -501,7 +503,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
                   </div>
 
                   <div className="bg-[var(--terra-primary-soft)] text-[var(--terra-ink)] p-3.5 break-words [overflow-wrap:anywhere] whitespace-pre-wrap rounded-2xl rounded-tr-sm text-sm sm:text-base leading-relaxed font-body font-medium">
-                    {msg.text}
+                    <span data-testid="chat-message-text">{msg.text}</span>
                   </div>
                   {!!msg.heartUsers?.length&&<span className="text-xs text-graphite-muted dark:text-gray-400">♥ {msg.heartUsers.length}</span>}
 
@@ -520,35 +522,24 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
             )}
 
             {bottomSpacerHeight > 0 && (
-              <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />
+              <div className="shrink-0" style={{ height: bottomSpacerHeight }} aria-hidden="true" />
             )}
           </div>
+          {!isSearching&&!nearEnd&&currentMessages.length>0&&<button type="button" aria-label="К последним сообщениям" onClick={jumpToLatest}
+            className={ICON_ACTION+" absolute bottom-3 right-4 z-10 border border-[var(--terra-border)] bg-[var(--terra-surface)] text-[var(--terra-primary-text)] shadow-sm"}>
+            <ArrowDown size={20} aria-hidden="true"/>
+          </button>}
         </main>
 
         {/* Composer Bar */}
         <footer className="shrink-0 bg-surface-container-lowest dark:bg-[var(--terra-surface)] border-t border-[var(--terra-border)] pb-1 md:pb-2">
           <form className="p-2 sm:p-3 flex items-end gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
-            <input 
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <button 
-              type="button"
-              aria-label="Прикрепить чек или файл"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-11 h-11 rounded-xl bg-surface-container-low dark:bg-white/5 hover:bg-surface-container flex items-center justify-center text-on-surface-variant dark:text-stone-300 transition-colors shrink-0 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">attach_file</span>
-            </button>
-
-            <div className="flex-1 min-w-0 bg-surface-container-low dark:bg-[var(--terra-canvas)] rounded-2xl px-3 sm:px-3.5 py-2 sm:py-2.5 flex items-center focus-within:bg-surface-container dark:focus-within:bg-white/10 transition-colors">
+            <div className="flex-1 min-w-0 bg-[var(--terra-surface)] rounded-xl border border-[var(--terra-control-border)] px-3 py-1 flex items-center focus-within:ring-2 focus-within:ring-[var(--terra-focus)]">
               <textarea ref={composerRef} rows={1} value={inputText}
                 onChange={e=>setInputText(e.target.value)}
                 onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.nativeEvent.keyCode!==229&&!window.matchMedia('(pointer:coarse)').matches){e.preventDefault();void handleSendMessage();}}}
                 placeholder="Сообщение семье..." aria-label="Сообщение семье"
-                className="w-full min-w-0 resize-none max-h-32 overflow-y-auto bg-transparent text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus:outline-none font-body leading-normal"/>
+                className="w-full min-w-0 min-h-[44px] resize-none max-h-32 overflow-y-auto bg-transparent text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus:outline-none font-body leading-normal py-2"/>
             </div>
 
             <button 
@@ -558,7 +549,7 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
               className="h-11 min-w-[44px] px-3 sm:px-4 rounded-xl bg-[var(--terra-primary-solid)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] font-body font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors terra-press shrink-0 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"
             >
               <span className="hidden sm:inline text-white">Отправить</span>
-              <span className="material-symbols-outlined text-[17px] text-white">send</span>
+              <Send size={17} aria-hidden="true"/>
             </button>
           </form>
         </footer>
@@ -618,41 +609,6 @@ export default function FamilyChat({active=true,onOpenSettings,onOpenNotificatio
         </div>
       )}
 
-      {/* CONFIRM DELETE CHAT MODAL */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="!bg-white dark:!bg-[var(--terra-surface)] border border-stone-200 dark:border-white/10 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4 relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px]">delete</span>
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-base text-on-surface dark:text-white">Удалить чат?</h3>
-                <p className="text-xs text-on-surface-variant dark:text-stone-400 mt-0.5 font-body">
-                  Вы действительно хотите удалить «{activeTopic.title}» и всю историю сообщений?
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2 px-3 bg-surface-container dark:bg-white/10 hover:bg-surface-container-high text-on-surface dark:text-white text-xs font-headline font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteActiveTopic}
-                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-headline font-bold rounded-xl transition-all shadow-xs cursor-pointer"
-              >
-                Удалить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

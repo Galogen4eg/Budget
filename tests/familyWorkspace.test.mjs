@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import { isOwnChatMessage, chatMessageTime, shouldFollowChat, unseenPurchaseCompletions, assertDebtDeletionSafe } from '../utils/familyWorkspace.ts';
+import { isOwnChatMessage, chatMessageTime, shouldFollowChat, filterChatMessages, unseenPurchaseCompletions, assertDebtDeletionSafe } from '../utils/familyWorkspace.ts';
 test('chat ownership uses account ID, not displayed name',()=>{
  assert.equal(isOwnChatMessage({userId:'b',userName:'Вы'},'a'),false);
  assert.equal(isOwnChatMessage({userId:'a',userName:'Гена'},'a'),true);
@@ -52,4 +52,21 @@ test('chat is loaded lazily and reactions use atomic field updates',()=>{
 test('shopping history cannot record another family’s stale shopping snapshot',()=>{
  assert.match(read('components/ShoppingQuickListsPanel.tsx'),/!familyId\|\|!shoppingReady\|\|libraryFamily!==familyId/);
  assert.match(read('contexts/DataContext.tsx'),/loadedShoppingScope===memberScope/);
+});
+
+test('closed chat search restores every message, even if a stale query remains',()=>{
+ const messages=Object.freeze([{id:'1',text:'Молоко'},{id:'2',text:'Планы на вечер'},{id:'3',text:'МОЛОКО куплено'}]);
+ assert.deepEqual(filterChatMessages(messages,'  мОлОкО ',true).map(m=>m.id),['1','3']);
+ assert.deepEqual(filterChatMessages(messages,'нет такого',true),[]);
+ assert.equal(filterChatMessages(messages,'нет такого',false),messages);
+ assert.equal(filterChatMessages(messages,'   ',true),messages);
+});
+test('chat search, unavailable controls and latest jump use the same accessible contract',()=>{
+ const src=read('components/FamilyChat.tsx');
+ assert.match(src,/filterChatMessages\(currentMessages,searchQuery,isSearching\)/);
+ assert.match(src,/aria-expanded=\{isSearching\}/);
+ assert.match(src,/onClick=\{toggleSearch\}/);
+ assert.match(src,/aria-label="К последним сообщениям"/);
+ assert.doesNotMatch(src,/aria-label="Удалить чат"|aria-label="Прикрепить чек или файл"/);
+ assert.match(src,/aria-label="Сообщение семье"/);
 });

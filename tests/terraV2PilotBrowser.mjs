@@ -313,7 +313,52 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await button(stockEditor,'Отмена').click();await stockEditor.waitFor({state:'hidden'});
     await pantryToggle.click();
     console.log('PASS TERRA SHOPPING PILOT '+label+' actual family history, templates, pantry and editor');
+    await button(page.locator('nav'),'Чат').click();
+    const chat=page.locator('[data-tab-panel="chat"]');
+    const feed=chat.getByTestId('chat-messages-scroll-container');
+    const composer=chat.getByRole('textbox',{name:'Сообщение семье'});
+    await chat.getByTestId('chat-message-text').filter({hasText:'Посмотрим планы на вечер.'}).waitFor({state:'visible',timeout:20000});
+    assert.ok(await chat.getByTestId('chat-message-text').count()>=40,label+' long chat fixture');
+    await noOverflow(feed,label+' chat');
+    await targetSize(composer,label+' composer');
+    await targetSize(button(chat,'Отправить сообщение'),label+' send');
+    assert.equal(await chat.getByRole('button',{name:'Удалить чат'}).count(),0);
+    assert.equal(await chat.getByRole('button',{name:'Прикрепить чек или файл'}).count(),0);
+    await capture(page,'chat-main-'+label);
+    await feed.evaluate(el=>{el.scrollTop=0;});
+    const latest=button(chat,'К последним сообщениям');
+    await latest.waitFor({state:'visible'});await targetSize(latest,label+' latest');
+    await capture(page,'chat-history-'+label);
+    const searchToggle=button(chat,'Поиск');
+    await searchToggle.click();
+    const search=chat.getByRole('textbox',{name:'Поиск по сообщениям'});
+    await targetSize(search,label+' search');
+    await search.fill('  ТЕРМОС  ');
+    assert.equal(await chat.getByTestId('chat-message-text').count(),1);
+    await capture(page,'chat-search-'+label);
+    await search.fill('QA отсутствующий запрос');
+    assert.equal(await chat.getByTestId('chat-message-text').count(),0);
+    await searchToggle.click();
+    await search.waitFor({state:'hidden'});
+    assert.ok(await chat.getByTestId('chat-message-text').count()>=40,label+' closed search did not restore history');
+    assert.ok(await feed.evaluate(el=>el.scrollTop<=5),label+' search lost reading position');
+    await latest.click();
+    await latest.waitFor({state:'hidden'});
+    assert.ok(await feed.evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop<=120),label+' latest failed');
+    await composer.fill('QA строка 1\nQA строка 2\nQA строка 3');
+    const fullHeight=(await composer.boundingBox()).height;
+    assert.ok(fullHeight>44,label+' multiline composer did not expand');
+    await capture(page,'chat-composer-'+label);
+    if(mobile){
+      await page.setViewportSize({width,height:520});
+      const box=await composer.boundingBox();
+      assert.ok(box&&box.y>=0&&box.y+box.height<=520,label+' composer clipped in reduced viewport');
+      await capture(page,'chat-reduced-viewport-'+label);
+      await page.setViewportSize({width,height});
+    }
+    await composer.fill('');
     await button(page.locator('nav'),'Обзор').click();
+    console.log('PASS TERRA CHAT PILOT '+label+' history, search restore, latest, multiline and viewport');
    }
   }
   assert.equal(await ledger(),before,'UI pilot changed transaction records');

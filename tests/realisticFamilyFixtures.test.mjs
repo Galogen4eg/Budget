@@ -86,6 +86,8 @@ test('dense current-month profile has exactly 500 synthetic operations, varied c
   assert.ok(rows.every(r=>fixtureCategories.some(c=>c.id===r.category)&&members.some(m=>m.id===r.memberId)));
   assert.ok(f.events.length>=24&&f.shopping.length>=18);
   assert.deepEqual(f,makeFamilyFixtures({now,members,currentMonthTarget:500}));
+  assert.equal(f.chat.length,40);
+  assert.equal(new Set(f.chat.map(m=>m.id)).size,40);
  }
  assert.throws(()=>makeFamilyFixtures({now,members,currentMonthTarget:501}));
 });

@@ -36,3 +36,19 @@ test('quick lists and repeat purchases retain shared actions and bounded panel s
  assert.match(source,/saveShoppingMerge\(familyId, changes.itemsToUpdateInDb, changes.itemsToAddInDb\)/);
  assert.match(source,/min-h-\[44px\] min-w-0 flex-1 rounded-xl/);
 });
+
+test('shared real purchase frequency and search replace local mock favorites',()=>{
+ const library=read('ShoppingQuickListsPanel');
+ assert.match(library,/frequentFamilyPurchases\(history\)/);
+ assert.match(library,/data-testid="family-frequent-purchases"/);
+ for(const name of ['ShoppingListMobile','ShoppingListDesktop']){
+  const source=read(name);
+  assert.match(source,/filterShoppingItems\(items,searchQuery\)/);
+  assert.doesNotMatch(source,/getTopFrequentPurchases|defaultSuggestions/);
+  assert.match(source,/Очистить поиск товаров/);
+ }
+ const pantry=read('PantryInventory');
+ assert.doesNotMatch(pantry,/overflow-y-auto/);
+ assert.match(pantry,/items.slice\(0,limit\)/);
+ assert.match(pantry,/scrollIntoView/);
+});

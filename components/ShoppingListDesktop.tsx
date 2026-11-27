@@ -46,7 +46,8 @@ import { searchOnlineDatabase, searchProductsByName } from '../utils/barcodeLook
 import { parseVoiceShoppingText, ParsedVoiceItem } from '../utils/voiceShoppingParser';
 import { parseQuickShoppingInput, createShoppingItemsFromQuickText, parseSingleQuickShoppingText } from '../utils/quickShoppingParser';
 import { recordCommittedShoppingEvents, mergeOrRestoreShoppingItems, applyCommittedShoppingChanges, normalizeProductTitle } from '../utils/shoppingManager';
-import { recordPurchaseEvent, getTopFrequentPurchases, FrequentItemStat } from '../utils/frequentPurchases';
+import { recordPurchaseEvent } from '../utils/frequentPurchases';
+import {filterShoppingItems} from '../utils/shoppingLists';
 import { toast } from 'sonner';
 import { resolveShoppingMemberId } from '../utils/shoppingMember';
 import { captureCompletedSelection, resolveCompletedDeletion } from '../utils/shoppingClearSelection';
@@ -214,12 +215,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
   const [isPurchasedOpen, setIsPurchasedOpen] = useState(true);
   const [clearSelection,setClearSelection]=useState<string[]|null>(null);
   const confirmClearCompleted=clearSelection!==null;
   const clearPending=useRef(false);
-  useEffect(()=>setClearSelection(null),[searchQuery,filterMemberId]);
+  useEffect(()=>setClearSelection(null),[searchQuery]);
   const [isClearingCompleted, setIsClearingCompleted] = useState(false);
 
   // Add / Edit Modal State
@@ -278,11 +278,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const [quickInputText, setQuickInputText] = useState('');
   const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
   const quickInputRef = useRef<HTMLInputElement>(null);
-  const [frequentTrigger, setFrequentTrigger] = useState(0);
-  const dynamicFrequentPurchases = useMemo(() => {
-    return getTopFrequentPurchases(8);
-  }, [items, frequentTrigger]);
-
   const liveParsedQuickItems = useMemo(() => {
     if (!quickInputText.trim()) return [];
     return parseQuickShoppingInput(quickInputText);
@@ -327,33 +322,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
     }
   }, [itemName, editingItem]);
 
-  // Filtered lists
-  const filteredActiveItems = useMemo(() => {
-    return items.filter(item => {
-      if (item.completed) return false;
-      if (filterMemberId !== 'all' && item.memberId && item.memberId !== 'all' && item.memberId !== 'family' && item.memberId !== filterMemberId) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        return item.title.toLowerCase().includes(query) || (item.category && item.category.toLowerCase().includes(query));
-      }
-      return true;
-    });
-  }, [items, filterMemberId, searchQuery]);
-
-  const completedItems = useMemo(() => {
-    return items.filter(item => {
-      if (!item.completed) return false;
-      if (filterMemberId !== 'all' && item.memberId && item.memberId !== 'all' && item.memberId !== 'family' && item.memberId !== filterMemberId) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        return item.title.toLowerCase().includes(searchQuery.toLowerCase());
-      }
-      return true;
-    });
-  }, [items, filterMemberId, searchQuery]);
+  // Preserve the shared list without reintroducing a member filter.
+  const filteredItems=useMemo(()=>filterShoppingItems(items,searchQuery),[items,searchQuery]);
+  const filteredActiveItems=useMemo(()=>filteredItems.filter(item=>!item.completed),[filteredItems]);
+  const completedItems=useMemo(()=>filteredItems.filter(item=>item.completed),[filteredItems]);
 
   // Group active items by department
   const groupedDepartments = useMemo(() => {
@@ -440,7 +412,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       updated.completed ? 'completed' : 'restored',
       { category: item.category, amount: item.amount, unit: item.unit, price: item.estimatedPrice }
     );
-    setFrequentTrigger(prev => prev + 1);
 
     toast.success(updated.completed ? `Куплено: ${item.title}` : `Возвращено в список: ${item.title}`);
   };
@@ -491,7 +462,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     try {
       setIsSubmittingQuick(true);
-      const targetMemberId = getShoppingMember(filterMemberId);
+      const targetMemberId = getShoppingMember();
       if (!targetMemberId) return;
       const parsedItems = createShoppingItemsFromQuickText(raw, targetMemberId);
       if (parsedItems.length === 0) return;
@@ -509,7 +480,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         recordCommittedShoppingEvents(purchaseEvents);
       }
       setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
-      setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
       setQuickInputText('');
       // Keep autofocus for rapid consecutive item additions
@@ -525,34 +495,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         quickInputRef.current?.focus();
       }, 50);
     }
-  };
-
-  const handleQuickAddFavorite = async (fav: FrequentItemStat) => {
-    const targetMemberId = getShoppingMember(filterMemberId);
-    if (!targetMemberId) return;
-    const {
-        purchaseEvents,
-      itemsToUpdateInDb,
-      itemsToAddInDb,
-      summaryMessage
-    } = mergeOrRestoreShoppingItems(items, [{
-      title: fav.title,
-      amount: fav.amount,
-      unit: fav.unit as any,
-      category: fav.category,
-      estimatedPrice: fav.price,
-      memberId: targetMemberId,
-      priority: 'medium'
-    }], targetMemberId);
-
-    if (!familyId) { toast.error('Семейный аккаунт пока недоступен'); return; }
-    try {
-      await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
-      recordCommittedShoppingEvents(purchaseEvents);
-      setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
-      setFrequentTrigger(prev => prev + 1);
-      toast.success(summaryMessage);
-    } catch (error) { toast.error('Не удалось добавить покупку'); }
   };
 
   const handleSaveModal = async (shouldMerge = false) => {
@@ -603,7 +545,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
         recordCommittedShoppingEvents(purchaseEvents);
       } catch (error) { toast.error('Не удалось сохранить товар'); return; }
       setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
-      setFrequentTrigger(prev => prev + 1);
       toast.success(summaryMessage);
     }
 
@@ -745,7 +686,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
     setIsVoiceProcessing(true);
     try {
-      const targetMemberId = getShoppingMember(filterMemberId);
+      const targetMemberId = getShoppingMember();
       if (!targetMemberId) return;
       const incoming = parsedVoiceItems.map(p => ({
         title: p.title,
@@ -771,7 +712,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
       }
 
       setItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
-      setFrequentTrigger(prev => prev + 1);
 
       toast.success(summaryMessage);
       setIsVoiceModalOpen(false);
@@ -929,12 +869,11 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
                 aria-label="Поиск по товарам в семейном списке"
                 className="min-h-[44px] w-full pl-9 pr-12 py-2 rounded-xl bg-white dark:bg-[var(--terra-soft)] text-xs text-[var(--terra-ink)] dark:text-white placeholder-[#74796E] outline-none focus:ring-1 focus:ring-[#4A7C59]  border border-[#ECE5DB]/60 dark:border-transparent"
               />
-              <button
-                onClick={startVoiceRecording}
-                className="absolute right-0 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[var(--terra-muted)] hover:text-[var(--terra-primary)] dark:text-stone-400 dark:hover:text-emerald-400 p-1 rounded-md transition cursor-pointer"
-                title="Надиктовать список голосом"
-              >
-                <Mic size={14} />
+              <button type="button" onClick={()=>searchQuery?setSearchQuery(''):startVoiceRecording()}
+                aria-label={searchQuery?'Очистить поиск товаров':'Надиктовать список голосом'}
+                className="absolute right-0 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[var(--terra-muted)] hover:text-[var(--terra-primary-text)] rounded-md transition cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                title={searchQuery?'Очистить поиск товаров':'Надиктовать список голосом'}>
+                {searchQuery?<X size={15}/>:<Mic size={14}/>}
               </button>
             </div>
           </div>
@@ -1199,35 +1138,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           <div className="flex flex-col gap-3 min-w-0">
             {beforeContent}
             
-            {/* Quick Add Templates (Dynamic Family Favorites) */}
-            <div className={`${SURFACE_CARD} flex flex-col gap-3`}>
-              <div className="flex items-center justify-between">
-                <span className="font-serif font-bold text-sm text-[var(--terra-ink)] dark:text-white flex items-center gap-1.5">
-                  <Star size={16} className="text-[#705C30] fill-[#705C30]" />
-                  Частые покупки
-                </span>
-
-              </div>
-
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {dynamicFrequentPurchases.map((fav, i) => (
-                  <button 
-                    key={`fav-chip-${fav.title}-${i}`}
-                    onClick={() => handleQuickAddFavorite(fav)}
-                    title={`Добавлено/куплено: ${fav.frequencyLabel}. Нажмите для добавления в список`}
-                    className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[var(--terra-soft)] hover:bg-[var(--terra-soft)] dark:hover:bg-stone-700 text-xs font-semibold text-[var(--terra-ink)] dark:text-stone-200 border border-[var(--terra-border)] dark:border-white/5  transition group cursor-pointer"
-                  >
-                    <span>{fav.title}</span>
-                    <span className="text-[10px] text-[#705C30] dark:text-amber-300/80 font-mono bg-[var(--terra-soft)] dark:bg-stone-800 px-1.5 py-0.5 rounded-md">
-                      {fav.frequencyLabel}
-                    </span>
-                    <Plus size={14} className="text-[var(--terra-primary)] " />
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Category Stats Box */}
             <div className={`${SURFACE_CARD} space-y-3`}>
               <span className="text-sm font-semibold text-[var(--terra-ink)] block">

@@ -8,12 +8,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, Trash2, CheckCircle2, User, PlusCircle, ArrowUp,
-  Bell, CheckSquare, Square, Lock, Sparkles, Volume2
+  CheckSquare, Square, Lock, Sparkles, Volume2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { addItem, addItemsBatch } from '../utils/db';
+import { addItem, addItemsBatch, saveTransactionWithGoal } from '../utils/db';
+import { queryGrokAssistant } from '../utils/grokAssistant';
+import { updateGrokSettings } from '../utils/grokClient';
+import { ConfirmationModal } from './ConfirmationModal';
 import { detectProductCategory } from '../utils/categorizer';
 import { 
   queryGeminiAssistant, 
@@ -59,16 +62,25 @@ const DEFAULT_WELCOME_MESSAGE: Message = {
   timeStr: '10:42',
 };
 
-export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
+export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
   const { 
     transactions, setTransactions, 
     shoppingItems, setShoppingItems, 
     events, setEvents, 
     members, categories, 
     settings, householdPersonal,
-    currentMonthSpent, totalBalance
+    currentMonthSpent, totalBalance, displayTransactions, displayMembers, financialDataStatus
   } = useData();
-  const { familyId, user } = useAuth();
+  const { familyId, user, isOfflineMode } = useAuth();
+  const [provider,setProvider]=useState<'loading'|'existing'|'grok'|'unavailable'>(user&&!isOfflineMode?'loading':'existing');
+  const [grokProposal,setGrokProposal]=useState<{id:string;output:AIAssistantOutput;description:string}|null>(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    if(!user||isOfflineMode){setProvider('existing');return ()=>controller.abort();}
+    setProvider('loading');
+    updateGrokSettings(user.uid,{action:'status'},controller.signal).then(status=>{if(!controller.signal.aborted)setProvider(status.enabled?'grok':'existing');}).catch(()=>{if(!controller.signal.aborted)setProvider('unavailable');});
+    return ()=>controller.abort();
+  },[user?.uid,isOfflineMode]);
   const historyKey='terra_ai_chat_history:'+JSON.stringify([familyId??'local',user?.uid??'demo',householdPersonal?'personal':'family']);
   const activeScopeRef=useRef(true);
   useEffect(()=>{activeScopeRef.current=true;return ()=>{activeScopeRef.current=false;};},[]);
@@ -219,11 +231,12 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   };
 
   // Assistant Actions
-  const executeAssistantAction = async (output: AIAssistantOutput) => {
+  const executeAssistantAction = async (output: AIAssistantOutput, proposalId?:string) => {
+    if(proposalId&&(!familyId||!activeScopeRef.current))throw new Error('Семейное пространство не подтверждено');
     if (output.actionType === 'add_shopping' && output.shoppingPayload?.items?.length) {
       const targetMemberId = members[0]?.id || user?.uid || 'all';
-      const newItems: ShoppingItem[] = output.shoppingPayload.items.map(item => ({
-        id: `shop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      const newItems: ShoppingItem[] = output.shoppingPayload.items.map((item,index) => ({
+        id: proposalId?'shop_'+proposalId+'_'+index:`shop_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         title: item.title,
         amount: item.amount,
         unit: item.unit || 'шт',
@@ -233,16 +246,16 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         category: detectProductCategory(item.title) || 'other',
       }));
 
-      setShoppingItems(prev => [...newItems, ...prev]);
       if (familyId) {
         await addItemsBatch(familyId, 'shopping', newItems);
       }
+      if(activeScopeRef.current)setShoppingItems(prev => [...newItems.filter(item=>!prev.some(old=>old.id===item.id)), ...prev]);
       showToast(`Добавлено в покупки: ${newItems.length} шт.`);
     }
 
     if (output.actionType === 'create_event' && output.eventPayload) {
       const newEvent: FamilyEvent = {
-        id: `ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: proposalId?'ev_'+proposalId:`ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         title: output.eventPayload.title,
         description: output.eventPayload.description || 'Создано через AI-ассистента',
         date: output.eventPayload.date,
@@ -250,19 +263,19 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
         memberIds: members.map(m => m.id),
       };
 
-      setEvents(prev => [...prev, newEvent]);
       if (familyId) {
         await addItem(familyId, 'events', newEvent);
       }
+      if(activeScopeRef.current)setEvents(prev => prev.some(e=>e.id===newEvent.id)?prev:[...prev,newEvent]);
       showToast(`Событие создано: «${newEvent.title}»`);
     }
 
     if (output.actionType === 'add_transaction' && output.transactionPayload) {
       const p = output.transactionPayload;
       const owner = members.find(m=>m.userId && m.userId===user?.uid)?.id;
-      if (householdPersonal && !owner) throw new Error('Личный финансовый профиль недоступен');
+      if ((householdPersonal||proposalId) && !owner) throw new Error('Личный финансовый профиль недоступен');
       const newTx: Transaction = {
-        id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: proposalId?'tx_'+proposalId:`tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         amount: p.amount,
         type: p.type,
         category: p.categoryId,
@@ -272,8 +285,9 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
       };
 
       if (!familyId) throw new Error('Семья не подключена');
-      await addItem(familyId, 'transactions', newTx);
-      setTransactions(prev => [newTx, ...prev]);
+      if(proposalId)await saveTransactionWithGoal(familyId,newTx,false);
+      else await addItem(familyId, 'transactions', newTx);
+      if(activeScopeRef.current)setTransactions(prev => prev.some(tx=>tx.id===newTx.id)?prev:[newTx, ...prev]);
       showToast(`Расход записан: ${newTx.amount.toLocaleString('ru-RU')} ₽`);
     }
   };
@@ -281,7 +295,9 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
   // Send message
   const handleSend = async (textToSend?: string) => {
     const prompt = (textToSend || input).trim();
-    if (!prompt || loading) return;
+    if (!prompt || loading || grokProposal) return;
+    if(provider==='loading'||provider==='unavailable'){toast.error('Подключение Grok не подтверждено. Выберите доступный режим.');return;}
+    if(provider==='grok'&&(!user||!familyId||(!settings.privacyMode&&financialDataStatus!=='ready'))){toast.error('Дождитесь подтверждения данных бюджета');return;}
 
     if (showVoiceOverlay) closeVoiceModal();
 
@@ -300,21 +316,26 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
     try {
       const historyPayload = messages.map(m => ({ role: m.role, text: m.text }));
-      const assistantOutput = await queryGeminiAssistant(
-        prompt,
-        historyPayload,
-        {
-          transactions,
-          categories,
-          members: householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members,
-          shoppingItems,
-          events,
-          currency: settings.currency || '₽',
-        },
-        activeApiKey
-      );
-
+      const context={
+        transactions:provider==='grok'?(settings.privacyMode?[]:displayTransactions):transactions,
+        categories,
+        members:provider==='grok'?displayMembers:householdPersonal?members.filter(m=>m.userId&&m.userId===user?.uid):members,
+        shoppingItems,events,currency:settings.currency||'₽',
+      };
+      const assistantOutput=provider==='grok'&&user
+        ?await queryGrokAssistant(user.uid,prompt,historyPayload,context,Boolean(settings.privacyMode))
+        :await queryGeminiAssistant(prompt,historyPayload,context,activeApiKey);
       if(!activeScopeRef.current)return;
+      if(provider==='grok'&&['add_transaction','add_shopping','create_event'].includes(assistantOutput.actionType)){
+        const tx=assistantOutput.transactionPayload,ev=assistantOutput.eventPayload,items=assistantOutput.shoppingPayload?.items;
+        const owner=members.find(m=>m.userId===user?.uid);
+        if(tx&&!owner)throw new Error('Профиль участника не подтверждён');
+        const description=tx
+          ?(tx.type==='income'?'Доход: ':'Расход: ')+tx.amount.toLocaleString('ru-RU',{maximumFractionDigits:2})+' '+context.currency+' · '+(categories.find(cat=>cat.id===tx.categoryId)?.label||tx.categoryId)+' · '+tx.date+' · '+owner?.name+(tx.note?' · '+tx.note:'')
+          :ev?ev.title+' · '+ev.date+' '+ev.time:items?.map(item=>item.title+' ('+item.amount+' '+item.unit+')').join(', ')||'';
+        setGrokProposal({id:crypto.randomUUID(),output:assistantOutput,description});
+        return;
+      }
       await executeAssistantAction(assistantOutput);
 
       const botMessage: Message = {
@@ -442,6 +463,11 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
             </div>
           </div>
         </div>
+        <div className="px-4 pb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
+          <span role="status">{provider==='loading'?'Проверка Grok…':provider==='grok'?'Grok':provider==='unavailable'?'Grok недоступен':activeApiKey?'Gemini / локальный режим':'Локальный режим'}</span>
+          {provider==='unavailable'&&<button type="button" className="min-h-[44px] text-sm font-semibold text-[var(--terra-primary-text)]" onClick={()=>setProvider('existing')}>Использовать прежний режим</button>}
+          {onOpenSettings&&<button type="button" className="min-h-[44px] px-2 text-sm font-semibold text-[var(--terra-primary-text)]" onClick={onOpenSettings}>Настройки</button>}
+        </div>
       </header>
 
       {/* Main Messages Stream Area */}
@@ -450,10 +476,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
           
           {messages.map((m) => {
             const isUser = m.role === 'user';
-            const lowerText = m.text.toLowerCase();
-
-            const isExpenseRecorded = m.actionType === 'add_transaction' || lowerText.includes('расход') || lowerText.includes('рублей');
-            const isShoppingList = m.actionType === 'add_shopping' || lowerText.includes('покупок');
+            const isExpenseRecorded = !isUser&&!m.isError&&m.actionType==='add_transaction'&&Boolean(m.transactionPayload);
+            const isShoppingList = !isUser&&!m.isError&&m.actionType==='add_shopping'&&Boolean(m.shoppingPayload);
 
             return (
               <div key={m.id} className={`msg-in flex ${isUser ? 'justify-end' : 'gap-2.5 items-start'}`}>
@@ -476,22 +500,11 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-1.5 text-[#4a7c59] dark:text-emerald-400 text-xs font-bold mb-1">
                           <CheckCircle2 size={16} />
-                          <span>Расход успешно записан</span>
+                          <span>Операция сохранена</span>
                         </div>
                         <p className="text-sm leading-relaxed">
                           {m.text}
                         </p>
-                        <div className="bg-[#f0ece4] dark:bg-[#1C1F1E] rounded-xl p-3 flex items-center justify-between">
-                          <div>
-                            <div className="text-[11px] text-[#4a4e4a] dark:text-stone-400 font-semibold">Новый остаток дня</div>
-                            <div className="text-sm font-bold font-headline text-[#2e3230] dark:text-white">
-                              {dailyLimit.toLocaleString('ru-RU')} ₽
-                            </div>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-[#4a7c59]/10 text-[#4a7c59] flex items-center justify-center">
-                            <CheckCircle2 size={18} />
-                          </div>
-                        </div>
                       </div>
                     )}
 
@@ -570,23 +583,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
             </div>
           )}
 
-          {/* Family Activity Context Card */}
-          <div className="mt-2 bg-[#f0e8db]/60 dark:bg-[#252528] rounded-2xl p-4 flex items-center gap-3 shadow-xs border border-[#e4e0d8] dark:border-white/5">
-            <div className="w-10 h-10 rounded-xl bg-[#f0e8db] dark:bg-white/10 flex items-center justify-center text-[#5e5548] dark:text-stone-300 shrink-0">
-              <Bell size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#5e5548] dark:text-stone-200 truncate">Напоминание для дома</p>
-              <p className="text-[12px] text-[#5e5548]/80 dark:text-stone-400 leading-snug">Аня добавила стиральный порошок в общий список покупок.</p>
-            </div>
-            <button 
-              type="button"
-              onClick={() => handleSend("Покажи текущий список покупок")}
-              className="text-xs font-bold text-[#4a7c59] dark:text-emerald-400 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1C1F1E] shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
-            >
-              Открыть
-            </button>
-          </div>
+
 
           <div ref={bottomRef} />
         </div>
@@ -731,7 +728,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
 
             <button 
               type="submit"
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || provider==='loading' || provider==='unavailable' || Boolean(grokProposal)}
               aria-label="Отправить сообщение" 
               className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl bg-[#4a7c59] text-white active:scale-95 transition-all shadow-[0_2px_8px_rgba(74,124,89,0.25)] cursor-pointer ${
                 !input.trim() || loading ? 'opacity-50 cursor-not-allowed' : ''
@@ -742,6 +739,17 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
           </form>
         </div>
       </footer>
+
+      {grokProposal&&<ConfirmationModal isOpen title="Подтвердите действие Grok" message={grokProposal.description}
+        isDestructive={false} confirmText="Сохранить" onClose={()=>setGrokProposal(null)}
+        onConfirm={async()=>{
+          if(!activeScopeRef.current)throw new Error('Аккаунт изменился');
+          await executeAssistantAction(grokProposal.output,grokProposal.id);
+          if(!activeScopeRef.current)return;
+          const output=grokProposal.output;
+          setMessages(prev=>[...prev,{id:'confirmed_'+grokProposal.id,role:'model',text:'Сохранено: '+grokProposal.description,actionType:output.actionType,shoppingPayload:output.shoppingPayload,eventPayload:output.eventPayload,transactionPayload:output.transactionPayload,createdAt:Date.now(),timeStr:getCurrentFormattedTime()}]);
+          setGrokProposal(null);
+        }}/>}
 
     </div>
   );

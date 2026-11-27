@@ -384,7 +384,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   }, [mainCategories, categories, searchQuery]);
 
   return (
-    <div className="w-full h-full min-h-0 bg-[#FAF6F0] dark:bg-[#1C1F1E] text-[#2E3230] dark:text-white flex flex-col overflow-hidden md:rounded-2xl md:border md:border-[#E4E0D8] dark:md:border-white/10 md:shadow-2xl">
+    <div className="terra-categories-workspace w-full h-full min-h-0 min-w-0 bg-[var(--terra-canvas)] text-[var(--terra-ink)] flex flex-col overflow-hidden">
       
       {/* Toast Notification */}
       {showToast && (
@@ -397,41 +397,14 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE VIEW (< md) */}
       {/* ========================================================================= */}
-      <div data-testid="categories-scroll-container" className="md:hidden flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-y-contain pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
+      <div data-testid="categories-scroll-container" className="terra-categories-compact flex-1 min-h-0 flex-col overflow-y-auto overscroll-y-contain pb-4">
         
         {/* Interactive Search & Overview Header */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">
           
-          {/* Ambient Stats Card */}
-          <div className="relative overflow-hidden rounded-xl bg-[#F0ECE4] dark:bg-[#202225] p-4 shadow-2xs">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-[#6B6358] dark:text-stone-400 uppercase tracking-wider">
-                  Всего категорий
-                </span>
-                <h2 className="text-2xl font-bold text-[#2E3230] dark:text-white">
-                  {categories.length}
-                </h2>
-                <p className="text-[13px] text-[#4A4E4A] dark:text-stone-300">
-                  Автоматическая сортировка расходов Terra
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-[#4A7C59]/10 flex items-center justify-center text-[#4A7C59] dark:text-emerald-400">
-                <Layers3 size={24} />
-              </div>
-            </div>
-
-            {/* Track Bar */}
-            <div className="mt-3.5 pt-3 flex items-center gap-2">
-              <div className="h-2 rounded-full flex-1 bg-[#E4E0D8] dark:bg-white/10 overflow-hidden flex">
-                <div className="bg-[#4A7C59] h-full rounded-full transition-all duration-500" style={{ width: '60%' }} />
-                <div className="bg-[#C4A66A] h-full rounded-full transition-all duration-500" style={{ width: '25%' }} />
-                <div className="bg-[#78A886] h-full rounded-full transition-all duration-500" style={{ width: '15%' }} />
-              </div>
-              <span className="text-[11px] font-bold text-[#6B6358] dark:text-stone-300 px-1 shrink-0">
-                {learnedRules.length} правил
-              </span>
-            </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm text-[var(--terra-muted)]" data-testid="settings-categories-count">
+            <span>Категорий: <strong className="text-[var(--terra-ink)] tabular-nums">{categories.length}</strong></span>
+            <span>Правил: <strong className="text-[var(--terra-ink)] tabular-nums">{learnedRules.length}</strong></span>
           </div>
 
           {/* Search Input */}
@@ -441,14 +414,14 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Поиск категории или мерчанта..."
+              aria-label="Поиск категории или магазина" placeholder="Поиск категории или магазина"
               className="w-full h-11 pl-10 pr-9 rounded-xl bg-[#F5F1EA] dark:bg-[#202225] text-[#2E3230] dark:text-white placeholder:text-[#74796E] text-sm transition-all focus:outline-none focus:bg-white dark:focus:bg-[#18191C]"
             />
             {searchQuery && (
               <button 
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 w-7 h-7 rounded-full flex items-center justify-center text-[#6B6358] hover:text-[#2E3230] cursor-pointer"
+                aria-label="Очистить поиск категорий" className="absolute right-0 w-11 h-11 rounded-lg flex items-center justify-center text-[#6B6358] hover:text-[#2E3230] cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -463,8 +436,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
             />
             <button 
               type="button"
-              onClick={() => setMobileTab('categories')}
-              className={`relative z-10 flex-1 py-2 text-center rounded-lg transition-colors cursor-pointer ${
+              onClick={() => setMobileTab('categories')} aria-pressed={mobileTab==='categories'}
+              className={`min-h-[44px] relative z-10 flex-1 py-2 text-center rounded-lg transition-colors cursor-pointer ${
                 mobileTab === 'categories' ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-[#6B6358] dark:text-stone-400'
               }`}
             >
@@ -472,8 +445,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
             </button>
             <button 
               type="button"
-              onClick={() => setMobileTab('rules')}
-              className={`relative z-10 flex-1 py-2 text-center rounded-lg transition-colors cursor-pointer ${
+              onClick={() => setMobileTab('rules')} aria-pressed={mobileTab==='rules'}
+              className={`min-h-[44px] relative z-10 flex-1 py-2 text-center rounded-lg transition-colors cursor-pointer ${
                 mobileTab === 'rules' ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-[#6B6358] dark:text-stone-400'
               }`}
             >
@@ -800,10 +773,10 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       {/* ========================================================================= */}
       {/* DESKTOP VIEW */}
       {/* ========================================================================= */}
-      <div className="hidden md:flex flex-1 overflow-hidden">
+      <div className="terra-categories-wide flex-1 min-w-0 overflow-hidden">
         
         {/* Left Column: Category Catalog */}
-        <div className="w-[35%] xl:w-[32%] min-w-[300px] border-r border-[#E4E0D8] dark:border-white/10 flex flex-col bg-[#FAF6F0]/40 dark:bg-black/20 shrink-0">
+        <div className="w-[36%] min-w-[220px] max-w-[320px] border-r border-[#E4E0D8] dark:border-white/10 flex flex-col bg-[#FAF6F0]/40 dark:bg-black/20 shrink-0">
           
           {/* Search & Count Badge Bar */}
           <div className="p-3.5 border-b border-[#E4E0D8] dark:border-white/10 bg-white dark:bg-[#18191C] flex items-center gap-2 shrink-0">
@@ -813,7 +786,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Поиск категории или подкатегории..."
+                aria-label="Поиск категории или подкатегории" placeholder="Поиск категории"
                 className="w-full pl-9 pr-8 py-2 bg-[#FAF6F0] dark:bg-[#202225] border border-[#E4E0D8] dark:border-white/10 rounded-xl text-xs text-[#2E3230] dark:text-white outline-none focus:border-[#4A7C59] transition-all"
               />
               {searchQuery && (
@@ -978,7 +951,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         </div>
 
         {/* Right Column: Full-Width Category Parameters Inspector & Consolidated Recognition Rules */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-[#18191C] overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col bg-[var(--terra-surface)] overflow-hidden">
           
           {/* Header */}
           <div className="p-6 pb-4 border-b border-[#E4E0D8] dark:border-white/10 flex items-center justify-between shrink-0 bg-white dark:bg-[#18191C]">
@@ -995,7 +968,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 type="button"
                 onClick={handleDeleteCurrentCategory}
                 title="Удалить категорию"
-                className="w-9 h-9 rounded-xl bg-[#FBECE8] text-[#B94B32] hover:opacity-85 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
+                className="w-11 h-11 rounded-xl bg-[#FBECE8] text-[#B94B32] hover:opacity-85 active:scale-95 flex items-center justify-center transition-all cursor-pointer"
               >
                 <Trash2 size={18} />
               </button>
@@ -1003,7 +976,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           </div>
 
           {/* Form Scroll Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-4">
             
             {/* Name & Parent Category Inputs */}
             <div className="grid grid-cols-2 gap-4">

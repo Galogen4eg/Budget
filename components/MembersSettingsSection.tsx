@@ -280,18 +280,19 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full space-y-8 animate-fade-in">
+    <div className="terra-members-workspace w-full max-w-full min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Участники семьи</h3><button type="button" disabled={householdPersonal||!isHouseholdOwner} onClick={()=>setIsInviteModalOpen(true)} className="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold flex items-center gap-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"><UserPlus size={18}/> Пригласить участника</button></div>
       
       {/* ──────────────────────────────────────────────────────────── */}
       {/* DESKTOP PC LAYOUT (lg and up) */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:grid grid-cols-12 gap-8 items-start">
+      <div className="terra-members-wide items-start">
         
         {/* Left Column: Member List & current session mappings (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="min-w-0 space-y-3">
           
           {/* Top session box */}
-          <div className="bg-white dark:bg-[#202225] border border-[var(--terra-border)] rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="terra-settings-group">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
               <span className="text-xs font-bold tracking-wide uppercase text-gray-500 dark:text-gray-400">
                 Текущая активная сессия
@@ -351,7 +352,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   {members.length}
                 </span>
               </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500">Нажмите на карточку для изменения</span>
+              
             </div>
 
             {/* List map */}
@@ -362,15 +363,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
 
                 return (
-                  <motion.div
+                  <button type="button" aria-pressed={isSelected} aria-label={`Редактировать участника: ${m.name}`}
                     key={m.id}
                     onClick={() => {
                       triggerHaptic();
                       setEditingMemberId(m.id);
                     }}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    className={`rounded-2xl p-5 shadow-3xs cursor-pointer transition-all duration-200 flex items-center justify-between border ${
+                    className={`terra-member-row w-full text-left min-h-[56px] p-3 cursor-pointer transition-colors motion-reduce:transition-none flex items-center justify-between border ${
                       isSelected 
                         ? 'bg-white dark:bg-[#1E2023] border-2 border-[#4A7C59] dark:border-emerald-500 shadow-xs' 
                         : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10'
@@ -414,7 +413,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       />
                       <ChevronRight size={16} className={`transition-transform duration-200 ${isSelected ? 'text-[#4A7C59] translate-x-1' : 'text-gray-400'}`} />
                     </div>
-                  </motion.div>
+                  </button>
                 );
               })}
             </div>
@@ -422,16 +421,16 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
         </div>
 
         {/* Right Column: Unified Shared Editor Drawer on PC (lg:col-span-5) */}
-        <div className="lg:col-span-5">
+        <div className="min-w-0">
           <AnimatePresence mode="wait">
             {selectedMember ? (
               <motion.div
                 key={editingMemberId}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="bg-white dark:bg-[#202225] border-2 border-[#4A7C59] dark:border-emerald-600/50 rounded-2xl p-6 shadow-sm space-y-5"
+                className="terra-settings-group"
               >
                 <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5">
                   <div className="flex items-center gap-2">
@@ -583,23 +582,10 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       {/* ──────────────────────────────────────────────────────────── */}
       {/* MOBILE INTERACTIVE LAYOUT (< lg) - MATCHES DESIGN FILE PERFECTLY */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="block lg:hidden space-y-5">
+      <div className="terra-members-compact space-y-3">
         
-        {/* On mobile Header Area */}
-        <section className="flex flex-col gap-3">
-          <button 
-            type="button"
-            disabled={householdPersonal||!isHouseholdOwner}
-             onClick={() => setIsInviteModalOpen(true)}
-            className="w-full min-h-[48px] px-4 py-3 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
-          >
-            <UserPlus size={18} />
-            <span>+ Пригласить участника</span>
-          </button>
-        </section>
-
         {/* Card: Ваш профиль в семье */}
-        <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none flex flex-col gap-3.5 border border-gray-100 dark:border-white/5">
+        <section className="terra-settings-group">
           <div className="flex items-center gap-3">
             <div 
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0"
@@ -654,7 +640,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 {members.length}
               </span>
             </div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">Нажмите карточку для изменения</span>
+            
           </div>
 
           <div className="space-y-3">
@@ -664,13 +650,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
 
               return (
-                <div
+                <button type="button" aria-pressed={isSelected} aria-label={`Редактировать участника: ${m.name}`}
                   key={m.id}
                   onClick={() => {
                     triggerHaptic();
                     setEditingMemberId(m.id);
                   }}
-                  className={`rounded-2xl p-4 shadow-3xs cursor-pointer transition-all border ${
+                  className={`terra-member-row w-full text-left min-h-[56px] p-3 cursor-pointer transition-colors motion-reduce:transition-none border ${
                     isSelected 
                       ? 'bg-[#4A7C59]/5 dark:bg-emerald-950/20 border-2 border-[#4A7C59] dark:border-emerald-500' 
                       : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 active:scale-[0.99]'
@@ -702,16 +688,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 pt-2.5 text-xs font-semibold">
-                    <span 
-                      className="w-2.5 h-2.5 rounded-full inline-block"
-                      style={{ backgroundColor: m.color || '#4A7C59' }}
-                    />
-                    <span className={isSelected ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-gray-400'}>
-                      {isSelected ? 'Редактирование' : 'Нажмите для изменения'}
-                    </span>
-                  </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -719,9 +696,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
         {/* Card: Панель параметров участника (Mobile version of the drawer) */}
         {selectedMember && (
-          <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none border border-gray-100 dark:border-white/5 flex flex-col gap-4">
+          <section className="terra-settings-group">
             <div className="flex flex-col">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Панель параметров участника</h3>
+              <h3 className="text-base font-semibold text-[var(--terra-ink)]">Редактирование участника</h3>
               <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">
                 Редактируется: {selectedMember.name}
               </span>

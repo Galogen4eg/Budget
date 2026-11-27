@@ -90,6 +90,9 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
   const [archiveStart, setArchiveStart] = useState('2023-01-01');
   const [archiveEnd, setArchiveEnd] = useState('2023-12-31');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting,setIsDeleting]=useState(false);
+  const deletePending=React.useRef(false);
+  const validRange=Boolean(archiveStart&&archiveEnd&&archiveStart<=archiveEnd);
 
   const handleDecrementSavings = useCallback(() => {
     if (savingsRate > MIN_SAVINGS_PERCENT) {
@@ -136,18 +139,20 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       toast.error('Укажите корректный диапазон дат');
       return;
     }
-    if (!onDeleteTransactionsByPeriod) return;
+    if (!onDeleteTransactionsByPeriod||deletePending.current) return;
+    deletePending.current=true;setIsDeleting(true);
     try {
       await onDeleteTransactionsByPeriod(archiveStart, archiveEnd);
       setIsConfirmingDelete(false);
     } catch(error) { toast.error(error instanceof Error?error.message:'Удаление не выполнено'); }
+    finally {deletePending.current=false;setIsDeleting(false);}
   }, [archiveStart, archiveEnd, onDeleteTransactionsByPeriod]);
 
   return (
-    <div className="flex flex-col w-full pb-2 space-y-4 font-body text-[#2e3230] dark:text-gray-200">
+    <div className="terra-settings-stack w-full min-w-0 pb-2 font-body text-[var(--terra-ink)]">
       {mode !== 'history' && <>
       {/* Карточка 1: Базовый контур и копилка */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-5">
+      <section className="terra-settings-group">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Wallet size={24} />
@@ -157,13 +162,13 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               Начальный остаток и накопления
             </h2>
             <p className="text-xs text-[#4a4e4a] dark:text-gray-400 font-medium mt-0.5">
-              Вводная точка для вычисления свободных денег
+              Начальный остаток, дата учёта и резерв бюджета
             </p>
           </div>
         </div>
 
         {/* Сетка ввода баланса и начальной даты */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="terra-settings-field-grid grid gap-3">
           <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3.5 rounded-xl flex flex-col justify-between space-y-1 border border-transparent dark:border-white/5">
             <label className="text-xs font-semibold text-[#4a4e4a] dark:text-gray-400">
               Начальный баланс
@@ -217,17 +222,17 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 <span>Процент отчислений в копилку</span>
               </div>
               <p className="text-xs text-[#4a4e4a] dark:text-gray-400 mt-0.5">
-                Автоматически переводится в резерв с каждого дохода
+                Учитывается при расчёте резерва с доходов
               </p>
             </div>
           </div>
 
           {/* Счетчик */}
-          <div className="flex items-center justify-between bg-[#f5f1ea] dark:bg-[#25282c] p-2 rounded-xl border border-transparent dark:border-white/5">
+          <div className="flex items-center justify-between bg-[var(--terra-soft)] p-1 rounded-xl">
             <button 
               type="button"
               onClick={handleDecrementSavings}
-              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
+              className="w-11 h-11 rounded-lg bg-[var(--terra-surface)] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
               aria-label="Уменьшить процент"
             >
               <Remove size={20} />
@@ -243,7 +248,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button 
               type="button"
               onClick={handleIncrementSavings}
-              className="w-10 h-10 rounded-lg bg-white dark:bg-[#1E2023] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
+              className="w-11 h-11 rounded-lg bg-[var(--terra-surface)] text-[#2e3230] dark:text-white flex items-center justify-center hover:bg-[#e4e0d8] dark:hover:bg-white/10 transition-colors shadow-xs cursor-pointer"
               aria-label="Увеличить процент"
             >
               <Add size={20} />
@@ -258,8 +263,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 <button
                   key={chip.val}
                   type="button"
-                  onClick={() => setSavingsRate(chip.val)}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  onClick={() => setSavingsRate(chip.val)} aria-pressed={isActive}
+                  className={`min-h-[44px] shrink-0 px-3 py-1.5 rounded-lg text-sm transition-colors motion-reduce:transition-none cursor-pointer ${
                     isActive
                       ? 'font-semibold bg-[#4a7c59] text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] active:scale-95'
                       : 'font-medium bg-[#f5f1ea] dark:bg-[#25282c] text-[#4a4e4a] dark:text-gray-300 hover:bg-[#f0ece4] dark:hover:bg-white/10 active:scale-95'
@@ -291,24 +296,20 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button
               type="button"
               onClick={() => onUpdateSetting('enableSmartReserve', !smartReserve)}
-              className={`w-11 h-6 rounded-full p-1 transition-colors relative cursor-pointer ${
-                smartReserve ? 'bg-[#4a7c59]' : 'bg-gray-300 dark:bg-gray-700'
-              }`}
+              className="terra-settings-switch min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-xl" role="switch" aria-checked={smartReserve}
               aria-label="Включить авторезерв"
             >
-              <div className={`w-4 h-4 bg-white rounded-full shadow-xs transition-transform ${
-                smartReserve ? 'translate-x-5' : 'translate-x-0'
-              }`} />
+              <span aria-hidden="true" className={`terra-settings-switch-track ${smartReserve?'is-on':''}`}><span/></span>
             </button>
           </div>
         </div>
       </section>
 
       {/* Карточка 2: Календарь выплат */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-4">
+      <section className="terra-settings-group">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-headline font-semibold text-base sm:text-lg text-[#2e3230] dark:text-white">
                 Календарь выплат
               </h2>
@@ -326,7 +327,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
         </div>
 
         {/* Сетка календаря 1-31 */}
-        <div className="grid grid-cols-7 sm:grid-cols-11 md:grid-cols-16 gap-1.5 pt-1 text-center">
+        <div className="terra-settings-salary-grid grid gap-1 pt-1 text-center" role="group" aria-label="Дни выплаты зарплаты">
           {Array.from({ length: TOTAL_MONTH_DAYS }).map((_, idx) => {
             const dayNum = idx + 1;
             const isSelected = salaryDates.includes(dayNum);
@@ -334,8 +335,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               <button
                 key={dayNum}
                 type="button"
-                onClick={() => toggleSalaryDay(dayNum)}
-                className={`h-9 rounded-lg font-semibold text-xs flex items-center justify-center transition-colors cursor-pointer ${
+                onClick={() => toggleSalaryDay(dayNum)} aria-pressed={isSelected} aria-label={`День выплаты: ${dayNum}`}
+                className={`min-h-[44px] min-w-[44px] rounded-lg font-semibold text-xs flex items-center justify-center transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-[#4a7c59] text-white font-bold shadow-[0_2px_8px_rgba(74,124,89,0.3)]'
                     : 'bg-[#f5f1ea] dark:bg-[#25282c] text-[#2e3230] dark:text-gray-300 hover:bg-[#f0ece4] dark:hover:bg-white/10'
@@ -363,7 +364,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       </>}
       {mode !== 'finance' && <>
       {/* Карточка 3: Инструменты и аудит данных */}
-      <section className="bg-white dark:bg-[#1E2023] rounded-2xl p-5 sm:p-6  border border-[var(--terra-border)] space-y-5">
+      <section className="terra-settings-group">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
             <Build size={22} />
@@ -387,10 +388,10 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               </div>
               <div>
                 <div className="text-sm font-semibold text-[#2e3230] dark:text-white">
-                  Аудит транзакций и выявление дублей
+                  Поиск дублей
                 </div>
                 <p className="text-xs text-[#4a4e4a] dark:text-gray-400">
-                  Поиск случайных двойных тапов и повторов
+                  Проверка повторяющихся записей
                 </p>
               </div>
             </div>
@@ -413,14 +414,14 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <span>Экспорт и удаление операций</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="terra-settings-field-grid grid gap-2">
             <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3 rounded-xl flex items-center justify-between border border-transparent dark:border-white/5 relative cursor-pointer">
               <div className="flex flex-col flex-1 mr-2">
                 <span className="text-[10px] text-[#4a4e4a] dark:text-gray-400 font-semibold">С</span>
                 <input
                   type="date"
-                  value={archiveStart}
-                  onChange={e => setArchiveStart(e.target.value)}
+                  aria-label="Начало периода" disabled={isDeleting} value={archiveStart}
+                  onChange={e => {setArchiveStart(e.target.value);setIsConfirmingDelete(false);}}
                   className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
@@ -432,8 +433,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 <span className="text-[10px] text-[#4a4e4a] dark:text-gray-400 font-semibold">По</span>
                 <input
                   type="date"
-                  value={archiveEnd}
-                  onChange={e => setArchiveEnd(e.target.value)}
+                  aria-label="Конец периода" disabled={isDeleting} value={archiveEnd}
+                  onChange={e => {setArchiveEnd(e.target.value);setIsConfirmingDelete(false);}}
                   className="bg-transparent text-xs font-bold text-[#2e3230] dark:text-white font-headline focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
@@ -441,39 +442,40 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             </div>
           </div>
 
+          <p role="status" className={`text-sm ${validRange?'text-[var(--terra-muted)]':'text-[var(--terra-danger-text)]'}`}>{validRange?`Операций за период: ${matchedCount}`:'Проверьте диапазон дат.'}</p>
           {/* Кнопки действий */}
           <div className="space-y-2 pt-1">
             <button
               type="button"
-              onClick={handleArchiveExport}
+              onClick={handleArchiveExport} disabled={!validRange||isDeleting}
               className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#f0ece4] dark:bg-white/10 text-[#4a7c59] dark:text-emerald-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#e4e0d8] dark:hover:bg-white/15 transition-colors cursor-pointer"
             >
               <FolderZip size={18} />
-              <span>Архивировать в отдельный файл</span>
+              <span>Экспортировать JSON</span>
             </button>
 
             {isConfirmingDelete ? (
-              <div className="flex items-center gap-2">
+              <div className="space-y-2 rounded-xl border border-[var(--terra-danger-text)] p-3"><p className="text-sm text-[var(--terra-danger-text)]">Будут удалены операции за выбранный период: {matchedCount}. Экспортируйте их перед удалением.</p><div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleDeletePeriod}
+                  onClick={handleDeletePeriod} disabled={isDeleting||!validRange||matchedCount===0}
                   className="flex-1 py-3 px-4 rounded-xl bg-[#b83230] text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
                 >
                   <DeleteSweep size={18} />
-                  <span>Удалить {matchedCount > 0 ? `(${matchedCount})` : ''}?</span>
+                  <span>{isDeleting?'Удаление…':`Удалить (${matchedCount})?`}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsConfirmingDelete(false)}
+                  onClick={() => setIsConfirmingDelete(false)} disabled={isDeleting}
                   className="px-4 py-3 rounded-xl bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold text-xs transition-colors cursor-pointer"
                 >
                   Отмена
                 </button>
-              </div>
+              </div></div>
             ) : (
               <button
                 type="button"
-                onClick={() => setIsConfirmingDelete(true)}
+                onClick={() => setIsConfirmingDelete(true)} disabled={!validRange||matchedCount===0||!onDeleteTransactionsByPeriod}
                 className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#ffdad8] dark:bg-red-950/40 text-[#b83230] dark:text-red-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#ffdad8]/80 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
               >
                 <DeleteSweep size={18} />

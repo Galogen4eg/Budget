@@ -212,6 +212,18 @@ async function checkSections(){
   const tab=button(dialog.getByRole('navigation',{name:'Разделы настроек'}),new RegExp('^'+name),false);
   await tab.click();
   action='wait for settings content';await expectVisible(first(dialog.getByTestId('settings-section-scroll-container')));
+  const content=first(dialog.locator('[data-settings-section]'));await expectVisible(content);
+  const geometry=await content.evaluate(el=>({section:el.getAttribute('data-settings-section'),fits:el.scrollWidth<=el.clientWidth+2,buttons:[...el.querySelectorAll('button')].filter(e=>e.getClientRects().length).length}));
+  if(!geometry.fits)throw new Error('Settings horizontal overflow: '+geometry.section);
+  if(!geometry.buttons&&geometry.section!=='diagnostics')throw new Error('Settings section has no actions: '+geometry.section);
+  if(geometry.section==='account'&&await content.getByLabel('Новый пароль',{exact:true}).count()!==1)throw new Error('Password field label missing');
+  if(geometry.section==='family')await expectVisible(first(content.getByRole('button',{name:'Пригласить участника',exact:true})));
+  if(geometry.section==='budget'){
+   const days=content.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');if(await days.count()!==31)throw new Error('Salary day controls missing');
+   if(!(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44&&e.hasAttribute('aria-pressed');}))))throw new Error('Salary grid geometry or selection semantics');
+  }
+  if(geometry.section==='data'){await expectVisible(content.getByLabel('Начало периода'));await expectVisible(content.getByLabel('Конец периода'));}
+  if(includeInventoryDetails){await mkdir('artifacts/terra-v2-pilot/settings',{recursive:true});await page.screenshot({path:'artifacts/terra-v2-pilot/settings/'+label+'-'+geometry.section+'.png',animations:'disabled'});}
   if(label.startsWith('mobile')){
    action='check mobile subsection heading';await expectVisible(first(dialog.getByRole('heading',{name,exact:true})));
    action='return to settings menu';await button(dialog,'Назад').click();

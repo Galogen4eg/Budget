@@ -374,7 +374,7 @@ export default function AddTransactionModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
         transition={{ duration: reducedMotion?0:0.18, ease: 'easeOut' }}
-        className="relative w-full max-w-4xl lg:max-w-5xl h-full sm:h-[min(620px,88dvh)] max-h-full sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)]"
+        className={`relative w-full h-full max-h-full sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[var(--terra-ink)] rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-[var(--terra-border)] z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)] ${currentView==='main'?'max-w-4xl lg:max-w-5xl sm:h-[min(620px,88dvh)]':'sm:max-w-lg sm:h-auto'}`}
         onClick={e => e.stopPropagation()}
       >
 
@@ -465,7 +465,7 @@ export default function AddTransactionModal({
                               width: `${Math.max(inputWidth, 60)}px`,
                               maxWidth: 'calc(100% - 28px)'
                             }}
-                            className={`bg-transparent font-headline font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0 transition-all ${
+                            className={`min-h-[44px] bg-transparent font-headline font-extrabold tracking-tight text-[var(--terra-ink)] p-0 m-0 outline-none border-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-md ${
                               amount.length > 9 
                                 ? 'text-lg sm:text-xl' 
                                 : amount.length > 6 
@@ -489,7 +489,7 @@ export default function AddTransactionModal({
                               ? 'text-lg sm:text-xl' 
                               : 'text-xl sm:text-2xl'
                           } ${
-                            type === 'expense' ? 'text-[#D95C48]' : 'text-[var(--terra-primary-text)]'
+                            type === 'expense' ? 'text-[var(--terra-muted)]' : 'text-[var(--terra-primary-text)]'
                           }`}>
                             {settings.currency || '₽'}
                           </span>
@@ -907,10 +907,10 @@ export default function AddTransactionModal({
               animate={{opacity:1,x:0}}
               exit={{opacity:0,x:8}}
               transition={terraTransition(reducedMotion,.16)}
-              className="flex flex-col h-full min-h-0 bg-[var(--terra-canvas)]"
+              className="flex flex-col h-full sm:h-auto min-h-0 bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
+              <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">
                 <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   {members.map((mem) => {
                     const isSelected = memberId === mem.id;
@@ -949,10 +949,10 @@ export default function AddTransactionModal({
               animate={{opacity:1,x:0}}
               exit={{opacity:0,x:8}}
               transition={terraTransition(reducedMotion,.16)}
-              className="flex flex-col h-full min-h-0 bg-[var(--terra-canvas)]"
+              className="flex flex-col h-full sm:h-auto min-h-0 bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
+              <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">
                 <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   <button
                     type="button"

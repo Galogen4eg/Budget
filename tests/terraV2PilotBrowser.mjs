@@ -323,17 +323,20 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await dayEditor.waitFor({state:'visible'});
     const expectedDay=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
     assert.equal(await dayEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedDay,label+' wrong date in day editor');
-    await noOverflow(dayEditor,label+' day editor');await capture(page,'overview-day-new-operation-'+label);
+    await noOverflow(dayEditor,label+' day editor');await targetSize(dayEditor.getByRole('textbox',{name:'Сумма операции'}),label+' transaction amount');await capture(page,'overview-day-new-operation-'+label);
     const assigneeTrigger=button(dayEditor,'Исполнитель');
     await targetSize(assigneeTrigger,label+' assignee trigger');await assigneeTrigger.click();
     const backFromAssignee=button(dayEditor,'Назад');await backFromAssignee.waitFor({state:'visible'});
-    await targetSize(backFromAssignee,label+' assignee back');await capture(page,'overview-day-assignee-'+label);
+    await targetSize(backFromAssignee,label+' assignee back');
+    if(!mobile){const bounds=await dayEditor.boundingBox();assert.ok(bounds&&bounds.width<=512.01&&bounds.height<=360,label+' oversized two-member selector '+JSON.stringify(bounds));}
+    await noOverflow(dayEditor,label+' assignee selector');await capture(page,'overview-day-assignee-'+label);
     await page.keyboard.press('Escape');await assigneeTrigger.waitFor({state:'visible'});
     assert.equal(await assigneeTrigger.evaluate(el=>document.activeElement===el),true,label+' assignee focus return');
     const bindingTrigger=button(dayEditor,'Привязать к платежу');
     await targetSize(bindingTrigger,label+' payment link');await bindingTrigger.click();
     await button(dayEditor,'Не привязывать').waitFor({state:'visible'});
-    await capture(page,'overview-day-payment-binding-'+label);
+    if(!mobile){const bounds=await dayEditor.boundingBox();assert.ok(bounds&&bounds.width<=512.01&&bounds.height<=480,label+' oversized three-payment selector '+JSON.stringify(bounds));}
+    await noOverflow(dayEditor,label+' payment selector');await capture(page,'overview-day-payment-binding-'+label);
     // Exercise the real history entry as well as Escape in the preceding selector.
     await page.evaluate(()=>window.history.back());await bindingTrigger.waitFor({state:'visible'});
     assert.equal(await bindingTrigger.evaluate(el=>document.activeElement===el),true,label+' binding focus return');

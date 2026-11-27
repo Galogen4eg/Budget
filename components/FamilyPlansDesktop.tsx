@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange, formatCalendarMonthTitle, calendarEventCountLabel } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
@@ -26,6 +26,8 @@ interface FamilyPlansDesktopProps {
   
   viewMode: 'month' | 'week' | 'day' | 'list';
   setViewMode: (m: 'month' | 'week' | 'day' | 'list') => void;
+  filterMemberId: string;
+  setFilterMemberId:(value:string)=>void;
   listTab: 'upcoming' | 'past';
   setListTab: (t: 'upcoming' | 'past') => void;
   
@@ -51,11 +53,11 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   selectedDate, setSelectedDate,
   viewMode, setViewMode,
   listTab, setListTab,
+  filterMemberId,setFilterMemberId,
   calendarData, selectedDayEvents,
   onOpenEvent, onSendToTelegram, onUpdateEvent,
   isListening, isProcessingVoice, startListening
 }) => {
-  const [filterMemberId, setFilterMemberId] = useState<string | 'all'>('all');
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
   const [selectedConflictPair, setSelectedConflictPair] = useState<{ eventA: FamilyEvent; eventB: FamilyEvent } | null>(null);
 
@@ -67,7 +69,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
   const hasPeriodConflicts=conflictPairs.length>0;
 
-  const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+  const monthName = formatCalendarMonthTitle(currentDate);
   const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
 
   const getLocalDateString = (date: Date) => {
@@ -265,29 +267,16 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         <header className="flex flex-col gap-2 mb-3 shrink-0">
           
           {/* Название месяца / недели + счетчик */}
-          <div className="flex flex-wrap items-center gap-3 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <h1 className="text-2xl lg:text-3xl font-semibold font-headline capitalize tracking-tight text-stone-900 dark:text-white">
+              <h1 className="text-xl lg:text-2xl font-semibold font-headline text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                 {viewMode === 'day' ? selectedDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : viewMode === 'week' ? weekPeriodTitle : monthName}
               </h1>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-stone-600 dark:text-stone-300">
-                {viewMode === 'week' 
-                  ? (isSelectedWeekCurrent ? 'Текущая неделя' : 'Неделя')
-                  : viewMode === 'day' ? 'День' : `${daysInCurrentMonth} дней`}
-              </span>
-              {viewMode === 'week' && !isSelectedWeekCurrent && (
-                <button
-                  type="button"
-                  onClick={resetToCurrentWeek}
-                  className="min-h-[44px] text-sm font-medium text-[var(--terra-primary)] dark:text-emerald-400 hover:underline cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  К текущей неделе
-                </button>
-              )}
             </div>
 
             {/* Быстрое переключение месяцев / недель */}
-            <div className="flex items-center gap-0.5 ml-1">
+            <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={resetToCurrentWeek} className="min-h-[44px] px-3 rounded-xl text-sm font-semibold text-[var(--terra-primary-text)] bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">Сегодня</button>
               <button 
                 onClick={() => viewMode === 'day' ? changeDay(-1) : viewMode === 'week' ? changeWeek(-1) : changeDate(-1)}
                 aria-label={viewMode === 'day' ? "Предыдущий день" : viewMode === 'week' ? "Предыдущая неделя" : "Предыдущий месяц"}
@@ -309,7 +298,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
           {/* Common non-shrinking participant rail; avoid duplicate 'Общие' button that simply reset to all. */}
           <div role="group" aria-label="Участник планов" className={FILTER_RAIL}>
-            <button type="button" aria-pressed={filterMemberId === 'all'}
+            <button type="button" data-member-filter="all" aria-pressed={filterMemberId === 'all'}
               onClick={() => setFilterMemberId('all')}
               className={`${FILTER_CHIP} ${filterMemberId === 'all' ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
               Все ({periodEvents.length})
@@ -318,7 +307,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               const count = periodEvents.filter(e => matchesCalendarMember(e,m.id,memberIds)).length;
               const isSelected = filterMemberId === m.id;
               return (
-                <button key={m.id} type="button" aria-pressed={isSelected}
+                <button key={m.id} type="button" data-member-filter={m.id} aria-pressed={isSelected}
                   onClick={() => setFilterMemberId(m.id)}
                   className={`${FILTER_CHIP} ${isSelected ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: m.color || '#4A7C59' }} />
@@ -328,7 +317,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               );
             })}
 
-            {members.length>1 && <button type="button" aria-pressed={filterMemberId==='common'}
+            {members.length>1 && <button type="button" data-member-filter="common" aria-pressed={filterMemberId==='common'}
               onClick={()=>setFilterMemberId('common')}
               className={`${FILTER_CHIP} ${filterMemberId==='common'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}>
               Общие ({periodEvents.filter(event=>matchesCalendarMember(event,'common',memberIds)).length})
@@ -386,7 +375,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
 
             {/* Голосовой ввод */}
             <button 
-              onClick={startListening} 
+              type="button" onClick={startListening} 
               aria-label="Голосовой ввод события"
               className={`w-11 h-11 flex flex-none items-center justify-center rounded-xl transition-colors cursor-pointer ${
                 isListening 
@@ -411,7 +400,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
         </header>
 
         {/* Сетка календаря */}
-        <div className={`${SURFACE_CARD} flex-1 flex flex-col min-h-0`}>
+        <div className={`${SURFACE_CARD} terra-layout-surface terra-calendar-desktop-surface flex-1 flex flex-col min-h-0`}>
           
           {viewMode === 'month' && (
             <>
@@ -428,7 +417,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               </div>
 
               {/* Сетка дней (7 колонок, гибкие карточки с мягким скруглением) */}
-              <div data-testid="plans-month-grid" className="grid grid-cols-7 gap-2 min-w-0">
+              <div data-testid="plans-month-grid" className="terra-calendar-desktop-grid grid grid-cols-7 gap-2 min-w-0">
                 {calendarData.map((d, i) => {
                   const dateObj = new Date(d.year, d.month, d.day);
                   const dateStr = getLocalDateString(dateObj);
@@ -440,46 +429,15 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                   const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
 
                   return (
-                    <div
-                      key={i}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Выбрать дату ${dateStr}`}
-                      aria-pressed={isSelected}
-                      onClick={() => {
-                        const newDate = new Date(d.year, d.month, d.day);
-                        setSelectedDate(newDate);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
-                        e.preventDefault();
-                        setSelectedDate(new Date(d.year, d.month, d.day));
-                      }}
-                      className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary p-2.5 rounded-2xl transition-colors cursor-pointer relative flex flex-col justify-between min-h-[84px] ${
-                        d.current 
-                          ? isToday
-                            ? 'border-2 border-[var(--terra-primary)] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[var(--terra-surface)] z-10'
-                            : isSelected
-                            ? 'border-2 border-[#2D5A46]/80 bg-white dark:bg-[var(--terra-surface)] z-10'
-                            : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border border-[#ECE5DB]/80 dark:border-white/5 hover:border-[var(--terra-border)]'
-                          : 'bg-stone-50/40 dark:bg-black/20 border border-transparent opacity-30'
-                      }`}
-                    >
-                      {/* Верхняя строка ячейки: Число */}
-                      <div className="flex justify-between items-center shrink-0 mb-1">
-                        {d.current ? (
-                          <span className={`text-xs ${isToday ? 'text-[var(--terra-primary)] dark:text-emerald-400 font-extrabold text-sm' : isSelected ? 'text-[var(--terra-primary)] font-bold' : 'text-stone-700 dark:text-stone-300 font-semibold'}`}>
-                            {d.day}
-                          </span>
-                        ) : (
-                          <span className="text-xs font-medium text-stone-400">
-                            {d.day}
-                          </span>
-                        )}
-
-                        {d.current && getDayHeaderBadge(dayEvents, isWeekend)}
-                      </div>
-
+                    <div key={i} data-terra-calendar-day className="terra-calendar-day min-w-0"
+                      data-selected={isSelected} data-today={isToday} data-current-month={d.current}>
+                      <button type="button" aria-label={`Выбрать дату ${dateStr}, ${calendarEventCountLabel(dayEvents.length)}`}
+                        aria-pressed={isSelected} aria-current={isToday?'date':undefined}
+                        onClick={()=>setSelectedDate(dateObj)}
+                        className="terra-calendar-day-select w-full min-h-[44px] rounded-lg flex items-center justify-between gap-1 px-2 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">
+                        <span>{d.day}</span>
+                        {dayEvents.length>0&&<span className="text-xs tabular-nums text-[var(--terra-muted)]">{dayEvents.length}</span>}
+                      </button>
                       {/* Список событий внутри дня */}
                       <div className="space-y-1 min-w-0">
                         {dayEvents.slice(0, 2).map((evt: FamilyEvent) => {
@@ -494,14 +452,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                                 setSelectedDate(new Date(d.year, d.month, d.day));
                                 onOpenEvent(evt);
                               }}
-                              className={`w-full text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-medium py-1 px-2 rounded-lg truncate transition-colors flex items-center gap-1.5 border-l-2 ${
+                              className={`terra-calendar-event w-full min-w-0 text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-xs font-medium py-1.5 px-1.5 rounded-lg transition-colors motion-reduce:transition-none flex flex-col items-start justify-center gap-0.5 border-l-2 ${
                                 badgeStyle.badgeBg
                               } ${badgeStyle.badgeText} hover:opacity-90`}
                               style={{ borderLeftColor: badgeStyle.borderColor }}
                             >
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badgeStyle.dotColor }} />
-                              <span className="font-bold text-xs shrink-0 opacity-80">{evt.time || 'Весь день'}</span>
-                              <span className="truncate">{evt.title}</span>
+                              <span className="text-xs font-semibold">{evt.time || 'Весь день'}</span>
+                              <span className="w-full truncate" title={evt.title}>{evt.title}</span>
                             </button>
                           );
                         })}
@@ -514,25 +471,17 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                               setSelectedDate(new Date(d.year, d.month, d.day));
                               onOpenEvent(null, { date: dateStr });
                             }}
-                            className="min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs text-stone-400 dark:text-stone-500 font-medium hover:text-[var(--terra-primary)] transition py-1 text-center opacity-70 hover:opacity-100"
+                            className="min-h-[44px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-xs text-[var(--terra-muted)] font-medium hover:text-[var(--terra-primary-text)] transition-colors motion-reduce:transition-none py-1 text-center"
                           >
-                            + Добавить
+                            <Plus size={15} aria-hidden="true" className="mx-auto"/>
                           </button>
                         )}
 
                         {dayEvents.length > 2 && (
-                          <div className="text-xs text-stone-500 font-semibold px-1">
-                            + еще {dayEvents.length - 2}
-                          </div>
+                          <button type="button" onClick={()=>setSelectedDate(dateObj)} aria-label={`Выбрать дату ${dateStr}, ещё ${calendarEventCountLabel(dayEvents.length-2)}`} className="min-h-[44px] w-full text-left text-xs text-[var(--terra-primary-text)] font-semibold px-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Ещё {dayEvents.length-2}</button>
                         )}
                       </div>
 
-                      {/* Текст месяца для граничных дней */}
-                      {!d.current && (
-                        <span className="text-xs text-stone-400 text-center block mt-auto capitalize">
-                          {new Date(d.year, d.month, 1).toLocaleString('ru-RU', { month: 'long' })}
-                        </span>
-                      )}
                     </div>
                   );
                 })}
@@ -541,7 +490,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           )}
 
           {viewMode === 'week' && (
-            <div className="grid grid-cols-7 gap-2 min-w-0">
+            <div data-testid="plans-week-grid" className="terra-calendar-desktop-grid grid grid-cols-7 gap-2 min-w-0">
               {currentWeekDays.map((dayDate, i) => {
                 const dateStr = getLocalDateString(dayDate);
                 const dayEvents = events.filter(e => e.date === dateStr && matchesMember(e));
@@ -550,29 +499,12 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                 const isWeekend = i >= 5;
 
                 return (
-                  <div 
-                    key={dateStr}
-                    onClick={() => setSelectedDate(dayDate)} 
-                    className={`min-w-0 rounded-xl p-2 border transition-colors flex flex-col cursor-pointer ${
-                      isSelected 
-                        ? 'border-2 border-[var(--terra-primary)] bg-white dark:bg-[var(--terra-surface)] shadow-sm'
-                        : isToday
-                        ? 'bg-[#E8F2EC]/40 dark:bg-[#2D5A46]/20 border-[#2D5A46]/40'
-                        : 'bg-[var(--terra-surface)] dark:bg-[var(--terra-soft)] border-[var(--terra-border)] dark:border-white/5 hover:border-stone-400'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between pb-2 border-b border-stone-200/60 dark:border-white/10 mb-3">
-                      <span className={`text-xs font-bold uppercase tracking-wider ${
-                        isWeekend ? 'text-[#D97763]' : 'text-stone-400 dark:text-stone-400'
-                      }`}>
-                        {WEEK_DAYS[i]}
-                      </span>
-                      <span className={`text-base font-extrabold px-2 py-0.5 rounded-full leading-none ${
-                        isToday ? 'bg-[#2D5A46] text-white' : isSelected ? 'text-[var(--terra-primary)]' : 'text-stone-900 dark:text-white'
-                      }`}>
-                        {dayDate.getDate()}
-                      </span>
-                    </div>
+                  <div key={dateStr} data-terra-calendar-day className="terra-calendar-day min-w-0" data-selected={isSelected} data-today={isToday} data-current-month={true}>
+                    <button type="button" aria-label={`Выбрать дату ${dateStr}, ${calendarEventCountLabel(dayEvents.length)}`}
+                      aria-current={isToday?'date':undefined} aria-pressed={isSelected} onClick={()=>setSelectedDate(dayDate)}
+                      className="terra-calendar-day-select min-h-[44px] w-full rounded-lg flex flex-wrap items-center justify-between gap-1 px-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">
+                      <span className="text-xs text-[var(--terra-muted)]">{WEEK_DAYS[i]}</span><span>{dayDate.getDate()}</span>
+                    </button>
 
                     <div className="space-y-2 min-w-0">
                       {dayEvents.map(evt => {
@@ -747,8 +679,8 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     <CheckCircle2 size={40} className="mx-auto text-stone-400 mb-2 opacity-60" />
                     <p className="text-sm font-bold text-stone-700 dark:text-stone-300">
                       {listTab === 'upcoming' 
-                        ? `В ${monthName} нет запланированных событий` 
-                        : `В ${monthName} нет прошедших событий`}
+                        ? 'Нет запланированных событий за этот месяц' 
+                        : 'Нет прошедших событий за этот месяц'}
                     </p>
                     {listTab === 'upcoming' && (
                       <button
@@ -769,7 +701,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: Выбранный день */}
-      <aside data-testid="plans-selected-day" aria-label="События выбранного дня" className="min-w-0 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl flex flex-col p-4 space-y-3">
+      <aside data-testid="plans-selected-day" aria-label="События выбранного дня" className={`${SURFACE_CARD} terra-layout-surface flex flex-col space-y-3 min-w-0`}>
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">
@@ -851,7 +783,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                                 setIsConflictResolverOpen(true);
                               }
                             }}
-                            className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
+                            className="min-h-[44px] text-xs font-semibold px-2 py-1 rounded-lg bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1 border border-amber-200 dark:border-amber-800 transition cursor-pointer"
                             title="Открыть разрешение конфликта"
                           >
                             <AlertTriangle size={11} className="text-amber-600" />
@@ -894,7 +826,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           {/* Кнопка добавления события на выбранный день */}
           <button 
             onClick={() => onOpenEvent(null, { date: getLocalDateString(selectedDate) })}
-            className="w-full py-3 rounded-2xl border border-dashed border-[var(--terra-border)] dark:border-white/15 bg-[var(--terra-surface)] dark:bg-white/5 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[var(--terra-primary)] hover:border-[var(--terra-primary)] flex items-center justify-center gap-1.5 transition cursor-pointer"
+            className="min-h-[44px] w-full py-3 rounded-xl border border-dashed border-[var(--terra-border)] dark:border-white/15 bg-[var(--terra-surface)] dark:bg-white/5 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[var(--terra-primary)] hover:border-[var(--terra-primary)] flex items-center justify-center gap-1.5 transition cursor-pointer"
           >
             <Plus size={15} />
             <span>Добавить событие на {selectedDate.getDate()} {selectedDate.toLocaleDateString('ru-RU', { month: 'short' })}</span>

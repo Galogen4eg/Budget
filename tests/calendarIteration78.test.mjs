@@ -23,8 +23,9 @@ test('iteration 78: modal validates recurring end date as a real local calendar 
 });
 
 test('iteration 78: desktop calendar day and event actions have keyboard accessibility',()=>{
- assert.match(desktop,/role="button"[\s\S]{0,260}tabIndex=\{0\}/);
- assert.match(desktop,/onKeyDown=\{\(e\) =>/);
+ assert.match(desktop,/<button type="button" aria-label=\{\x60Выбрать дату/);
+ assert.match(desktop,/aria-current=\{isToday/);
+ assert.doesNotMatch(desktop,/role="button"\s+tabIndex=\{0\}/);
  assert.match(desktop,/aria-label=\{\`Открыть событие:/);
  assert.match(desktop,/aria-label=\{\`Добавить событие:/);
  assert.match(desktop,/focus-visible:ring-2/);

@@ -20,7 +20,7 @@ import {
 import { FamilyEvent, AppSettings, FamilyMember } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
 import { formatReminderLabel } from './EventModal';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod, formatCalendarWeekRange, formatCalendarMonthTitle, calendarEventCountLabel } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import TerraMobileHeader from './TerraMobileHeader';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD, SECTION_HEADING } from './filterUiTokens';
@@ -39,6 +39,8 @@ interface FamilyPlansMobileProps {
   viewMode: 'month' | 'week' | 'day' | 'list';
   setViewMode: (m: 'month' | 'week' | 'day' | 'list') => void;
   
+  filterMemberId:string;
+  setFilterMemberId:(value:string)=>void;
   listTab: 'upcoming' | 'past';
   setListTab: (t: 'upcoming' | 'past') => void;
   
@@ -71,6 +73,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   setViewMode,
   listTab,
   setListTab,
+  filterMemberId,setFilterMemberId,
   onOpenEvent,
   onSendToTelegram,
   onUpdateEvent,
@@ -81,7 +84,6 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   onOpenNotifications,
   beforeContent
 }) => {
-  const [filterMemberId, setFilterMemberId] = useState<string | 'all' | 'common'>('all');
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
   const [selectedConflictPair, setSelectedConflictPair] = useState<{ eventA: FamilyEvent; eventB: FamilyEvent } | null>(null);
 
@@ -179,12 +181,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
   }, [selectedDate]);
 
   // Month title & days count
-  const currentMonthTitle = useMemo(() => {
-    const month = currentDate.toLocaleString('ru-RU', { month: 'long' });
-    const year = currentDate.getFullYear();
-    const capitalizedMonth = month.charAt(0).toUpperCase() + month.slice(1);
-    return `${capitalizedMonth} ${year}`;
-  }, [currentDate]);
+  const currentMonthTitle=useMemo(()=>formatCalendarMonthTitle(currentDate),[currentDate]);
 
   const daysCountInCurrentMonth = useMemo(() => {
     return daysInMonthCount(currentDate.getFullYear(), currentDate.getMonth());
@@ -344,43 +341,17 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       cells.push(
         <button
           type="button"
-          aria-label={`Выбрать ${day} число месяца`}
+          aria-label={`Выбрать ${day} число месяца, ${calendarEventCountLabel(dayEvents.length)}`}
+          aria-current={isToday?"date":undefined}
           aria-pressed={isSelected}
           key={`current-${day}`}
           onClick={() => handleDateClick(year, month, day)}
-          className={`min-h-[48px] sm:min-h-[56px] p-1.5 rounded-xl flex flex-col justify-between items-center cursor-pointer select-none relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary  motion-reduce:transform-none ${
-            isSelected
-              ? 'ring-2 ring-[#4A7C59] bg-[#EEF5F0] dark:bg-[#4A7C59]/20 shadow-xs z-10'
-              : 'bg-[var(--terra-soft)] dark:bg-white/5 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10'
-          }`}
+          className="terra-calendar-mobile-day min-h-[48px] sm:min-h-[56px] rounded-lg flex flex-col items-center justify-center gap-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press" data-selected={isSelected} data-today={isToday}
         >
-          {/* Day Number */}
-          <span
-            className={`text-xs font-bold leading-none mt-1 ${
-              isSelected
-                ? 'text-[#2A6038] dark:text-green-300 font-extrabold'
-                : isToday
-                ? 'text-[var(--terra-primary)] dark:text-green-300 font-extrabold'
-                : 'text-[var(--terra-ink)] dark:text-gray-200'
-            }`}
-          >
-            {day}
+          <span className="text-sm font-semibold tabular-nums">{day}</span>
+          <span aria-hidden="true" className="flex items-center justify-center gap-0.5 text-[10px] leading-none min-h-[12px] tabular-nums">
+            {hasEvents&&<><span className="w-1.5 h-1.5 shrink-0 rounded-full" style={{backgroundColor:dayMemberColors[0]}}/>{dayEvents.length}</>}
           </span>
-
-          {/* Participant Colored Dots */}
-          <div className="flex items-center justify-center gap-1 min-h-[6px] mb-1">
-            {hasEvents ? (
-              dayMemberColors.slice(0, 4).map((color, cIdx) => (
-                <span
-                  key={cIdx}
-                  className="w-1.5 h-1.5 rounded-full shrink-0 shadow-2xs"
-                  style={{ backgroundColor: color }}
-                />
-              ))
-            ) : (
-              <span className="w-1.5 h-1.5 opacity-0" />
-            )}
-          </div>
         </button>
       );
     }
@@ -411,7 +382,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     }
 
     return (
-      <div className={`${SURFACE_CARD} space-y-2.5`}>
+      <div className={`${SURFACE_CARD} terra-layout-surface terra-calendar-month-mobile space-y-2`}>
         {/* Weekday Header */}
         <div className="grid grid-cols-7 text-center text-xs font-bold text-graphite-muted/80 dark:text-gray-400 py-1">
           <span>ПН</span>
@@ -424,7 +395,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         </div>
 
         {/* 7-Column Month Grid */}
-        <div className="grid grid-cols-7 gap-1.5" data-testid="plans-month-grid">
+        <div className="terra-calendar-mobile-grid grid grid-cols-7 gap-1.5" data-testid="plans-month-grid">
           {cells}
         </div>
         <button type="button" onClick={()=>{const target=document.getElementById('plans-selected-day-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}
@@ -462,7 +433,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5">
+          <div data-testid="plans-week-grid" className="terra-calendar-mobile-grid grid grid-cols-7 gap-1.5">
             {currentWeekDays.map((dayDate, idx) => {
               const dateStr = formatDateKey(dayDate);
               const isSelected = selectedDateStr === dateStr;
@@ -480,39 +451,12 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                   key={dateStr}
                   type="button"
                   onClick={() => setSelectedDate(new Date(dayDate))}
-                  className={`flex flex-col items-center justify-between py-2.5 px-0.5 rounded-2xl transition-colors cursor-pointer relative  ${
-                    isSelected
-                      ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-sm transform scale-[1.03]'
-                      : 'bg-[var(--terra-soft)] dark:bg-white/5 hover:bg-[var(--terra-soft)] dark:hover:bg-white/10 text-[var(--terra-ink)] dark:text-gray-200'
-                  }`}
+                  aria-label={`Выбрать дату ${dateStr}, ${calendarEventCountLabel(dayEvents.length)}`} aria-pressed={isSelected} aria-current={isToday?"date":undefined}
+                  data-selected={isSelected} data-today={isToday} className="terra-calendar-mobile-day min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press"
                 >
-                  <span className={`text-xs font-bold uppercase tracking-wider ${
-                    isSelected 
-                      ? 'text-white/90' 
-                      : isWeekend 
-                      ? 'text-[#705C30] dark:text-amber-400' 
-                      : 'text-graphite-muted dark:text-gray-400'
-                  }`}>
-                    {dayName}
-                  </span>
-
-                  <span className={`text-sm font-bold my-0.5 leading-none ${
-                    isSelected ? 'font-extrabold text-white' : ''
-                  }`}>
-                    {dayNum}
-                  </span>
-
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full transition-opacity ${
-                      isSelected
-                        ? hasEvents ? 'bg-white' : 'opacity-0'
-                        : hasEvents
-                        ? 'bg-[#4A7C59] dark:bg-emerald-400'
-                        : isToday
-                        ? 'bg-[#4A7C59]/40 opacity-70'
-                        : 'opacity-0'
-                    }`}
-                  />
+                  <span className="text-xs font-medium">{dayName}</span>
+                  <span className="text-sm font-semibold tabular-nums">{dayNum}</span>
+                  <span aria-hidden="true" className="text-[10px] min-h-[12px] leading-none tabular-nums">{hasEvents?dayEvents.length:''}</span>
                 </button>
               );
             })}
@@ -527,7 +471,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                 Всего на неделе
               </div>
               <div className="text-base font-headline font-bold text-[var(--terra-ink)] dark:text-white mt-0.5">
-                {weekAllEvents.length} {weekAllEvents.length === 1 ? 'событие' : weekAllEvents.length >= 2 && weekAllEvents.length <= 4 ? 'события' : 'событий'}
+                {calendarEventCountLabel(weekAllEvents.length)}
               </div>
             </div>
           </div>
@@ -578,6 +522,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
                     <button
                       type="button"
                       aria-label={`Подробнее: ${e.title}`}
+                      onClick={event=>{event.stopPropagation();setSelectedDate(parseLocalCalendarDate(e.date));onOpenEvent(e);}}
                       className="w-11 h-11 flex items-center justify-center text-graphite-muted dark:text-gray-400 hover:text-[var(--terra-primary)] transition-colors cursor-pointer"
                     >
                       <ChevronRight size={18} />
@@ -627,7 +572,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               aria-pressed={listTab === 'past'}
               className={`min-h-[44px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
                 listTab === 'past'
-                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs'
+                  ? FILTER_CHIP_ACTIVE
                   : 'text-[var(--terra-muted)] dark:text-gray-400'
               }`}
             >
@@ -709,8 +654,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               <Check size={32} className="mx-auto text-graphite-muted/40 mb-2" />
               <p className="text-xs font-bold text-[var(--terra-ink)] dark:text-white uppercase tracking-wider">
                 {listTab === 'upcoming' 
-                  ? `В ${currentMonthTitle} нет запланированных событий` 
-                  : `В ${currentMonthTitle} нет прошедших событий`}
+                  ? 'Нет запланированных событий за этот месяц' 
+                  : 'Нет прошедших событий за этот месяц'}
               </p>
               {listTab === 'upcoming' && (
                 <button
@@ -759,7 +704,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
       />
 
       {/* Main scroll content */}
-      <div className="px-4 pt-3 pb-4 md:pb-6 space-y-3 max-w-3xl mx-auto w-full">
+      <div className="terra-plans-mobile-content min-w-0 space-y-3 max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (
@@ -794,18 +739,18 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         )}
         
         {/* CARD 1: Month Title & Filter Card (Image 1 Spec) */}
-        <div className={`${SURFACE_CARD} space-y-3.5`}>
-          
+        <div className="terra-plans-mobile-toolbar space-y-2 min-w-0" data-testid="plans-toolbar">
           {/* Row 1: Month Title & Arrows */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-lg sm:text-2xl font-headline font-semibold text-[var(--terra-ink)] dark:text-white tracking-tight break-words">
+          <div className="flex flex-wrap items-center justify-between gap-1">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <h2 className="text-base sm:text-xl font-headline font-semibold text-[var(--terra-ink)] dark:text-white tracking-tight break-words">
                 {viewMode === 'day' ? selectedDayFormattedTitle : viewMode === 'week' ? weekPeriodTitle : currentMonthTitle}
               </h2>
 
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button type="button" onClick={()=>{const today=new Date();setCurrentDate(new Date(today.getFullYear(),today.getMonth(),1));setSelectedDate(today);}} className="min-h-[44px] px-1.5 rounded-lg text-xs font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press">Сегодня</button>
               <button
                 type="button"
                 onClick={() => viewMode === 'day' ? changeDay(-1) : viewMode === 'week' ? changeWeek(-1) : changeMonth(-1)}
@@ -828,14 +773,14 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 2: Segmented Switcher (Месяц / Неделя / Расписание) */}
-          <div role="group" aria-label="Вид календаря" className="terra-calendar-views grid grid-cols-4 bg-[var(--terra-soft)] p-1 rounded-xl gap-1 w-full">
+          <div role="group" aria-label="Вид календаря" className="terra-calendar-views grid grid-cols-4 bg-[var(--terra-soft)] p-0.5 rounded-xl gap-0.5 w-full">
             <button
               type="button"
               onClick={() => setViewMode('month')}
               aria-pressed={viewMode === 'month'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'month'
-                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  ? FILTER_CHIP_ACTIVE
                   : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
@@ -849,7 +794,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               aria-pressed={viewMode === 'week'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'week'
-                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  ? FILTER_CHIP_ACTIVE
                   : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
@@ -858,17 +803,17 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             </button>
 
             <button type="button" onClick={() => {setViewMode('day');setCurrentDate(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));}} aria-pressed={viewMode === 'day'}
-              className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 shadow-xs' : 'text-[var(--terra-muted)] dark:text-gray-400'}`}>
+              className={`min-h-[44px] px-2 rounded-xl text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${viewMode === 'day' ? FILTER_CHIP_ACTIVE : 'text-[var(--terra-muted)] dark:text-gray-400'}`}>
               День
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('list')}
+              onClick={() => {setViewMode('list');setListTab('upcoming');}}
               aria-label="Расписание"
               aria-pressed={viewMode === 'list'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-white dark:bg-[var(--terra-surface)] text-[#3B6347] dark:text-emerald-400 font-bold shadow-xs'
+                  ? FILTER_CHIP_ACTIVE
                   : 'text-[var(--terra-muted)] dark:text-gray-400 font-medium hover:text-[var(--terra-ink)]'
               }`}
             >
@@ -878,43 +823,14 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 3: Chip Filters (Все, Папа, Мама, Пересечения) */}
-          <div role="group" aria-label="Фильтр участников планов" className="flex flex-wrap items-center gap-1.5 min-w-0 w-full">
-            {memberFilterStats.map(stat => {
-              const isSelected = filterMemberId === stat.id;
-
-              return (
-                <button
-                  key={stat.id}
-                  type="button"
-                  onClick={() => setFilterMemberId(stat.id as any)}
-                  aria-pressed={isSelected}
-                  className={`inline-flex min-h-[44px] min-w-[44px] max-w-full items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${isSelected?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}
-                >
-                  {stat.id !== 'all' && (
-                    stat.isConflict ? (
-                      <span className="flex items-center gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-800" />
-                      </span>
-                    ) : (
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: stat.color }}
-                      />
-                    )
-                  )}
-                  <span className="max-w-[7rem] truncate" title={stat.label}>{stat.label}</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-xs ${
-                      isSelected
-                        ? 'bg-white/20 text-white font-bold'
-                        : 'bg-black/5 dark:bg-white/10 text-graphite-muted dark:text-gray-300'
-                    }`}
-                  >
-                    {stat.count}
-                  </span>
-                </button>
-              );
+          <div role="group" aria-label="Фильтр участников планов" className="terra-calendar-participants grid gap-1 w-full min-w-0" style={{gridTemplateColumns:`repeat(${Math.min(4,memberFilterStats.length)},minmax(0,1fr))`}}>
+            {memberFilterStats.map(stat=>{
+              const isSelected=filterMemberId===stat.id;
+              return <button key={stat.id} type="button" data-member-filter={stat.id} onClick={()=>setFilterMemberId(stat.id)} aria-pressed={isSelected}
+                aria-label={`${stat.label} (${stat.count})`} title={stat.label}
+                className={`min-h-[44px] min-w-0 px-1 py-1 rounded-xl flex flex-col items-center justify-center gap-0.5 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press ${isSelected?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}>
+                <span className="max-w-full truncate">{stat.label}</span><span className="tabular-nums text-[11px]">{stat.count}</span>
+              </button>;
             })}
           </div>
         </div>
@@ -926,7 +842,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
 
         {/* Selected day immediately follows the calendar, before the general agenda. */}
         {viewMode !== 'list' && (
-          <section id="plans-selected-day-mobile" data-testid="plans-selected-day" tabIndex={-1} aria-label="События выбранного дня" className={`${SURFACE_CARD} space-y-3 scroll-mt-2`}>
+          <section id="plans-selected-day-mobile" data-testid="plans-selected-day" tabIndex={-1} aria-label="События выбранного дня" className={`${SURFACE_CARD} terra-layout-surface space-y-3 scroll-mt-2`}>
             
             {/* Header: Circle Day Badge, Title, Today Badge & Add Button */}
             <div className="flex items-center justify-between gap-3">

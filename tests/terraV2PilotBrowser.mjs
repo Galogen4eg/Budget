@@ -428,6 +428,29 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const participants=plans.getByRole('group',{name:mobile?'Фильтр участников планов':'Участник планов'});
     await noOverflow(participants,label+' participants');
     for(const choice of await participants.getByRole('button').all())await targetSize(choice,label+' participant');
+    const chosen=participants.locator('[data-member-filter]').nth(1);
+    if(await chosen.count()){
+     const chosenId=await chosen.getAttribute('data-member-filter');
+     await chosen.click();
+     assert.equal(await chosen.getAttribute('aria-pressed'),'true');
+     await page.setViewportSize(mobile?{width:1440,height:900}:{width:390,height:844});
+     const alternate=plans.getByRole('group',{name:mobile?'Участник планов':'Фильтр участников планов'});
+     await alternate.waitFor({state:'visible'});
+     assert.equal(await alternate.locator('[data-member-filter]').evaluateAll((buttons,id)=>buttons.find(b=>b.getAttribute('data-member-filter')===id)?.getAttribute('aria-pressed'),chosenId),'true',label+' participant scope lost on resize');
+     await page.setViewportSize({width,height});
+     await participants.waitFor({state:'visible'});
+     await participants.locator('[data-member-filter="all"]').click();
+    }
+    await button(plans,'Сегодня').click();
+    const monthGrid=plans.getByTestId('plans-month-grid');
+    await monthGrid.waitFor({state:'visible'});
+    await noOverflow(monthGrid,label+' month grid');
+    assert.equal(await monthGrid.locator('[aria-current=date]').count(),1,label+' current date marker');
+    const todayCell=monthGrid.locator('[aria-current=date]');
+    assert.equal(await todayCell.getAttribute('aria-pressed'),'true',label+' today not selected');
+    await button(plans,'Следующий месяц').click();
+    await button(plans,'Предыдущий месяц').click();
+    await button(plans,'Сегодня').click();
     await scroll.evaluate(el=>{el.scrollTop=0;});
     await capture(page,'plans-month-'+label);
     const selectedDay=plans.getByTestId('plans-selected-day');
@@ -465,6 +488,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.ok(contrast(colors.bg,colors.fg)>=4.5,label+' unreadable editor text '+JSON.stringify(colors));
      assert.ok(contrast(colors.bg,colors.placeholder)>=4.5,label+' unreadable editor placeholder '+JSON.stringify(colors));
     }
+    const reminderOpen=button(editor,"+ Своё");
+    await reminderOpen.click();
+    const reminderQuantity=editor.getByRole("spinbutton",{name:"Количество для напоминания"});
+    const reminderUnit=editor.getByRole("combobox",{name:"Единица времени напоминания"});
+    for(const control of [reminderQuantity,reminderUnit,button(editor,"Закрыть настройку напоминания"),button(editor,"Добавить напоминание")])await targetSize(control,label+" reminder control");
+    await reminderQuantity.fill("7");await reminderUnit.selectOption("min");await button(editor,"Добавить напоминание").click();
+    const removeReminder=button(editor,"Удалить напоминание: 7 мин");await targetSize(removeReminder,label+" remove custom reminder");await removeReminder.click();
+    await removeReminder.waitFor({state:"hidden"});
     await titleInput.fill('QA — проверка читаемости');
     await noteInput.fill('Тестовая заметка, без сохранения');
     await capture(page,'plans-editor-filled-'+label);

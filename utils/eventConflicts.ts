@@ -5,12 +5,16 @@ import { eventDateTime } from './calendarDates.ts';
  * Two events conflict when their actual local time intervals overlap
  * and at least one participant is shared. Empty memberIds means family-wide.
  */
-export function findEventConflicts(events: FamilyEvent[]): {
+export function findEventConflicts(events: FamilyEvent[], period?: {from:string;to:string}): {
   conflictingEventIds: Set<string>;
   conflictPairs: Array<{ eventA: FamilyEvent; eventB: FamilyEvent }>;
 } {
   const conflictingEventIds = new Set<string>();
   const conflictPairs: Array<{ eventA: FamilyEvent; eventB: FamilyEvent }> = [];
+  const rangeStart=period?eventDateTime(period.from).getTime():-Infinity;
+  const lastDay=period?eventDateTime(period.to):null;
+  if(lastDay)lastDay.setDate(lastDay.getDate()+1);
+  const rangeEnd=lastDay?lastDay.getTime():Infinity;
   const windows = events.map(event => {
     try {
       const start = eventDateTime(event.date, event.time || '00:00').getTime();
@@ -35,7 +39,7 @@ export function findEventConflicts(events: FamilyEvent[]): {
       const sameMembers = !aMembers.length || !bMembers.length ||
         aMembers.some(id => bMembers.includes(id));
       if (!sameMembers) continue;
-      if (aWindow.start < bWindow.end && aWindow.end > bWindow.start) {
+      if (Math.max(aWindow.start,bWindow.start,rangeStart)<Math.min(aWindow.end,bWindow.end,rangeEnd)) {
         conflictingEventIds.add(a.id);
         conflictingEventIds.add(b.id);
         conflictPairs.push({ eventA: a, eventB: b });

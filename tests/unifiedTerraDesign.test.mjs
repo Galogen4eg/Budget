@@ -37,7 +37,12 @@ test('overview chart periods do not shrink individual labels',()=>{
  assert.match(chart,/FILTER_RAIL/);
 });
 test('shopping presets and sections use shared visual language',()=>{
- assert.match(shopping,/FILTER_CHIP/);
+ const library=read('ShoppingQuickListsPanel.tsx');
+ const frequent=library.slice(library.indexOf('data-testid="family-frequent-purchases"'),library.indexOf('Недавние покупки'));
+ assert.ok(frequent.length>0);
+ assert.match(frequent,/TOOLBAR_ACTION_IDLE/);
+ assert.match(frequent,/min-h-\[44px\]/);
+ assert.match(frequent,/focus-visible:ring-2/);
  assert.match(shopping,/SURFACE_CARD/);
 });
 test('services cards share surface style',()=>{

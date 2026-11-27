@@ -200,7 +200,7 @@ export const ShoppingQuickListsPanel: React.FC<Props> = ({ items, members }) => 
             {frequent.length?<><p className="text-xs text-[var(--terra-muted)]">По последним {history.length} покупкам семьи</p>
               <div className="flex flex-wrap gap-2">{frequent.map(({purchaseCount,...product})=><button type="button" key={product.title.toLocaleLowerCase('ru-RU')+'|'+product.unit} disabled={saving}
                 aria-label={'Повторить частую покупку: '+product.title+' '+product.unit} onClick={()=>void addProducts([product])}
-                className="min-h-[44px] min-w-0 max-w-full flex items-center gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm text-left focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50">
+                className={TOOLBAR_ACTION_IDLE+" min-h-[44px] min-w-0 max-w-full flex items-center gap-2 rounded-xl border border-[var(--terra-border)] px-3 py-2 text-sm text-left focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-50"}>
                 <span className="min-w-0 [overflow-wrap:anywhere]">{product.title} · {product.amount} {product.unit}</span>
                 <span data-testid="frequency-count" className="shrink-0 text-xs tabular-nums text-[var(--terra-muted)]">{purchaseCount}×</span><Plus size={14} className="shrink-0" aria-hidden="true"/>
               </button>)}</div></>:<p className="text-sm text-[var(--terra-muted)]">Повторных покупок пока нет.</p>}

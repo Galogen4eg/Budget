@@ -527,7 +527,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               {/* Event Name & Notes */}
               <section className="bg-[var(--terra-soft)] rounded-xl p-3 border border-[#EAE5DB] dark:border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="event-title-input" className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-gray-400">
+                  <label htmlFor="event-title-input" className="text-xs font-semibold text-[var(--terra-muted)]">
                     Название события
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-stone-500 hover:text-stone-800 dark:text-gray-400">
@@ -546,14 +546,15 @@ export const EventModal: React.FC<EventModalProps> = ({
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Например: Семейная поездка и пикник"
-                  className="w-full px-3 py-1.5 bg-[#F5F2EB]/60 focus:bg-[var(--terra-soft)] dark:focus:bg-[#2C2C2E] text-sm text-[#2C2723] dark:text-white placeholder:text-stone-400 font-semibold rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
+                  className="w-full min-w-0 min-h-[44px] px-3 py-2 bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] rounded-lg border border-[var(--terra-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] font-semibold"
                 />
                 <input 
                   type="text"
                   value={desc}
                   onChange={e => setDesc(e.target.value)}
                   placeholder="Заметка или место встречи (необязательно)..."
-                  className="w-full px-3 py-1 bg-[#F5F2EB]/40 focus:bg-[var(--terra-soft)] dark:focus:bg-[#2C2C2E] text-xs text-[#2C2723] dark:text-white placeholder:text-stone-400 rounded-lg border border-[#EAE5DB] dark:border-white/10 focus:border-[#4A7C59] outline-none"
+                  aria-label="Заметка или место встречи"
+                  className="w-full min-w-0 min-h-[44px] px-3 py-2 bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] rounded-lg border border-[var(--terra-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 />
               </section>
 

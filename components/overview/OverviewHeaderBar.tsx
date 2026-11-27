@@ -43,10 +43,10 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
   onOpenAIChat
 }) => {
   return (
-    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pb-2 w-full min-w-0">
+    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 pb-1 w-full min-w-0">
       {/* Mode Selector (Family / Personal) */}
-      <div className={`w-full sm:w-auto grid ${householdPersonal?'grid-cols-1':'grid-cols-2'} sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[var(--terra-soft)] p-1 rounded-xl justify-self-start`}>
-        {!householdPersonal&&<button
+      {!householdPersonal&&<div data-testid="overview-scope-desktop" role="group" aria-label="Область бюджета" className="w-full sm:w-auto grid grid-cols-2 sm:grid-flow-col sm:auto-cols-max items-center gap-1.5 bg-[var(--terra-soft)] p-1 rounded-xl justify-self-start">
+        <button
           type="button"
           onClick={() => setBudgetMode('family')}
           aria-pressed={budgetMode === 'family'}
@@ -58,7 +58,7 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         >
           <Users size={15} />
           <span>Семейный</span>
-        </button>}
+        </button>
         <button
           type="button"
           onClick={() => setBudgetMode('personal')}
@@ -71,11 +71,9 @@ export const OverviewHeaderBar: React.FC<OverviewHeaderBarProps> = ({
         >
           <User size={15} />
           <span>Личный</span>
-          <span className="w-5 h-5 rounded-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] text-graphite dark:text-white flex items-center justify-center text-xs font-semibold ml-0.5">
-            {memberInitial}
-          </span>
+
         </button>
-      </div>
+      </div>}
 
       {/* Toolbar Controls Subgrid: Auto-flowing columns pinned to the right edge */}
       <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full xl:w-auto min-w-0">

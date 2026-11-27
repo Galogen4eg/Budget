@@ -32,7 +32,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
             Список покупок
           </h3>
           <span className="bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-            {activeShoppingItems.length} шт
+            {activeShoppingItems.length}
           </span>
         </div>
         <button
@@ -50,7 +50,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
         {displayShoppingItems.length === 0 && (
           <p className="text-sm text-graphite-muted dark:text-gray-400 py-2">Список покупок пуст</p>
         )}
-        {displayShoppingItems.map((item, idx) => (
+        {displayShoppingItems.slice(0, 4).map((item, idx) => (
           <div 
             key={item.id ? `mob-shop-${item.id}` : `mob-shop-idx-${idx}`}
             className="px-1 py-2 flex min-w-0 items-center justify-between gap-2"
@@ -75,6 +75,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
         ))}
       </div>
 
+      {displayShoppingItems.length>4&&<button type="button" onClick={()=>onNavigateTab('shopping')} className="min-h-[44px] text-sm font-semibold text-[var(--terra-primary-text)] w-full text-left px-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Ещё {displayShoppingItems.length-4} · Все покупки <ChevronRight size={14} className="inline" aria-hidden="true"/></button>}
       {/* Quick add bar with round green + button */}
       <form 
         onSubmit={handleAddShoppingInline} 

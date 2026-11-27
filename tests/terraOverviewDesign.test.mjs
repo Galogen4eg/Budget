@@ -17,3 +17,17 @@ test('mobile header uses shared icon action tokens with focus and 44px size',()=
  assert.match(t,/ICON_ACTION = '[^']*h-11 w-11[^']*focus-visible:ring/);
  assert.ok((h.match(/\$\{ICON_ACTION\}/g)||[]).length>=4);
 });
+
+test('overview presents only actionable scope switches and preserves important balance explanations',()=>{
+ const s=read('components/TerraOverview.tsx'),h=read('components/overview/OverviewHeaderBar.tsx');
+ assert.match(s,/\{!personalOnly&&<div[^>]*data-testid="overview-scope-mobile"/);
+ assert.match(h,/\{!householdPersonal&&<div[^>]*data-testid="overview-scope-desktop"/);
+ assert.match(s,/const balanceExplanation/);assert.match(s,/personalOpeningKnown \? null/);assert.match(s,/Баланс и дневной ориентир остаются семейными/);
+ assert.match(s,/data-testid="overview-balance-value-mobile"/);
+});
+test('overview list actions use readable semantic colors and short shopping previews',()=>{
+ const s=read('components/TerraOverview.tsx'),q=read('components/QuickShoppingWidget.tsx'),c=read('components/overview/OverviewExpenseChart.tsx');
+ for(const id of ['overview-history-all-mobile','overview-history-all-desktop'])assert.match(s,new RegExp('data-testid="'+id+'"[^>]*text-\\[var\\(--terra-primary-text\\)\\]'));
+ assert.doesNotMatch(s,/style=\{\{ color: txMember.color \}\}/);
+ assert.match(q,/displayShoppingItems.slice\(0, 4\)/);assert.match(c,/width=\{mobile \? 62 : 80\}/);
+});

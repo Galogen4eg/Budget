@@ -96,7 +96,20 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.equal(await point.evaluate(el=>document.activeElement===el),true,label+' focus return');
     await values.click();
     await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
+    if(mobile){
+     const balance=overview.getByTestId('overview-balance-mobile');const rect=await balance.boundingBox();
+     assert.ok(rect&&rect.height<=430,label+' first-screen balance too tall '+JSON.stringify(rect));
+     const top=await chart.boundingBox();const tab=await page.locator('[data-terra-tabbar]').boundingBox();
+     assert.ok(top&&tab&&top.y+32<tab.y,label+' chart heading outside first viewport');
+     const scope=overview.getByTestId('overview-scope-mobile');if(await scope.isVisible())assert.equal(await scope.getByRole('button').count(),2);
+    }
+    const history=overview.getByTestId(mobile?'overview-history-mobile':'overview-history-desktop');
+    const all=history.getByTestId(mobile?'overview-history-all-mobile':'overview-history-all-desktop');
+    await targetSize(all,label+' history link');
+    assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(155, 209, 168)':'rgb(53, 96, 68)',label+' history link contrast token');
     await capture(page,'overview-'+label);
+    await history.scrollIntoViewIfNeeded();await capture(page,'overview-history-'+label);
+    const categoryCard=overview.getByTestId(mobile?'overview-categories-mobile':'overview-categories-desktop');await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
     await chart.scrollIntoViewIfNeeded();
     await capture(page,'overview-chart-'+label);
     // Verify the exact existing drilldown path and its controls; no new route.

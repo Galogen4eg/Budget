@@ -1,0 +1,13 @@
+# Re-audit — page 01: Overview
+Base production 75e119bc421f2fa81ffd04a19b8239458a39d289, populated exact-tree screenshots from CI e23fa07 (artifact 15177236803). Baseline at 390×844: 540px family balance card, chart title near tab bar; redundant single Personal switch when shared hidden; dark history link uses solid rather than semantic text color. Desktop baseline: wasted vertical space in reserve and daily metrics, excessive gaps in category layout. User screenshot confirms same issues in actual personal view.
+
+## Changes and acceptance
+- Compact balance header and information groups; remove explanation only if balance semantics are unambiguous. Preserve missing-opening warning and mixed family/personal context. No changes to financial projections, data or access.
+- Scope switch only when both choices available; 44px controls remain. No redundant scope label or user initial.
+- Short history rows, semantic link and income color, neutral participant names and no redundant current-user name in personal view. Full operation title in accessible label. Unlinked desktop transaction no longer attributed to current user.
+- Categories: one row of compact actions, no clipping long names, visible list separation, no desktop stretch filler. Wider chart plot on mobile (62px money axis, same stable plot height); existing chart data and keyboard details preserved.
+- Shopping preview limited to four items with direct remainder link. Desktop list completion keyboard accessible. Motion uses existing progress and press classes; no new animation.
+- Acceptance: existing all-width smoke + authenticated emulator pilot both themes 390/1440. Explicit mobile balance height <=430px and chart heading above tab bar on populated family fixture; semantic contrast token, dual scope/no single scope, no horizontal overflow, preserved ledger and privacy. New screenshot set overview/history/categories/chart in both themes. Real screenshots must be reviewed before claiming completion. No release in this phase until checks.
+
+## Next separate page sequence
+02 Budget; 03 Plans/calendar; 04 Shopping/pantry; 05 Chat; 06 Services. Settings each separately: 07 Profile/security; 08 Appearance/privacy; 09 Menu/overview; 10 Family/access; 11 Budget parameters; 12 Categories/rules; 13 Transaction history; 14 Integrations; 15 Diagnostics/install. Each phase starts from current code and populated visual evidence, includes scoped fixes and actual verification. No unrelated redesigns.

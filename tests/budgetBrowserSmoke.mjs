@@ -572,6 +572,7 @@ try{
       await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
       await nav.getByRole('button',{name:'Обзор',exact:true}).click();
       assert.equal(await page.getByRole('button',{name:'Семейный',exact:true}).filter({visible:true}).count(),0);
+      assert.equal(await page.locator('[data-tab-panel="overview"]').getByRole('group',{name:'Область бюджета'}).filter({visible:true}).count(),0,label+' redundant personal-only toggle');
       await page.getByText(/итог личных операций/i).filter({visible:true}).first().waitFor({state:'visible'});
       await nav.getByRole('button',{name:'Бюджет',exact:true}).click();
       await page.getByText('Личный ориентир в день',{exact:true}).filter({visible:true}).first().waitFor({state:'visible'});

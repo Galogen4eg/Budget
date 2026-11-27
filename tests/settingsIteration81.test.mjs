@@ -13,11 +13,15 @@ test('iteration 81: settings controls submit only the modified key and handle fa
  assert.match(saver,/setSettingsWriteFailed\(true\)/);
  assert.match(saver,/Не удалось сохранить настройку/);
 });
-test('iteration 81: login update does not change a profile before email succeeds',()=>{
+test('login update leaves member name and binding unchanged and reports partial failure',()=>{
  const handler=modal.slice(modal.indexOf('const handleUpdateAccountLogin'),modal.indexOf('const handleUpdatePassword'));
- assert.ok(handler.indexOf('await updateEmail')<handler.indexOf('await updateProfile'));
- assert.match(handler,/await onUpdateMembers/);
- assert.doesNotMatch(handler,/m\.email === currentUser\.email/);
+ assert.ok(handler.indexOf('await updateEmail')<handler.indexOf('await syncProfileEmail'));
+ assert.doesNotMatch(handler,/updateProfile|onUpdateMembers/);
+ assert.match(handler,/if\(authChanged\)/);
+ const sync=read('utils/db.ts').split('export async function syncOwnMemberEmail')[1].split('export const updateItemsBatch')[0];
+ assert.match(sync,/snap.data\(\).userId!==uid/);
+ assert.match(sync,/tx.update\(ref,\{email\}\)/);
+ assert.match(modal,/accountLoginFromEmail\(currentEmail\)/);
 });
 test('iteration 81: member edits wait for persistence before success',()=>{
  const handler=members.slice(members.indexOf('const handleSaveMemberDetails'),members.indexOf('const handleDeleteMember'));

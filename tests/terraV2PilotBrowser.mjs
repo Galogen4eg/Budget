@@ -408,6 +408,33 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await button(services,'Все сервисы').click();
     await button(page.locator('nav'),'Обзор').click();
     console.log('PASS TERRA SERVICES PILOT '+label+' real debt values, payoff, wallet and QR');
+    await button(mobile?overview:page,mobile?'Настройки и профиль':'Настройки').click();
+    const settings=page.getByRole('dialog',{name:'Настройки',exact:true});
+    await settings.waitFor({state:'visible'});
+    if(mobile)await button(settings,'Открыть профиль').click();
+    else await button(settings.getByRole('navigation',{name:'Разделы настроек'}),/^Профиль и безопасность/,false).click();
+    const account=settings.locator('[data-settings-section="account"]');
+    const login=account.locator('#settings-account-login');
+    await login.waitFor({state:'visible'});
+    assert.match(await login.inputValue(),/@example\.test$/);
+    await targetSize(login,label+' login');await noOverflow(account,label+' account');
+    await capture(page,'account-main-'+label);
+    await login.fill('QA display name');
+    assert.equal(await button(account,'Сохранить логин').isDisabled(),true);
+    await capture(page,'account-invalid-'+label);
+    const newPassword=account.locator('#settings-password-new'),confirm=account.locator('#settings-password-confirm');
+    await newPassword.fill('emulator-test-only');await confirm.fill('different');
+    assert.equal(await button(account,'Обновить пароль').isDisabled(),true);
+    await newPassword.scrollIntoViewIfNeeded();
+    await targetSize(newPassword,label+' password');
+    await button(account,'Показать новый пароль').click();
+    assert.equal(await newPassword.getAttribute('type'),'text');
+    await button(account,'Скрыть новый пароль').click();
+    await capture(page,'account-password-'+label);
+    await newPassword.fill('');await confirm.fill('');
+    await button(settings,'Закрыть настройки').click();
+    await settings.waitFor({state:'hidden'});
+    console.log('PASS TERRA ACCOUNT PILOT '+label+' actual login, invalid input, masked password and responsive form');
    }
   }
   assert.equal(await ledger(),before,'UI pilot changed transaction records');

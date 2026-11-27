@@ -682,6 +682,16 @@ await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
  await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
  const checkbox=dialog.getByRole('checkbox',{name:'Выбрать платёж: QA резерв',exact:true});
  await checkbox.waitFor({state:'visible'});
+ const editPayment=btn(dialog,'Редактировать обязательный платеж: QA резерв');
+ phase='nested payment editor returns to reserve';
+ await editPayment.click();
+ const paymentEditor=b.getByRole('dialog',{name:'Редактирование платежа',exact:true});
+ await paymentEditor.waitFor({state:'visible'});
+ await b.keyboard.press('Escape');
+ await paymentEditor.waitFor({state:'hidden'});
+ await dialog.waitFor({state:'visible'});
+ assert.equal(await editPayment.evaluate(el=>document.activeElement===el),true,'reserve edit focus return');
+ phase='confirm reserve payment';
  await checkbox.check();
  await btn(dialog,'Отметить выбранные как оплаченные').click();
  await currentDoc(ref,snapshot=>Object.values(snapshot.data()?.manualPaidExpenses??{}).some(ids=>Array.isArray(ids)&&ids.includes('qa-reserve')),'confirmed reserve paid mark');

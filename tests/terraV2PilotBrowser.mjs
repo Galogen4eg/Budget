@@ -334,7 +334,8 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await targetSize(bindingTrigger,label+' payment link');await bindingTrigger.click();
     await button(dayEditor,'Не привязывать').waitFor({state:'visible'});
     await capture(page,'overview-day-payment-binding-'+label);
-    await button(dayEditor,'Назад').click();await bindingTrigger.waitFor({state:'visible'});
+    // Exercise the real history entry as well as Escape in the preceding selector.
+    await page.evaluate(()=>window.history.back());await bindingTrigger.waitFor({state:'visible'});
     assert.equal(await bindingTrigger.evaluate(el=>document.activeElement===el),true,label+' binding focus return');
     assert.equal(await dayEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedDay,label+' date retained after nested views');
     const pickerTrigger=button(dayEditor,'Выбрать категорию');await pickerTrigger.click();

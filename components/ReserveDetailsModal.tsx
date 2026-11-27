@@ -199,7 +199,7 @@ export const ReserveDetailsModal: React.FC<ReserveDetailsModalProps> = ({
                   </div>
                   <span className="text-sm font-semibold tabular-nums text-right min-w-0 [overflow-wrap:anywhere]">{!isPaid&&<span className="block text-xs font-normal text-[var(--terra-muted)]">К оплате</span>}{formatMoney(isPaid?item.expense.amount:item.amountNeeded)} {!privacyMode&&currency}{!isPaid&&(item.paidAmount??0)>0&&<span className="block text-xs font-normal text-[var(--terra-muted)]">Оплачено: {formatMoney(item.paidAmount!)} {!privacyMode&&currency}</span>}</span>
                   <div className="terra-reserve-bill-actions flex flex-wrap justify-end gap-1 min-w-0">
-                    {onEditExpense&&<button type="button" disabled={busy} onClick={e=>{e.preventDefault();e.stopPropagation();onEditExpense(item.expense);onClose();}}
+                    {onEditExpense&&<button type="button" disabled={busy} onClick={e=>{e.preventDefault();e.stopPropagation();onEditExpense(item.expense);}}
                       aria-label={`Редактировать обязательный платеж: ${item.expense.name}`} className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><Edit3 size={16}/></button>}
                     {isPaid&&<button type="button" onClick={e=>handleCancelExpense(e,item.expense.id)} disabled={busy||!onTogglePaid}
                       aria-label={`Отменить отметку об оплате: ${item.expense.name}`} className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><RotateCcw size={16}/></button>}

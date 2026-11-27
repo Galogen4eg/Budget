@@ -148,7 +148,9 @@ export default function AddTransactionModal({
   const savedMutation=useRef(false);
   const [saveConfirmed,setSaveConfirmed]=useState(false);
   const requestClose=()=>{if(mutationPending.current)return;if(currentView!=='main'){setCurrentView('main');return;}onClose();};
-  useModalBackHandler(true,requestClose);
+  // A subview has its own history entry: Back returns to the editor without consuming its registration.
+  useModalBackHandler(true,()=>{if(!mutationPending.current)onClose();});
+  useModalBackHandler(currentView!=='main',()=>setCurrentView('main'));
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);

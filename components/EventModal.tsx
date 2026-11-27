@@ -462,7 +462,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </header>
 
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
-        <div data-testid="terra-event-scroll" className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3 space-y-3 overscroll-y-contain touch-pan-y">
+        <div data-testid="terra-event-scroll" className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3 space-y-3 custom-scrollbar overscroll-y-contain touch-pan-y">
           
           <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -293,21 +293,18 @@ try{
       const expandBounds=await expandDay.boundingBox();
       assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
       await expandDay.click();
-      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
-      const closeDay=page.locator('button[title="Закрыть"]').filter({visible:true}).last();
-      // DayDetailModal scales from 0.98 to 1 on entrance; measure only
-      // after that transform finishes, not at an intermediate frame.
-      await page.waitForFunction(() => {
-        const close=document.querySelector('button[title="Закрыть"]');
-        if(!close)return false;
-        const rect=close.getBoundingClientRect();
-        return rect.width>=43.95 && rect.height>=43.95;
-      },null,{timeout:4000});
+      const dayDialog=page.getByTestId('terra-day-detail');
+      await dayDialog.waitFor({state:'visible'});
+      assert.equal(await dayDialog.getAttribute('aria-modal'),'true');
+      for(const metric of ['day-detail-net','day-detail-income','day-detail-expense']){
+        await dayDialog.getByTestId(metric).waitFor({state:'visible'});
+      }
+      const closeDay=dayDialog.getByRole('button',{name:'Закрыть детали дня',exact:true});
       const closeBounds=await closeDay.boundingBox();
-      assert.ok(closeBounds && closeBounds.width>=43.95 && closeBounds.height>=43.95,
+      assert.ok(closeBounds && closeBounds.width>=44 && closeBounds.height>=44,
         '1920: undersized day details close action '+JSON.stringify(closeBounds));
       await closeDay.click();
-      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});
+      await dayDialog.waitFor({state:'hidden'});
       await page.getByRole('button',{name:'Добавить операцию',exact:true}).filter({visible:true}).first().click();
       await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'visible'});
       const amountField=page.getByRole('textbox',{name:'Сумма операции'});

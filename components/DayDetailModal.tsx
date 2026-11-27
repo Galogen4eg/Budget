@@ -72,9 +72,9 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
       >
         <motion.div 
           {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-day-detail-heading" data-testid="terra-day-detail"
-          initial={reduced?false:{ y: 6, opacity: 0, scale: .98 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 6, opacity: 0, scale: .98 }}
+          initial={reduced?false:{ y: 6, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 6, opacity: 0 }}
           transition={terraTransition(reduced,.2)}
           className="terra-overview-dialog bg-[var(--terra-surface)] text-[var(--terra-ink)] w-full max-w-3xl rounded-none sm:rounded-2xl border border-[var(--terra-border)] shadow-lg flex flex-col min-h-0 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
           onClick={(e) => e.stopPropagation()}

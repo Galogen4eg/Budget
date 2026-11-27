@@ -148,11 +148,19 @@ html.dark {
 .terra-shopping-meta{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:4px 6px;min-width:0;width:100%;}
 .terra-shopping-priority{flex:none;white-space:nowrap;}
 .terra-shopping-actions{justify-self:end;min-width:0;max-width:100%;align-self:start;}
-.terra-shopping-stepper{flex-shrink:0;}
-.terra-shopping-quantity{display:block;flex:none;width:52px;padding-inline:3px;overflow-wrap:anywhere;}
-@media(max-width:359px){
+.terra-shopping-stepper{display:grid;grid-template-columns:44px 52px 44px;grid-template-rows:minmax(44px,auto) auto;align-items:center;flex-shrink:0;min-width:0;max-width:100%;border:1px solid var(--terra-border);border-radius:12px;padding:1px;}
+.terra-shopping-stepper>button:first-child{grid-column:1;grid-row:1;}
+.terra-shopping-stepper>button:last-child{grid-column:3;grid-row:1;}
+.terra-shopping-quantity{display:block;grid-column:2;grid-row:1;width:52px;padding-inline:3px;overflow-wrap:anywhere;}
+.terra-shopping-unit{grid-column:1/-1;grid-row:2;text-align:center;padding:0 4px 4px;line-height:1.25;min-width:0;overflow-wrap:anywhere;}
+@media(max-width:479px){
  .terra-active-shopping-row{grid-template-columns:minmax(0,1fr);row-gap:4px;}
  .terra-active-shopping-row .terra-shopping-actions{justify-self:end;}
+ .terra-active-shopping-row .terra-shopping-stepper{width:calc(100% - 52px);grid-template-columns:minmax(0,1fr) 44px 52px 44px;grid-template-rows:minmax(44px,auto);}
+ .terra-active-shopping-row .terra-shopping-stepper>button:first-child{grid-column:2;}
+ .terra-active-shopping-row .terra-shopping-stepper>button:last-child{grid-column:4;}
+ .terra-active-shopping-row .terra-shopping-quantity{grid-column:3;}
+ .terra-active-shopping-row .terra-shopping-unit{grid-column:1;grid-row:1;text-align:left;padding:4px 6px;}
 }
 
 /* Settings v3: actual workspace width, flat semantic groups and consistent field geometry. */

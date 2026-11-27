@@ -983,7 +983,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 
         {/* Quantity Stepper Pill */}
         <div 
-          data-shopping-controls className="terra-shopping-actions terra-shopping-stepper flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5" 
+          data-shopping-controls role="group" aria-label={`Количество: ${item.title}`} className="terra-shopping-actions terra-shopping-stepper" 
           onClick={(e) => e.stopPropagation()}
         >
           <button 
@@ -993,13 +993,14 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, -1);
             }}
             aria-label={`Уменьшить количество: ${item.title}`} title={`Уменьшить количество: ${item.title}`}
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+            className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             -
           </button>
           <span data-shopping-quantity className="terra-shopping-quantity text-sm font-semibold text-[var(--terra-ink)] text-center tabular-nums">
-            {item.amount || '1'} {item.unit || 'шт'}
+            {item.amount || '1'}
           </span>
+          <span data-shopping-unit className="terra-shopping-unit text-xs text-[var(--terra-muted)]">{item.unit || 'шт'}</span>
           <button 
             type="button"
             onClick={(e) => {
@@ -1007,7 +1008,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
               onAdjustAmount(item, 1);
             }}
             aria-label={`Увеличить количество: ${item.title}`} title={`Увеличить количество: ${item.title}`}
-            className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white text-xs font-black flex items-center justify-center hover:bg-[var(--terra-surface)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+            className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
             +
           </button>

@@ -1006,21 +1006,22 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
                           {/* Stepper & Actions */}
                           <div data-shopping-controls className="terra-shopping-actions flex items-start gap-1" onClick={(e) => e.stopPropagation()}>
-                            <div className="terra-shopping-stepper flex items-center bg-[var(--terra-soft)] dark:bg-stone-800 rounded-xl p-0.5">
+                            <div role="group" aria-label={`Количество: ${item.title}`} className="terra-shopping-stepper">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, -1); }}
                                 aria-label={`Уменьшить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                                className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 -
                               </button>
                               <span data-shopping-quantity className="terra-shopping-quantity text-sm font-semibold text-[var(--terra-ink)] text-center tabular-nums">
-                                {item.amount || '1'} {item.unit || 'шт'}
+                                {item.amount || '1'}
                               </span>
+          <span data-shopping-unit className="terra-shopping-unit text-xs text-[var(--terra-muted)]">{item.unit || 'шт'}</span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleUpdateAmount(item, 1); }}
                                 aria-label={`Увеличить количество: ${item.title}`}
-                                className="min-w-[44px] min-h-[44px] rounded-lg bg-white dark:bg-stone-700 hover:bg-[var(--terra-soft)] text-[var(--terra-ink)] dark:text-white flex items-center justify-center transition text-xs font-bold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                                className="min-w-[44px] min-h-[44px] rounded-lg text-[var(--terra-ink)] text-base font-semibold flex items-center justify-center hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                               >
                                 +
                               </button>

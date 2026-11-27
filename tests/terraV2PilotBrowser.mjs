@@ -59,15 +59,22 @@ async function shoppingAlignmentPilot(page,{settingsRef,shoppingRef,membersRef})
     await rows.locator('[data-shopping-author]').filter({hasText:'Длинное имя участника семьи для QA'}).first().waitFor({state:'visible'});
     const boxes=await rows.evaluateAll(elements=>elements.map(row=>{
       const rect=el=>el.getBoundingClientRect().toJSON();
-      const title=row.querySelector('[data-shopping-title]'),author=row.querySelector('[data-shopping-author]'),controls=row.querySelector('[data-shopping-controls]'),name=row.querySelector('.terra-shopping-name'),edit=row.querySelector('.terra-shopping-copy'),quantity=row.querySelector('[data-shopping-quantity]');
-      return {id:row.getAttribute('data-shopping-id'),row:rect(row),title:rect(title),author:rect(author),controls:rect(controls),name:rect(name),edit:rect(edit),quantity:rect(quantity),overflow:row.scrollWidth-row.clientWidth,titleOverflow:title.scrollWidth-title.clientWidth,authorOverflow:author.scrollWidth-author.clientWidth,quantityOverflow:quantity.scrollWidth-quantity.clientWidth};
+      const title=row.querySelector('[data-shopping-title]'),author=row.querySelector('[data-shopping-author]'),controls=row.querySelector('[data-shopping-controls]'),name=row.querySelector('.terra-shopping-name'),edit=row.querySelector('.terra-shopping-copy'),quantity=row.querySelector('[data-shopping-quantity]'),unit=row.querySelector('[data-shopping-unit]');
+      const range=document.createRange();range.selectNodeContents(unit);
+      const unitLines=range.getClientRects().length;
+      const buttons=[...row.querySelectorAll('.terra-shopping-stepper>button')].map(rect);
+      return {id:row.getAttribute('data-shopping-id'),row:rect(row),title:rect(title),author:rect(author),controls:rect(controls),name:rect(name),edit:rect(edit),quantity:rect(quantity),overflow:row.scrollWidth-row.clientWidth,titleOverflow:title.scrollWidth-title.clientWidth,authorOverflow:author.scrollWidth-author.clientWidth,quantityOverflow:quantity.scrollWidth-quantity.clientWidth,unitLines,unitText:unit.textContent.trim(),unitOverflow:unit.scrollWidth-unit.clientWidth,buttons};
     }));
     for(const box of boxes){
      assert.ok(Math.abs(box.title.left-box.author.left)<=1,label+' author shifted '+box.id);
      assert.ok(box.author.top>=box.title.bottom-1,label+' author overlaps title '+box.id);
      assert.ok(box.edit.height>=44&&box.edit.width>=44,label+' edit target too small '+box.id);
      assert.ok(Math.max(box.overflow,box.titleOverflow,box.authorOverflow,box.quantityOverflow)<=2,label+' row text overflow '+JSON.stringify(box));
-     if(width>=360){
+     assert.equal(box.unitLines,1,label+' unit broken across lines '+box.id+' '+box.unitText);
+     assert.ok(box.unitOverflow<=2,label+' unit overflow '+box.id);
+     assert.equal(box.buttons.length,2);
+     for(const btn of box.buttons)assert.ok(btn.width>=44&&btn.height>=44,label+' quantity touch target '+box.id);
+     if(width>=480){
       assert.ok(box.name.right<=box.controls.left+1,label+' controls overlap title '+box.id);
       assert.ok(Math.abs(box.name.top-box.controls.top)<=1,label+' uneven controls '+box.id);
      }else assert.ok(box.name.bottom<=box.controls.top+1,label+' narrow controls overlap '+box.id);
@@ -80,8 +87,10 @@ async function shoppingAlignmentPilot(page,{settingsRef,shoppingRef,membersRef})
     }
     await rows.first().scrollIntoViewIfNeeded();
     await capture(page,'shopping-alignment-'+label);
-    await rows.last().scrollIntoViewIfNeeded();
+    const long=section.locator('[data-shopping-id="qa-geometry-long"]');
+    await long.scrollIntoViewIfNeeded();
     await capture(page,'shopping-alignment-long-'+label);
+    await long.screenshot({path:out+'/shopping-long-row-'+label+'.png',animations:'disabled'});
     await search.fill('');
     await button(page.locator('nav'),'Обзор').click();
     console.log('PASS TERRA SHOPPING ALIGNMENT '+label+' author, title, fixed controls, long text and tap targets');

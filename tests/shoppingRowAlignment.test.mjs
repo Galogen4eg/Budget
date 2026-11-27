@@ -11,9 +11,13 @@ test('mobile and desktop shopping use the same author-first metadata and row geo
   assert.match(s,/terra-shopping-name/);
   assert.match(s,/data-shopping-controls/);
   assert.match(s,/data-shopping-quantity/);
+  assert.match(s,/data-shopping-unit/);
+  assert.doesNotMatch(s.split('data-shopping-quantity')[1].split('</span>')[0],/item\.unit/);
  }
  const css=read('public/terra-ui.css');
  assert.match(css,/grid-template-columns:minmax\(0,1fr\) max-content/);
  assert.match(css,/grid-template-columns:44px minmax\(0,1fr\)/);
  assert.match(css,/\.terra-shopping-quantity\{[^}]*width:52px/);
+ assert.match(css,/\.terra-shopping-unit\{[^}]*grid-column:1\/-1/);
+ assert.match(css,/@media\(max-width:479px\)/);
 });

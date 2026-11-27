@@ -559,7 +559,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const apiKey = settings.geminiApiKey || '';
 
   useEffect(() => {
-    if (currentFamilyId) setNewFamilyId(currentFamilyId);
+    setNewFamilyId('');
   }, [currentFamilyId]);
 
   useBodyScrollLock();
@@ -634,7 +634,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     <div className="relative min-w-0">
       <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] pointer-events-none"/>
       <input type="search" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}
-        aria-label="Поиск настроек" placeholder="Поиск настроек" className="min-h-[44px] w-full min-w-0 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] pl-9 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"/>
+        aria-label="Поиск настроек" placeholder="Поиск настроек" className="min-h-[44px] w-full min-w-0 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] pl-9 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"/>
     </div>
   );
 
@@ -653,11 +653,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Приватность и видимость</h3>
               <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Скрывает суммы в поддерживаемых финансовых экранах.</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Скрывает суммы в поддерживаемых финансовых экранах.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${settings.privacyMode?'is-on':''}`}><span/></span>
               </button>
               <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
                 <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
-                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span className="text-sm font-medium shrink-0">{householdPersonal||hideSharedBudget?'Выкл.':'Вкл.'}</span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${!householdPersonal&&!hideSharedBudget?'is-on':''}`}><span/></span>
                 </button>
                 <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
                 <select id="settings-budget-default" disabled={householdPersonal||hideSharedBudget} value={householdPersonal||hideSharedBudget?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
@@ -1068,10 +1068,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         );
 
-      case 'budget':
-        return (
-          <div className="space-y-5">
-          <section className="terra-settings-group">
+      case 'budget': {
+        const personalFields = (<section key="personal" data-finance-scope="personal" className="terra-settings-group">
             <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Используются для личного отображения бюджета. Общие финансовые параметры не меняются.'}</p>
             <div className="terra-settings-field-grid grid gap-3">
@@ -1093,8 +1091,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input type="date" value={settings.personalInitialBalanceDate??''} onChange={e=>handleChange('personalInitialBalanceDate',e.target.value)} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
               </label>
             </div>
-          </section>
-          <BudgetSettingsSection
+          </section>);
+        const commonFields = (
+          <div key="common-settings" data-finance-scope="common" className="terra-settings-stack">
+            <h3 className="text-sm font-semibold text-[var(--terra-muted)]">{householdPersonal?'Общие параметры учёта':'Общие параметры бюджета'}</h3>
+            <BudgetSettingsSection key="common"
             settings={settings}
             onUpdateSetting={handleChange}
             savingsRate={savingsRate}
@@ -1103,6 +1104,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           />
           </div>
         );
+        return <div className="terra-settings-stack">{householdPersonal?[personalFields,commonFields]:[commonFields,personalFields]}</div>;
+      }
 
       case 'data':
         return <BudgetSettingsSection settings={settings} onUpdateSetting={handleChange}
@@ -1181,7 +1184,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={settings.telegramBotToken || ''} 
                     onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
-                    placeholder="712345678:AAHk..." 
+                    placeholder="Токен от BotFather" 
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1193,7 +1196,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={settings.telegramChatId || ''} 
                     onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
                     className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
-                    placeholder="-1001928374650" 
+                    placeholder="ID чата" 
                   />
                 </div>
               </div>

@@ -213,9 +213,14 @@ async function checkSections(){
   await tab.click();
   action='wait for settings content';await expectVisible(first(dialog.getByTestId('settings-section-scroll-container')));
   const content=first(dialog.locator('[data-settings-section]'));await expectVisible(content);
-  const geometry=await content.evaluate(el=>({section:el.getAttribute('data-settings-section'),fits:el.scrollWidth<=el.clientWidth+2,buttons:[...el.querySelectorAll('button')].filter(e=>e.getClientRects().length).length}));
+  const geometry=await content.evaluate(el=>({section:el.getAttribute('data-settings-section'),fits:el.scrollWidth<=el.clientWidth+2,controls:[...el.querySelectorAll('button,input:not([type=hidden]),select,textarea,a[href],summary')].filter(e=>e.getClientRects().length).length}));
   if(!geometry.fits)throw new Error('Settings horizontal overflow: '+geometry.section);
-  if(!geometry.buttons&&geometry.section!=='diagnostics')throw new Error('Settings section has no actions: '+geometry.section);
+  if(!geometry.controls&&geometry.section!=='diagnostics')throw new Error('Settings section has no actions: '+geometry.section);
+  if(geometry.section==='navigation'){
+   const startup=content.getByRole('combobox',{name:'Стартовый раздел'});await expectVisible(startup);
+   for(const name of ['Обзор','Бюджет','Планы','Покупки','Чат','Сервисы','Список покупок','События недели'])await expectVisible(content.getByRole('checkbox',{name,exact:true}));
+   if(!(await content.getByRole('checkbox',{name:'Обзор',exact:true}).isDisabled()))throw new Error('Overview may be disabled');
+  }
   if(geometry.section==='account'&&await content.getByLabel('Новый пароль',{exact:true}).count()!==1)throw new Error('Password field label missing');
   if(geometry.section==='family'){
    const invite=first(content.getByRole('button',{name:'Пригласить участника',exact:true}));await expectVisible(invite);

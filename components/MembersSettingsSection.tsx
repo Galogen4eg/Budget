@@ -299,21 +299,19 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
           
           {/* Top session box */}
           <div className="terra-settings-group">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
+            <div className="space-y-1">
               <span className="text-xs font-bold tracking-wide uppercase text-gray-500 dark:text-gray-400">
-                Текущая активная сессия
+                Ваш профиль в семье
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-xs font-mono text-gray-700 dark:text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="block text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">
                 {currentUserEmail}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+            <div className="space-y-3">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Статус сопоставления сессии</p>
                 <div className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
-                  Вы сопоставлены с профилем: {' '}
+                  Профиль: {' '}
                   <span className="font-bold text-[#4A7C59] dark:text-emerald-400">
                     {mappedMember ? mappedMember.name : 'Гостевой режим'}
                   </span>
@@ -326,7 +324,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               {/* Profile Selector */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400" htmlFor="session-profile-link-desktop">
-                  Связать сессию с:
+                  Профиль для новых операций
                 </label>
                 <div className="relative">
                   <select 
@@ -401,13 +399,10 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                           )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3 flex-wrap">
-                          <span>{m.email || 'Локальный профиль'}</span>
+                          <span className="[overflow-wrap:anywhere]">{m.email || 'Локальный профиль'}</span>
                           <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
                           <span>Операций: {stats.transactionCount}</span>
-                          <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            Расход: {formatCurrencyRub(stats.totalExpense)}
-                          </span>
+                          
                         </div>
                       </div>
                     </div>
@@ -688,7 +683,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                           )}
                         </div>
                         <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                          {m.email || 'Локальный профиль'} • Трат: {stats.transactionCount} • {formatCurrencyRub(stats.totalExpense)}
+                          {m.email || 'Локальный профиль'} · Операций: {stats.transactionCount}
                         </span>
                       </div>
                     </div>

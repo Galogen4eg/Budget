@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Wallet, Calendar, Lock, Savings, Remove, Add, 
   Build, ContentCopy, SearchCheck, FolderZip, DeleteSweep,
-  Payments, EventAvailable
+  EventAvailable
 } from './BudgetIcons';
 import { AppSettings, Transaction } from '../types';
 import { toast } from 'sonner';
@@ -168,49 +168,20 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
           </div>
         </div>
 
-        {/* Сетка ввода баланса и начальной даты */}
         <div className="terra-settings-field-grid grid gap-3">
-          <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3.5 rounded-xl flex flex-col justify-between space-y-1 border border-transparent dark:border-white/5">
-            <label className="text-xs font-semibold text-[#4a4e4a] dark:text-gray-400">
-              Начальный баланс
-            </label>
-            <div className="flex items-center justify-between mt-1">
-              <input 
-                type="number" step="0.01" inputMode="decimal" aria-label="Начальный баланс"
-                value={initialBalance}
-                onChange={e => onUpdateSetting('initialBalance', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                placeholder="125 000"
-                className="w-full bg-transparent font-headline font-bold text-lg text-[#2e3230] dark:text-white focus:outline-none" 
-              />
-              <span className="text-[#4a7c59] dark:text-emerald-400 ml-2 shrink-0">
-                <Payments size={22} />
-              </span>
-            </div>
-            <p className="text-[11px] text-[#4a4e4a]/80 dark:text-gray-500 pt-1">
-              Фактический остаток на счетах на старте
-            </p>
-          </div>
-
-          <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-3.5 rounded-xl flex flex-col justify-between space-y-1 border border-transparent dark:border-white/5">
-            <label className="text-xs font-semibold text-[#4a4e4a] dark:text-gray-400">
-              Дата начала учета
-            </label>
-            <div className="flex items-center justify-between mt-1 relative cursor-pointer">
-              <input
-                type="date" aria-label="Дата начала учета"
-                value={initialDate}
-                onChange={e => onUpdateSetting('initialBalanceDate', e.target.value)}
-                className="w-full bg-transparent font-headline font-semibold text-base text-[#2e3230] dark:text-white focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-              />
-              <span className="text-[#4a4e4a] dark:text-gray-400 ml-2 shrink-0 pointer-events-none">
-                <Calendar size={20} />
-              </span>
-            </div>
-            <p className="text-[11px] text-[#4a4e4a]/80 dark:text-gray-500 pt-1">
-              Точка отсчета аналитических графиков
-            </p>
-          </div>
+          <label className="block space-y-1 text-sm font-medium">
+            <span>Начальный баланс, ₽</span>
+            <input type="number" step="0.01" inputMode="decimal" aria-label="Начальный баланс" value={initialBalance}
+              onChange={e=>{const n=e.target.value===''?0:e.target.valueAsNumber;if(Number.isFinite(n))onUpdateSetting('initialBalance',n);}}
+              className="w-full min-w-0 min-h-[44px] rounded-xl border border-[var(--terra-border)] bg-transparent px-3 tabular-nums"/>
+          </label>
+          <label className="block space-y-1 text-sm font-medium">
+            <span>Дата начала учёта</span>
+            <input type="date" aria-label="Дата начала учета" value={initialDate} onChange={e=>onUpdateSetting('initialBalanceDate',e.target.value)}
+              className="w-full min-w-0 min-h-[44px] rounded-xl border border-[var(--terra-border)] bg-transparent px-3"/>
+          </label>
         </div>
+        <p className="text-xs text-[var(--terra-muted)]">Укажите фактический остаток на выбранную дату начала учёта.</p>
 
         {/* Управление процентом отчислений в копилку */}
         <div className="space-y-3 pt-1">

@@ -26,3 +26,10 @@ test('history deletion range is explicit and changing it clears confirmation',()
  assert.match(s,/deletePending.current=true/);
  assert.match(s,/await onDeleteTransactionsByPeriod\(archiveStart, archiveEnd\)/);
 });
+
+test('settings separate actual scope and do not show member expense totals in profile management',()=>{
+ const s=read('components/SettingsModal.tsx'),f=read('components/MembersSettingsSection.tsx');
+ assert.match(s,/householdPersonal\?\[personalFields,commonFields\]:\[commonFields,personalFields\]/);
+ assert.doesNotMatch(f,/formatCurrencyRub\(stats.totalExpense\)/);
+ assert.match(s,/terra-settings-switch-track shrink-0/);
+});

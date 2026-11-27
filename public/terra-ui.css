@@ -209,3 +209,21 @@ details.terra-settings-group>summary{min-height:44px;}
 @container (min-width:1120px){.terra-overview-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;}.terra-overview-category-grid>button{border-top:0;border-bottom:1px solid var(--terra-border);}.terra-overview-category-grid>button:nth-last-child(-n+2){border-bottom:0;}}
 
 @media(max-width:359px){.terra-overview-category-header>div:first-child{flex-basis:100%;}.terra-overview-category-header>div:last-child{margin-left:auto;}}
+
+/* Overview V3: one toolbar, one financial summary, consistent card rhythm. */
+.terra-overview-toolbar{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:8px;}
+.terra-overview-toolbar-actions{justify-content:start;}
+.terra-overview-toolbar .terra-overview-scope{width:max-content;max-width:100%;}
+@container(min-width:650px){.terra-overview-toolbar{grid-template-columns:minmax(0,1fr) auto;}.terra-overview-toolbar>h1{grid-column:1;grid-row:1;}.terra-overview-toolbar-actions{grid-column:2;grid-row:1;justify-content:end;}.terra-overview-toolbar .terra-overview-scope{grid-column:1/-1;}}
+@container(min-width:1040px){.terra-overview-toolbar{grid-template-columns:auto minmax(0,1fr) auto;column-gap:20px;}.terra-overview-toolbar .terra-overview-scope{grid-column:2;grid-row:1;justify-self:start;}.terra-overview-toolbar-actions{grid-column:3;grid-row:1;}}
+.terra-overview-mobile-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}
+@media(min-width:390px){.terra-overview-mobile-controls{grid-template-columns:minmax(124px,.85fr) minmax(0,1.15fr);}.terra-overview-mobile-controls>.terra-overview-month-open{grid-column:1/-1;}.terra-overview-mobile-controls>.terra-overview-month-open+div{grid-column:1/-1;}.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
+.terra-overview-main-amount[data-negative="true"]{color:var(--terra-danger-text);}
+.terra-overview-summary{gap:20px;}
+.terra-overview-summary-side{border-left:1px solid var(--terra-border);padding-left:20px;align-self:stretch;}
+@container(max-width:519px){.terra-overview-summary-side{border-left:0;padding-left:0;border-top:1px solid var(--terra-border);padding-top:16px;}}
+.terra-overview-section-head{min-height:44px;}
+.terra-overview-link:hover{background:var(--terra-soft);}
+.terra-overview-chart-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+@media(min-width:430px){.terra-overview-chart-metrics{grid-template-columns:repeat(auto-fit,minmax(112px,1fr));}}
+.terra-overview-chart-metrics dd{margin-top:2px;line-height:1.35;}

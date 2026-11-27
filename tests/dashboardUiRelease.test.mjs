@@ -65,7 +65,10 @@ test('desktop metric cards use shared surfaces and readable wrapping labels',()=
  const overview=read('components/TerraOverview.tsx');
  const section=overview.split('data-testid="overview-metrics-desktop"')[1]?.split('</section>')[0];
  assert.ok(section);
- assert.equal((section.match(/DASHBOARD_CARD/g)||[]).length,2);
+ assert.match(overview,/data-testid="overview-metrics-desktop" className=\{DASHBOARD_CARD\+/);
+ assert.match(section,/terra-overview-summary-main/);
+ assert.match(section,/terra-overview-summary-side/);
+ assert.match(section,/\{monthMoneyPair\}/);
  assert.match(section,/data-testid="overview-daily-reserve-desktop"/);
  assert.match(section,/\{monthlySummary\}/);
  assert.match(section,/Открыть подробности семейного резерва/);
@@ -105,12 +108,14 @@ test('desktop overview widgets retain actions and avoid decorative card clutter'
  const section=overview.split('{/* Сетка «Категории расходов»')[1]?.split('{/* Reserve Details Modal */}')[0];
  assert.ok(section);
  assert.doesNotMatch(section,/КАТЕГОРИИ РАСХОДОВ|СПИСОК ПОКУПОК|СОБЫТИЯ НА ЭТОЙ НЕДЕЛЕ|Все покупки сделаны!|whitespace-nowrap/);
- for(const action of ['renderCategoryRows()','handleToggleShopping(item)','handleAddShoppingInline','onEditEvent(ev)'])assert.ok(section.includes(action),action);
+ for(const action of ['renderCategoryRows()','handleToggleShopping={handleToggleShopping}','handleAddShoppingInline','onEditEvent(ev)'])assert.ok(section.includes(action),action);
+ assert.match(section,/<QuickShoppingWidget/);
+ assert.match(read('components/QuickShoppingWidget.tsx'),/aria-label=\{desktop\?"Добавить в список покупок":"Добавить покупку"\}/);
  const row=overview.split('const renderCategoryRows=')[1].split('return (')[0];
  assert.match(row,/onDrillDown\(cat.id\|\|'all'\)/);
  assert.match(row,/formatAmount\(cat.amount\)/);
  assert.match(row,/data-overview-category-percent/);
- assert.match(section,/aria-label="Добавить в список покупок"/);
+ assert.match(section,/aria-label="Управление категориями"/);
  assert.match(section,/min-h-\[44px\] min-w-\[44px\]/);
 });
 

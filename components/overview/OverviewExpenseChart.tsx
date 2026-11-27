@@ -38,10 +38,10 @@ export function OverviewExpenseChart({
     if (point) onPointSelect(point);
   };
   return <>
-    <div className="terra-chart-toolbar flex flex-wrap items-start justify-between gap-2">
+    <div data-overview-section-head className="terra-chart-toolbar terra-overview-section-head flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0">
         <h3 className={SECTION_HEADING}>Динамика расходов</h3>
-        <p className="mt-1 text-sm text-[var(--terra-muted)]">{subtitle}</p>
+        <p className="mt-0.5 text-xs text-[var(--terra-muted)]">{subtitle}</p>
       </div>
       <div role="group" aria-label="Период динамики расходов" className={FILTER_RAIL+" terra-chart-rail"}>
         {scales.map(value => <button key={value} type="button" aria-pressed={scale === value}
@@ -49,9 +49,9 @@ export function OverviewExpenseChart({
           onClick={() => setScale(value)}>{scaleLabels[value]}</button>)}
       </div>
     </div>
-    <dl className="flex flex-wrap gap-x-4 gap-y-2 text-sm tabular-nums">
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(average)}</dd></div>
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(maximum)}</dd></div>
+    <dl data-overview-chart-metrics className="terra-overview-chart-metrics grid gap-x-3 gap-y-2 text-sm tabular-nums">
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(average)}</dd></div>
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(maximum)}</dd></div>
       {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
     </dl>
     <div data-testid="overview-chart-plot" className={privacyMode||!hasExpenses?'min-h-[76px] flex items-center justify-center w-full min-w-0':'terra-overview-chart-plot w-full min-w-0'}>

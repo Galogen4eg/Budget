@@ -644,10 +644,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       <span className="font-semibold">{monthLimit.percentage.toLocaleString('ru-RU',{maximumFractionDigits:1})}%</span>
     </div>
   </div>:null;
+  const monthMoneyPair = <dl data-overview-month-money className="terra-overview-money-pair grid grid-cols-2 gap-3 tabular-nums">
+    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные доходы':'Доходы за месяц'}</dt><dd className="text-base leading-snug font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
+    <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные расходы':'Расходы за месяц'}</dt><dd className="text-base leading-snug font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
+  </dl>;
   const dailySummary = (
-    <div className="space-y-2 min-w-0" data-testid="overview-daily-summary">
+    <div className="space-y-1.5 min-w-0" data-testid="overview-daily-summary">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-[var(--terra-ink)]">{!personalOnly&&budgetMode==='personal'?'Сегодня · семья':'Сегодня'}</h3>
+        <h3 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">{!personalOnly&&budgetMode==='personal'?'Сегодня · семья':'Сегодня'}</h3>
         {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&isOverDailyLimit&&<span className="text-xs font-semibold text-[var(--terra-danger-text)]">Выше ориентира</span>}
       </div>
       <dl className="terra-daily-pair">
@@ -719,10 +723,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             </button>
           }
         />
-        <div className="px-3 pt-2" data-testid="overview-month-selector">
+        <div data-overview-mobile-controls className="terra-overview-mobile-controls px-3 pt-2">
+        <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector">
           <button type="button" onClick={()=>setIsMonthPickerOpen(open=>!open)}
             aria-label={`Выбрать месяц: ${currentMonthName}`} aria-expanded={isMonthPickerOpen} aria-controls="overview-month-controls-mobile"
-            className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' max-w-full terra-press'}>
+            className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' w-full max-w-full terra-press'}>
             <span className="truncate">{currentMonthName}</span><ChevronDown size={16} aria-hidden="true"/>
           </button>
           {isMonthPickerOpen && <div id="overview-month-controls-mobile" role="group" aria-label="Доступные месяцы" className={SURFACE_CARD+' mt-2 space-y-2'}>
@@ -744,47 +749,46 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         </div>
 
         {/* Scope Pill Switcher (Семейный / Личный) */}
-        {!personalOnly&&<div className="px-3 mt-2 w-full" data-testid="overview-scope-mobile">
-          <div role="group" aria-label="Область бюджета" className="w-full bg-[var(--terra-soft)] p-1 rounded-xl grid grid-cols-2 gap-1">
+        {!personalOnly&&<div className="min-w-0 w-full" data-testid="overview-scope-mobile">
+          <div role="group" aria-label="Область бюджета" className="terra-overview-scope w-full bg-[var(--terra-soft)] rounded-xl grid grid-cols-2 gap-0.5">
             <button
               type="button"
               onClick={() => setBudgetMode('family')}
               aria-pressed={budgetMode === 'family'}
-              className={`min-h-[44px] py-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+              className={`h-11 min-w-0 px-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-sm font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                 budgetMode === 'family'
                   ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
-              <Users size={15} />
               <span>Семейный</span>
             </button>
             <button
               type="button"
               onClick={() => setBudgetMode('personal')}
               aria-pressed={budgetMode === 'personal'}
-              className={`min-h-[44px] py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+              className={`h-11 min-w-0 px-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-sm font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                 budgetMode === 'personal'
                   ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
                   : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
-              <User size={15} />
               <span>Личный</span>
             </button>
           </div>
         </div>}
 
+        </div>
         {/* Mobile Dashboard Cards Stream */}
         <div className="px-3 pt-3 space-y-3 pb-2">
           {/* 1. Hero Balance Card */}
-          <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} terra-overview-balance-card space-y-2.5`}>
+          <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} terra-overview-balance-card space-y-2`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-[var(--terra-muted)]">
+                <h2 data-overview-summary-heading className="text-sm font-semibold text-[var(--terra-ink)]">
                   {personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}
                 </h2>
-                <div data-testid="overview-balance-value-mobile" className="mt-1 text-[28px] leading-tight font-headline font-bold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">
+                <div data-testid="overview-balance-value-mobile" className="mt-0.5 terra-overview-main-amount text-[30px] leading-tight font-headline font-bold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]" data-negative={!settings.privacyMode&&sharedLedger<0}>
                   {settings.privacyMode?'••••••':formatAmount(sharedLedger)+' ₽'}
                 </div>
               </div>
@@ -794,15 +798,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </button>
             </div>
             {balanceExplanation&&<p data-testid="overview-balance-explanation" className="text-xs text-[var(--terra-muted)]">{balanceExplanation}</p>}
-            <div className="pt-2.5 border-t border-[var(--terra-border)] space-y-1">
-              <p className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные операции':'За месяц'}</p>
-              <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
-                <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
-                <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
-              </dl>
-            </div>
+            <div className="pt-2 border-t border-[var(--terra-border)]">{monthMoneyPair}</div>
             {monthlySummary}
-            {isCurrentCalendarMonth&&<div className="space-y-2 pt-2.5 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
+            {isCurrentCalendarMonth&&<div className="space-y-1.5 pt-2 border-t border-[var(--terra-border)]" data-testid="overview-daily-mobile">
             {dailySummary}
             <button type="button" onClick={()=>personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()} aria-label={personalOnly?'Открыть подробности личного резерва':'Открыть подробности семейного резерва'} className="min-h-[44px] w-full flex flex-wrap items-center justify-between gap-2 text-left border-t border-[var(--terra-border)] pt-1 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
               <span className="text-sm text-[var(--terra-muted)]">{personalOnly?'Личный резерв':'Семейный резерв'}</span><span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-[var(--terra-ink)]">{formatAmount(reservedAmount)} ₽<ChevronRight size={16} aria-hidden="true"/></span>
@@ -811,7 +809,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
 
           {/* 2. Динамика расходов Card */}
-          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} space-y-4`}>
+          <section data-testid="overview-chart-mobile" className={`${DASHBOARD_CARD} terra-overview-chart-card space-y-3`}>
               <OverviewExpenseChart
                 mobile scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
@@ -824,16 +822,16 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
           {/* 6. История операций Card */}
           <section data-testid="overview-history-mobile" className={`${SURFACE_CARD} terra-overview-list-card space-y-1.5`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
+            <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className={SECTION_HEADING}>
                   История операций
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => onDrillDown('all')}
-                data-testid="overview-history-all-mobile" aria-label="Все операции" className="min-h-[44px] px-2 flex items-center gap-0.5 text-sm font-medium text-[var(--terra-primary-text)] transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                data-testid="overview-history-all-mobile" aria-label="Все операции" className="terra-overview-link min-h-[44px] px-2 flex items-center gap-1 text-sm font-semibold text-[var(--terra-primary-text)] transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >
                 <span>Все</span>
                 <ChevronRight size={14} aria-hidden="true" />
@@ -854,9 +852,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           </section>
           {/* 3. Категории расходов Card */}
           <section data-testid="overview-categories-mobile" className={`${SURFACE_CARD} terra-overview-list-card space-y-2`}>
-            <div className="terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
+            <div data-overview-section-head className="terra-overview-section-head terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-base font-bold font-headline text-graphite dark:text-white leading-tight">
+                <h3 className={SECTION_HEADING}>
                   Категории расходов
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
@@ -867,7 +865,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 <button
                   type="button"
                   onClick={() => onDrillDown('all')}
-                  className="min-h-[44px] flex items-center gap-0.5 text-sm font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-1 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                  className="terra-overview-link min-h-[44px] flex items-center gap-1 text-sm font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-2 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                   title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                 >
                   <span>Аналитика</span>
@@ -911,6 +909,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             handleToggleShopping={handleToggleShopping}
             handleAddShoppingInline={handleAddShoppingInline}
             onNavigateTab={onNavigateTab}
+            liveParsedShopping={liveParsedShopping}
           />}
 
           {/* 5. События на текущую неделю Card (скрыт, если событий на неделе нет) */}
@@ -918,7 +917,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <section className={`${SURFACE_CARD} space-y-3.5`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
+                  <h3 className={SECTION_HEADING}>
                     События на этой неделе
                   </h3>
                 </div>
@@ -937,7 +936,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigateTab('plans')}
-                    className="min-h-[44px] px-2 rounded-lg flex items-center gap-0.5 text-sm font-medium text-primary dark:text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                    className="terra-overview-link min-h-[44px] px-2 rounded-lg flex items-center gap-1 text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer"
                   >
                     <span>Все</span>
                     <ChevronRight size={14} />
@@ -946,7 +945,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
 
               <div className="divide-y divide-[var(--terra-border)]">
-                {upcomingWeekEvents.map((ev, idx) => {
+                {upcomingWeekEvents.slice(0,3).map((ev, idx) => {
                   const evDate = new Date(ev.date);
                   const dayOfWeekNames = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
                   const dayLabel = dayOfWeekNames[evDate.getDay()];
@@ -973,12 +972,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         </div>
 
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-graphite dark:text-white truncate">
+                          <p className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                             {ev.title}
                           </p>
                           <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
                             <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
-                            <span className="font-medium" style={{ color: memberMeta?.color }}>
+                            <span className="font-medium text-[var(--terra-muted)]">
                               {memberMeta?.name || 'Вся семья'}
                             </span>
                           </div>
@@ -1003,7 +1002,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       <div className="hidden md:flex flex-col min-w-0 w-full">
         {/* Main Dashboard Container */}
         <div className="terra-overview-layout p-4 sm:p-5 lg:px-7 lg:py-5 space-y-4 max-w-[1600px] mx-auto w-full">
-          <h1 className="font-headline text-2xl font-bold text-[var(--terra-ink)]">Обзор</h1>
           {/* Top Navigation Bar (Extracted Subcomponent) */}
           <OverviewHeaderBar
             budgetMode={budgetMode}
@@ -1069,27 +1067,21 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         )}
 
         {/* 1. Верхний ряд метрик (4 сбалансированные карточки) */}
-        <section data-testid="overview-metrics-desktop" className="terra-overview-metrics grid gap-3 items-stretch" data-current-period={isCurrentCalendarMonth}>
+        <section data-testid="overview-metrics-desktop" className={DASHBOARD_CARD+' terra-overview-metrics terra-overview-summary grid items-start'} data-current-period={isCurrentCalendarMonth}>
           {/* Card 1: ОБЩИЙ БАЛАНС */}
-          <div className={`${DASHBOARD_CARD} terra-overview-metric-card flex flex-col gap-2`}>
+          <div className="terra-overview-summary-main min-w-0 flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center text-[var(--terra-muted)] font-semibold text-sm">
-                <span>{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</span>
+                <h2 data-overview-summary-heading className="text-[var(--terra-ink)]">{personalOnly?(personalOpeningKnown?'Личный баланс':'Итог личных операций'):'Семейный баланс'}</h2>
               </div>
             </div>
             <div className="flex items-baseline">
-              <span className="terra-overview-balance font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0 inline-flex flex-wrap items-baseline gap-1.5">
-                {formatAmount(sharedLedger)} <span className="text-xl font-medium text-[var(--terra-muted)]">₽</span>
+              <span className="terra-overview-balance terra-overview-main-amount font-headline font-bold text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0" data-negative={!settings.privacyMode&&sharedLedger<0}>
+                {formatAmount(sharedLedger)} ₽
               </span>
             </div>
             {balanceExplanation&&<p className="text-xs text-[var(--terra-muted)]">{balanceExplanation}</p>}
-            <div className="pt-2 border-t border-[var(--terra-border)] space-y-1">
-                <p className="text-xs text-[var(--terra-muted)]">{!personalOnly&&budgetMode==='personal'?'Личные операции':'За месяц'}</p>
-                <dl className="grid grid-cols-2 gap-3 text-sm tabular-nums">
-                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Доходы</dt><dd className="font-semibold text-[var(--terra-primary-text)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthIncome)+' ₽'}</dd></div>
-                  <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Расходы</dt><dd className="font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{settings.privacyMode?'••••••':formatAmount(displayMonthSpent)+' ₽'}</dd></div>
-                </dl>
-              </div>
+            <div className="pt-2 border-t border-[var(--terra-border)]">{monthMoneyPair}</div>
             {monthlySummary&&<div className="border-t border-[var(--terra-border)] pt-2">{monthlySummary}</div>}
             {!settings.privacyMode&&lastMonthComparison.isPositive!==null&&<div className="pt-2 mt-auto border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
               <span className={`inline-flex items-center font-bold ${lastMonthComparison.isPositive ? 'text-[#2F673E] dark:text-green-400' : 'text-[#C2410C] dark:text-orange-400'}`}>
@@ -1100,11 +1092,11 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 ) : null}
                 {lastMonthComparison.text}
               </span>
-              <span className="text-xs">расходы к прошлому месяцу</span>
+              <span className="text-xs">К прошлому полному месяцу</span>
             </div>}
           </div>
 
-          <div className={DASHBOARD_CARD+' terra-overview-metric-card flex flex-col gap-3 justify-start'} data-testid="overview-daily-reserve-desktop">
+          <div className="terra-overview-summary-side min-w-0 flex flex-col gap-3 justify-start" data-testid="overview-daily-reserve-desktop">
             {isCurrentCalendarMonth&&<div data-testid="overview-daily-desktop">{dailySummary}</div>}
             <button type="button"
               onClick={() => personalOpeningKnown?setIsReserveModalOpen(true):onOpenSettings()}
@@ -1125,7 +1117,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           {/* LEFT COLUMN: 8 columns */}
           <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Блок «Динамика расходов» */}
-            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' space-y-4'}>
+            <div data-testid="overview-chart-desktop" className={DASHBOARD_CARD+' terra-overview-chart-card space-y-3'}>
               <OverviewExpenseChart
                 scale={chartScale} setScale={setChartScale} points={dynamicsData.points}
                 subtitle={dynamicsData.subtitle} average={dynamicsData.avg} maximum={dynamicsData.max}
@@ -1138,38 +1130,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
             {/* Сетка «Категории расходов» (4 карточки, растянута до нижней границы) */}
             <div data-testid="overview-categories-desktop" className={`${DASHBOARD_CARD} flex flex-col`}>
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F0ECE4] dark:border-white/5">
-                <div className="flex items-center gap-2.5">
-                  
-                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
-                    Категории расходов
-                  </h3>
+              <div data-overview-section-head className="terra-overview-section-head terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className={SECTION_HEADING}>Категории расходов</h3>
+                  <p className="text-xs text-[var(--terra-muted)] mt-0.5">Всего: {formatAmount(categoryBreakdown.total)} ₽</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-graphite-muted dark:text-gray-400">
-                    Всего в этом месяце: <strong className="text-graphite dark:text-white font-bold font-mono [overflow-wrap:anywhere]">{formatAmount(categoryBreakdown.total)} ₽</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCatModalId(null);
-                      setIsCatModalOpen(true);
-                    }}
-                    className="min-h-[44px] flex items-center gap-1 text-sm font-semibold px-2.5 py-1 rounded-lg bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/10 text-graphite dark:text-white hover:text-primary dark:hover:text-green-400 hover:border-primary transition cursor-pointer"
-                    title="Создать новую категорию или настроить"
-                  >
-                    <Plus size={13} />
-                    <span>Категория</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDrillDown('all')}
-                    className="min-h-[44px] px-2 text-sm text-primary dark:text-green-400 font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
-                    title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
-                  >
-                    <span>Аналитика</span>
-                    <ChevronRight size={13} aria-hidden="true" />
-                  </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button type="button" onClick={()=>onDrillDown('all')} aria-label="Аналитика всех категорий" className="terra-overview-link min-h-[44px] px-2 text-sm font-semibold text-[var(--terra-primary-text)] flex items-center gap-1 rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Аналитика <ChevronRight size={14} aria-hidden="true"/></button>
+                  <button type="button" onClick={()=>{setSelectedCatModalId(null);setIsCatModalOpen(true);}} title="Управление категориями" aria-label="Управление категориями" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><Plus size={16} aria-hidden="true"/></button>
                 </div>
               </div>
 
@@ -1188,16 +1156,16 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           <div className="min-w-0 flex flex-col gap-4 lg:gap-5">
             {/* Виджет «История операций» (компактный список без пустых разрывов) */}
             <div data-testid="overview-history-desktop" className={`${DASHBOARD_CARD} flex flex-col justify-start`}>
-              <div className="flex items-center justify-between gap-2 pb-1 border-b border-[var(--terra-border)] flex-shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
+              <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className={SECTION_HEADING}>
                     История операций
                   </h3>
                 </div>
                 <button 
                   type="button"
                   onClick={() => onDrillDown('all')}
-                  data-testid="overview-history-all-desktop" aria-label="Все операции" className="min-h-[44px] px-2 rounded-lg text-sm text-[var(--terra-primary-text)] transition-colors flex items-center gap-1 font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                  data-testid="overview-history-all-desktop" aria-label="Все операции" className="terra-overview-link min-h-[44px] px-2 rounded-lg text-sm text-[var(--terra-primary-text)] transition-colors flex items-center gap-1 font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 >
                   Все
                   <ChevronRight size={14} />
@@ -1215,92 +1183,18 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               </div>
             </div>
             {/* Виджет «Список покупок» */}
-            {showShopping && <div className={DASHBOARD_CARD}>
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F0ECE4] dark:border-white/5">
-                <div className="flex items-center gap-2.5">
-                  
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
-                      Список покупок
-                    </h3>
-                    <span className="w-5 h-5 rounded-full bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 text-[11px] font-bold flex items-center justify-center border border-[#D5E5D9] dark:border-transparent">
-                      {activeShoppingItems.length}
-                    </span>
-                  </div>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => onNavigateTab('shopping')}
-                  aria-label="Открыть все покупки" data-testid="overview-shopping-link"
-                  className="min-h-[44px] px-2 rounded-lg focus-visible:ring-2 focus-visible:ring-primary text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold"
-                >
-                  Все
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-
-              {/* List Items */}
-              <ul className="divide-y divide-[#F2EFEB] dark:divide-white/5 my-2" role="list">
-                {activeShoppingItems.length === 0 ? (
-                  <li className="py-6 text-center text-xs text-graphite-muted dark:text-gray-400">
-                    Список покупок пуст
-                  </li>
-                ) : (
-                  activeShoppingItems.slice(0, 4).map((item, idx) => (
-                    <li 
-                      key={item.id ? `desk-shop-${item.id}` : `desk-shop-idx-${idx}`} 
-                      className="min-w-0"
-                    >
-                      <button type="button" onClick={() => handleToggleShopping(item)} aria-label={`Отметить покупку «${item.title}» как выполненную`} className="min-h-[44px] w-full text-left py-2 flex items-center justify-between gap-2 group cursor-pointer transition-colors hover:bg-[var(--terra-soft)] px-1 rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-                      <div className="flex items-center gap-3 select-none min-w-0">
-                        <div className={`w-5 h-5 rounded-full border-2 border-[#BAC3BB] dark:border-gray-600 flex items-center justify-center transition ${item.completed ? 'bg-primary border-primary text-white' : 'group-hover:border-primary'}`}>
-                          {item.completed && <Check size={12} strokeWidth={3} />}
-                        </div>
-                        <span className={`text-sm text-graphite dark:text-white truncate transition font-medium ${item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'group-hover:text-primary'}`}>
-                          {item.title}
-                        </span>
-                      </div>
-                      {(item.amount || item.unit) && (
-                        <span className="text-xs font-mono text-graphite-muted dark:text-gray-400 bg-[#FAF8F5] dark:bg-[#2C2C2E] px-2.5 py-0.5 rounded-lg border border-surface-border dark:border-white/5 flex-shrink-0 ml-2">
-                          {item.amount || 1} {item.unit || 'шт'}
-                        </span>
-                      )}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-
-              {/* Quick Inline Add with smart NLP parsing */}
-              <form onSubmit={handleAddShoppingInline} className="mt-2 pt-2">
-                <div className="relative flex items-center">
-                  <input 
-                    type="text"
-                    value={newShoppingTitle}
-                    onChange={(e) => setNewShoppingTitle(e.target.value)}
-                    placeholder="Например, молоко 1 л" aria-label="Название новой покупки"
-                    className="w-full bg-[#FAF8F5] dark:bg-[#2C2C2E] border border-surface-border dark:border-white/5 rounded-xl text-xs text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-gray-400 min-h-[48px] py-2.5 pl-3 pr-14 focus:outline-none focus:border-primary focus:bg-white dark:focus:bg-[#3A3A3C] transition"
-                  />
-                  <button 
-                    type="submit"
-                    disabled={!newShoppingTitle.trim() || isAddingShopping}
-                    className="absolute right-1 min-h-[44px] min-w-[44px] flex items-center justify-center bg-primary-light dark:bg-primary/20 hover:bg-primary text-primary hover:text-white rounded-lg transition disabled:opacity-40 cursor-pointer"
-                    title="Добавить в список покупок" aria-label="Добавить в список покупок"
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                  </button>
-                </div>
-
-                {liveParsedShopping && (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#4a7c59] dark:text-green-400 font-semibold px-1 animate-in fade-in">
-                    <span>{liveParsedShopping.title}</span>
-                    <span className="font-mono bg-stone-100 dark:bg-stone-800 px-1.5 py-0.2 rounded text-xs text-stone-700 dark:text-stone-300">
-                      {liveParsedShopping.amount} {liveParsedShopping.unit}
-                    </span>
-                  </div>
-                )}
-              </form>
-            </div>}
+            {showShopping && <QuickShoppingWidget
+              activeShoppingItems={activeShoppingItems}
+              displayShoppingItems={displayShoppingItems}
+              newShoppingTitle={newShoppingTitle}
+              setNewShoppingTitle={setNewShoppingTitle}
+              isAddingShopping={isAddingShopping}
+              handleToggleShopping={handleToggleShopping}
+              handleAddShoppingInline={handleAddShoppingInline}
+              onNavigateTab={onNavigateTab}
+              liveParsedShopping={liveParsedShopping}
+              desktop
+            />}
 
             {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
             {showWeekEvents && upcomingWeekEvents.length > 0 && (
@@ -1309,7 +1203,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   <div className="flex items-center gap-2.5">
                     
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
+                      <h3 className={SECTION_HEADING}>
                         События на этой неделе
                       </h3>
                       <span className="w-5 h-5 rounded-full bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 text-[11px] font-bold flex items-center justify-center border border-[#D5E5D9] dark:border-transparent">
@@ -1324,7 +1218,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                         onClick={onOpenAddEventModal}
                         title="Запланировать событие"
                         aria-label="Создать событие"
-                        className="min-h-[44px] min-w-[44px] rounded-full bg-[#FAF8F5] dark:bg-white/10 text-graphite dark:text-white hover:bg-primary hover:text-white transition flex items-center justify-center cursor-pointer"
+                        className={ICON_ACTION+" "+TOOLBAR_ACTION_IDLE+" min-h-[44px] min-w-[44px]"}
                       >
                         <Plus size={14} strokeWidth={2.4} />
                       </button>
@@ -1332,7 +1226,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     <button 
                       type="button"
                       onClick={() => onNavigateTab('plans')}
-                      className="min-h-[44px] px-2 rounded-lg focus-visible:ring-2 focus-visible:ring-primary text-sm text-primary hover:text-primary-dark dark:hover:text-green-400 transition flex items-center gap-1 font-semibold cursor-pointer"
+                      className="terra-overview-link min-h-[44px] px-2 rounded-lg flex items-center gap-1 text-sm font-semibold text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] cursor-pointer"
                     >
                       Все
                       <ChevronRight size={14} />
@@ -1368,12 +1262,12 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                           </div>
 
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-graphite dark:text-white group-hover:text-primary transition-colors truncate">
+                            <p className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                               {ev.title}
                             </p>
                             <div className="flex items-center gap-2 text-[11px] text-graphite-muted dark:text-gray-400 mt-0.5">
                               <span className="font-semibold text-[#2E3230] dark:text-gray-200">{ev.time}</span>
-                              <span className="font-medium" style={{ color: memberMeta?.color }}>
+                              <span className="font-medium text-[var(--terra-muted)]">
                                 {memberMeta?.name || 'Вся семья'}
                               </span>
                             </div>

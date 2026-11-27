@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronRight, Plus, Check } from 'lucide-react';
 import { ShoppingItem } from '../types';
-import { DASHBOARD_CARD } from './filterUiTokens';
+import { DASHBOARD_CARD, SECTION_HEADING, TOOLBAR_ACTION_PRIMARY, ICON_ACTION } from './filterUiTokens';
 
 export interface QuickShoppingWidgetProps {
   activeShoppingItems: ShoppingItem[];
@@ -12,6 +12,8 @@ export interface QuickShoppingWidgetProps {
   handleToggleShopping: (item: any) => Promise<void>;
   handleAddShoppingInline: (e: React.FormEvent) => Promise<void>;
   onNavigateTab: (tabId: string) => void;
+  liveParsedShopping?: {title:string;amount:string|number;unit:string}|null;
+  desktop?:boolean;
 }
 
 export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
@@ -23,12 +25,14 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
   handleToggleShopping,
   handleAddShoppingInline,
   onNavigateTab,
+  liveParsedShopping,
+  desktop=false,
 }) => {
   return (
-    <section className={`${DASHBOARD_CARD} space-y-3`}>
-      <div className="flex items-center justify-between gap-2 min-w-0">
+    <section data-testid="overview-shopping-card" className={`${DASHBOARD_CARD} space-y-2`}>
+      <div data-overview-section-head className="terra-overview-section-head flex items-center justify-between gap-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-base font-bold font-headline text-graphite dark:text-white">
+          <h3 className={SECTION_HEADING}>
             Список покупок
           </h3>
           <span className="bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white text-xs font-semibold px-2 py-0.5 rounded-full">
@@ -39,7 +43,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           type="button"
           onClick={() => onNavigateTab('shopping')}
           aria-label="Открыть все покупки" data-testid="overview-shopping-link"
-          className="min-h-[44px] shrink-0 flex items-center gap-0.5 px-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs font-medium text-graphite dark:text-gray-300 hover:text-primary transition cursor-pointer"
+          className="terra-overview-link min-h-[44px] shrink-0 flex items-center gap-1 px-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-sm font-semibold text-[var(--terra-primary-text)] hover:bg-[var(--terra-soft)] transition-colors cursor-pointer"
         >
           <span>Все</span>
           <ChevronRight size={14} />
@@ -53,22 +57,20 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
         {displayShoppingItems.slice(0, 4).map((item, idx) => (
           <div 
             key={item.id ? `mob-shop-${item.id}` : `mob-shop-idx-${idx}`}
-            className="px-1 py-2 flex min-w-0 items-center justify-between gap-2"
+            className="px-1 py-2 grid grid-cols-[44px_minmax(0,1fr)_minmax(44px,28%)] min-w-0 items-center gap-2"
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
               <button
                 type="button"
                 onClick={() => handleToggleShopping(item as any)}
                 aria-label={`Отметить покупку «${item.title}» как ${item.completed ? 'невыполненную' : 'выполненную'}`}
-                className="relative w-11 h-11 shrink-0 rounded-xl border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-[#C5BFB4] dark:border-white/20 flex items-center justify-center hover:border-[#4A7C59] transition cursor-pointer"
+                className="relative w-11 h-11 shrink-0 flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-soft)] transition-colors cursor-pointer"
               >
-                {item.completed && <Check size={13} className="text-[#4A7C59]" />}
+                <span className="w-5 h-5 rounded-md border border-[var(--terra-control-border)] flex items-center justify-center">{item.completed && <Check size={13} className="text-[var(--terra-primary-text)]" />}</span>
               </button>
               <span className={`text-sm min-w-0 break-words font-medium text-graphite dark:text-white ${item.completed ? 'line-through text-graphite-muted' : ''}`}>
                 {item.title}
               </span>
-            </div>
-            <span className="text-xs shrink-0 max-w-[30%] text-right break-words font-medium text-graphite-muted dark:text-gray-400">
+            <span className="text-sm min-w-0 text-right [overflow-wrap:anywhere] font-medium tabular-nums text-[var(--terra-muted)]">
               {item.amount ? `${item.amount} ${item.unit || 'шт'}` : '1 шт'}
             </span>
           </div>
@@ -79,7 +81,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
       {/* Quick add bar with round green + button */}
       <form 
         onSubmit={handleAddShoppingInline} 
-        className="bg-[#EAE6DD]/50 dark:bg-white/5 rounded-2xl p-1.5 pl-4 flex items-center gap-2 border border-transparent focus-within:border-[#4A7C59]/40 transition"
+        className="grid grid-cols-[minmax(0,1fr)_44px] gap-2 items-center"
       >
         <input 
           type="text"
@@ -87,17 +89,18 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           onChange={(e) => setNewShoppingTitle(e.target.value)}
           placeholder="Например, молоко 1 л"
           aria-label="Название новой покупки"
-          className="text-sm bg-transparent min-h-[44px] min-w-0 flex-1 text-graphite dark:text-white placeholder-graphite-muted dark:placeholder-white/40 outline-none border-0"
+          className="text-base min-h-[44px] min-w-0 w-full px-3 rounded-xl border border-[var(--terra-control-border)] bg-[var(--terra-surface)] text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
         />
         <button
           type="submit"
           disabled={!newShoppingTitle.trim() || isAddingShopping}
-          aria-label="Добавить покупку"
-          className="w-11 h-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-[#4A7C59] hover:bg-[#3D6849] disabled:opacity-50 text-white flex items-center justify-center shrink-0 cursor-pointer terra-press"
+          aria-label={desktop?"Добавить в список покупок":"Добавить покупку"}
+          className={ICON_ACTION+" "+TOOLBAR_ACTION_PRIMARY+" terra-press"}
         >
           <Plus size={18} strokeWidth={2.4} />
         </button>
       </form>
+      {liveParsedShopping&&<p className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{liveParsedShopping.title} · {liveParsedShopping.amount} {liveParsedShopping.unit}</p>}
     </section>
   );
 };

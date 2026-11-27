@@ -189,3 +189,9 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-settings-switch-track{flex:none;}
 .terra-member-row .truncate{max-width:100%;}
 .terra-members-wide>div{min-width:0;}
+
+.terra-category-icon-grid{grid-template-columns:repeat(auto-fill,minmax(44px,1fr));}
+.terra-category-icon{background:var(--terra-soft);color:var(--terra-ink);}
+.terra-category-icon[aria-pressed=true]{background:var(--terra-primary-soft);color:var(--terra-primary-text);outline:2px solid var(--terra-primary-solid);}
+.terra-categories-workspace :is(button,input,select,summary):focus-visible{outline:2px solid var(--terra-focus);outline-offset:2px;}
+.terra-categories-workspace button:disabled{opacity:.5;cursor:not-allowed;}

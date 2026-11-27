@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 export interface CategoriesSettingsProps {
   categories: Category[];
-  onUpdateCategories: (categories: Category[]) => void;
+  onUpdateCategories: (categories: Category[]) => void | Promise<void>;
   onDeleteCategory?: (id: string) => void;
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
@@ -82,6 +82,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
   const [ruleSearchTerm, setRuleSearchTerm] = useState('');
   const [accordionOpenMap, setAccordionOpenMap] = useState<Record<string, boolean>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [savingCategory,setSavingCategory]=useState(false);
+  const savePending=React.useRef(false);
   const [showToast, setShowToast] = useState(false);
 
   // Inspector Form State
@@ -158,15 +160,15 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
   // Handlers
   const handleSelectCategory = (id: string) => {
-    setSelectedCatId(id);
+    if(!savePending.current)setSelectedCatId(id);
   };
 
   const toggleAccordion = (id: string) => {
     setAccordionOpenMap(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleSaveCategory = () => {
-    if (!selectedCat) return;
+  const handleSaveCategory = async () => {
+    if (!selectedCat || savePending.current) return;
     if (!formName.trim()) {
       toast.error('Введите название категории');
       return;
@@ -185,17 +187,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       return c;
     });
 
-    onUpdateCategories(updated);
-    setSaveSuccess(true);
-    setShowToast(true);
-    toast.success('Изменения сохранены');
-    setTimeout(() => {
-      setSaveSuccess(false);
-      setShowToast(false);
-    }, 2000);
+    savePending.current=true;setSavingCategory(true);
+    try {
+      await onUpdateCategories(updated);
+      setSaveSuccess(true);setShowToast(true);toast.success('Изменения сохранены');
+      setTimeout(()=>{setSaveSuccess(false);setShowToast(false);},2000);
+    } catch {toast.error('Не удалось сохранить категорию');}
+    finally {savePending.current=false;setSavingCategory(false);}
   };
 
-  const handleCreateNewCategory = () => {
+  const handleCreateNewCategory = async () => {
+    if(savePending.current)return;
     const newId = 'cat_' + Date.now();
     const newCat: Category = {
       id: newId,
@@ -205,9 +207,12 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
       transactionType: 'expense',
     };
 
-    onUpdateCategories([...categories, newCat]);
-    setSelectedCatId(newId);
-    toast.success('Категория создана');
+    savePending.current=true;setSavingCategory(true);
+    try {
+      await onUpdateCategories([...categories,newCat]);
+      setSearchQuery('');setMobileTab('categories');setSelectedCatId(newId);toast.success('Категория создана');
+    }catch{toast.error('Не удалось создать категорию');}
+    finally{savePending.current=false;setSavingCategory(false);}
   };
 
   const handleAddSubcategory = () => {
@@ -383,6 +388,17 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
     });
   }, [mainCategories, categories, searchQuery]);
 
+  const mobileRuleGroups=useMemo(()=>{
+    const groups=Array.from(groupedRulesByCategory.values());
+    const q=searchQuery.trim().toLocaleLowerCase('ru-RU');
+    if(!q)return groups;
+    return groups.flatMap(group=>{
+      if([group.mainCat.label,...group.subcats.map(cat=>cat.label)].some(label=>label.toLocaleLowerCase('ru-RU').includes(q)))return [group];
+      const rules=group.rules.filter(rule=>[rule.keyword,...(rule.keywords??[]),rule.cleanName,rule.subcategory,rule.payee].some(value=>String(value??'').toLocaleLowerCase('ru-RU').includes(q)));
+      return rules.length?[{...group,rules}]:[];
+    });
+  },[groupedRulesByCategory,searchQuery]);
+
   return (
     <div className="terra-categories-workspace w-full h-full min-h-0 min-w-0 bg-[var(--terra-canvas)] text-[var(--terra-ink)] flex flex-col overflow-hidden">
       
@@ -415,7 +431,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              aria-label="Поиск категории или магазина" placeholder="Поиск категории или магазина"
+              aria-label={mobileTab==='categories'?'Поиск категории или подкатегории':'Поиск правил'} placeholder={mobileTab==='categories'?'Поиск категории':'Магазин, слово или получатель'}
               className="w-full h-11 pl-10 pr-9 rounded-xl bg-[#F5F1EA] dark:bg-[#202225] text-[#2E3230] dark:text-white placeholder:text-[#74796E] text-sm transition-all focus:outline-none focus:bg-white dark:focus:bg-[#18191C]"
             />
             {searchQuery && (
@@ -451,14 +467,24 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 mobileTab === 'rules' ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-[#6B6358] dark:text-stone-400'
               }`}
             >
-              Правила ({groupedRulesByCategory.size})
+              Правила ({learnedRules.length})
             </button>
           </div>
         </div>
 
         {/* MOBILE SECTION 1: CATEGORIES */}
         {mobileTab === 'categories' && (
-          <div className="px-4 py-2 space-y-3">
+          <div className="px-3 py-2 space-y-3">
+            {selectedCat&&<section className="terra-settings-group" data-testid="mobile-category-editor">
+              <h3>Редактирование категории</h3>
+              <label className="block space-y-1 text-sm font-medium"><span>Название категории</span><input aria-label="Название категории" value={formName} disabled={savingCategory} onChange={e=>setFormDataName(e.target.value)} className="w-full rounded-xl border border-[var(--terra-border)] bg-transparent px-3"/></label>
+              <details><summary className="terra-settings-summary">Цвет и значок</summary>
+                <div className="flex flex-wrap gap-2 pt-2" role="group" aria-label="Цвет категории">{PRESET_COLORS.map((color,i)=><button key={color} type="button" aria-label={'Цвет '+(i+1)} aria-pressed={formColor===color} disabled={savingCategory} onClick={()=>setFormDataColor(color)} style={{backgroundColor:color}} className="w-11 h-11 rounded-xl flex items-center justify-center text-white">{formColor===color&&<Check size={18}/>}</button>)}</div>
+                <div className="terra-category-icon-grid grid gap-2 pt-3" role="group" aria-label="Значок категории">{CATEGORY_ICONS.map(item=>{const Icon=item.icon;return <button key={item.id} type="button" aria-label={item.label} aria-pressed={formIcon===item.id} disabled={savingCategory} onClick={()=>setFormDataIcon(item.id)} className="terra-category-icon min-h-[44px] rounded-xl flex items-center justify-center"><Icon size={20}/></button>;})}</div>
+              </details>
+            </section>}
+            <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Каталог</h3><span className="text-xs text-[var(--terra-muted)]">{filteredMainCategories.length} категорий</span></div>
+            {!filteredMainCategories.length&&<p role="status" className="text-sm text-[var(--terra-muted)]">Категории не найдены</p>}
             {filteredMainCategories.map(cat => {
               const subcats = categories.filter(s => s.parentId === cat.id);
               const isOpen = !!accordionOpenMap[cat.id];
@@ -520,37 +546,18 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {subcats.map(sub => (
-                              <span 
+                              <button type="button" aria-pressed={selectedCat?.id===sub.id}
                                 key={sub.id}
                                 onClick={() => handleSelectCategory(sub.id)}
-                                className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] text-xs font-medium text-[#2E3230] dark:text-white cursor-pointer active:scale-95 transition-all shadow-2xs"
+                                className="min-h-[44px] px-3 py-1.5 rounded-lg bg-white dark:bg-[#18191C] text-xs font-medium text-[#2E3230] dark:text-white cursor-pointer active:scale-95 transition-all shadow-2xs"
                               >
                                 {sub.label}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Color Picker Group */}
-                      <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-[11px] font-semibold text-[#6B6358] dark:text-stone-400 uppercase tracking-wider shrink-0">
-                          Цветовой маркер
-                        </span>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {PRESET_COLORS.map(col => (
-                            <button
-                              key={col}
-                              type="button"
-                              onClick={() => setFormDataColor(col)}
-                              style={{ backgroundColor: col }}
-                              className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer shrink-0"
-                            >
-                              {formColor === col && <Check size={12} className="text-white font-bold" />}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
 
                     </div>
                   )}
@@ -558,40 +565,6 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               );
             })}
 
-            {/* Quick Icon Picker Tool */}
-            {selectedCat && (
-              <div className="p-4 rounded-xl bg-[#F0ECE4] dark:bg-[#202225] space-y-2.5 mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#2E3230] dark:text-white">
-                    Быстрая смена пиктограммы
-                  </span>
-                  <span className="text-[11px] text-[#6B6358] dark:text-stone-400">
-                    {selectedCat.label}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {CATEGORY_ICONS.map(item => {
-                    const IconComp = item.icon;
-                    const isSelected = formIcon === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setFormDataIcon(item.id)}
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                          isSelected 
-                            ? 'bg-[#4A7C59] text-white shadow-2xs' 
-                            : 'bg-[#F5F1EA] dark:bg-[#18191C] text-[#6B6358] dark:text-stone-300 hover:bg-white'
-                        }`}
-                        title={item.label}
-                      >
-                        <IconComp size={16} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
           </div>
         )}
@@ -599,7 +572,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
         {/* MOBILE SECTION 2: DISTINCT RULES GROUPED IN ONE CARD PER CATEGORY */}
         {mobileTab === 'rules' && (
           <div className="px-4 py-2 space-y-4">
-            {Array.from(groupedRulesByCategory.values()).map(({ mainCat, subcats, rules }) => (
+            {!mobileRuleGroups.length&&<p role="status" className="text-sm text-[var(--terra-muted)]">Правила не найдены</p>}
+            {mobileRuleGroups.map(({ mainCat, subcats, rules }) => (
               <div 
                 key={mainCat.id}
                 className="p-4 rounded-xl bg-[#F5F1EA] dark:bg-[#202225] space-y-3.5 border border-[#E4E0D8] dark:border-white/10"
@@ -630,8 +604,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => handleCreateNewRuleForCategory(mainCat.id)}
-                    className="px-2.5 py-1 rounded-lg bg-[#4A7C59] text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                    onClick={() => handleCreateNewRuleForCategory(mainCat.id)} disabled={mainCat.id==='unassigned'}
+                    className="min-h-[44px] px-2.5 py-1 rounded-lg bg-[#4A7C59] text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                   >
                     <Plus size={12} />
                     <span>Добавить</span>
@@ -655,8 +629,9 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                             {/* Rule Target Dropdown */}
                             <select
                               value={rule.categoryId}
+                              aria-label="Категория правила"
                               onChange={e => handleUpdateRuleTarget(rule.id, e.target.value)}
-                              className="bg-white dark:bg-[#18191C] text-[11px] font-bold px-2 py-1 rounded border border-[#E4E0D8] dark:border-white/10 text-[#4A7C59] dark:text-emerald-400 outline-none cursor-pointer"
+                              className="min-w-0 max-w-full min-h-[44px] bg-white dark:bg-[#18191C] text-[11px] font-bold px-2 py-1 rounded border border-[#E4E0D8] dark:border-white/10 text-[#4A7C59] dark:text-emerald-400 outline-none cursor-pointer"
                             >
                               <option value={mainCat.id}>Направить в: {mainCat.label}</option>
                               {subcats.map(sub => (
@@ -750,10 +725,10 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
 
       </div>
         {/* Actions stay within the settings dialog, outside the content scroller. */}
-        <div data-testid="settings-category-actions" className="shrink-0 p-3 bg-[var(--terra-surface)] flex items-center gap-2 border-t border-[var(--terra-border)]">
+        {mobileTab==='categories'&&<div data-testid="settings-category-actions" className="shrink-0 p-3 bg-[var(--terra-surface)] flex items-center gap-2 border-t border-[var(--terra-border)]">
           <button 
             type="button"
-            onClick={handleCreateNewCategory}
+            onClick={handleCreateNewCategory} disabled={savingCategory}
             className="h-11 min-w-[44px] px-3 rounded-xl bg-[#E4E0D8] dark:bg-white/10 text-[#2E3230] dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
           >
             <Plus size={16} />
@@ -762,13 +737,13 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           
           <button 
             type="button"
-            onClick={handleSaveCategory}
+            onClick={handleSaveCategory} disabled={savingCategory||!selectedCat||!formName.trim()}
             className="min-h-[44px] min-w-0 flex-1 rounded-xl bg-[#4A7C59] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-transform cursor-pointer"
           >
             <Check size={16} />
-            <span>{saveSuccess ? 'Сохранено!' : 'Сохранить изменения'}</span>
+            <span>{savingCategory?'Сохранение…':saveSuccess?'Сохранено!':'Сохранить изменения'}</span>
           </button>
-        </div>
+        </div>}
 
       </div>
 
@@ -988,7 +963,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 </label>
                 <input 
                   type="text"
-                  value={formName}
+                  aria-label="Название категории" value={formName} disabled={savingCategory}
                   onChange={e => setFormDataName(e.target.value)}
                   className="w-full bg-[#FAF6F0] dark:bg-[#202225] border border-[#E4E0D8] dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-[#2E3230] dark:text-white outline-none focus:border-[#4A7C59] transition-all"
                 />
@@ -1023,9 +998,9 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                     <button 
                       key={color}
                       type="button"
-                      onClick={() => setFormDataColor(color)}
+                      onClick={() => setFormDataColor(color)} aria-pressed={isSelected} aria-label={`Цвет ${PRESET_COLORS.indexOf(color)+1}`}
                       style={{ backgroundColor: color }}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
+                      className={`w-11 h-11 rounded-full flex items-center justify-center text-white transition-all cursor-pointer ${
                         isSelected ? 'ring-2 ring-offset-2 ring-[#4A7C59]' : 'hover:scale-105'
                       }`}
                     >
@@ -1045,7 +1020,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                 <span className="text-[11px] text-[#6B6358]">24 иконки каталога</span>
               </div>
               <div className="p-3 bg-[#FAF6F0]/80 dark:bg-black/20 border border-[#E4E0D8] dark:border-white/10 rounded-xl">
-                <div className="grid grid-cols-8 gap-2">
+                <div className="terra-category-icon-grid grid gap-2">
                   {CATEGORY_ICONS.map(item => {
                     const IconComp = item.icon;
                     const isSelected = formIcon === item.id;
@@ -1053,8 +1028,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => setFormDataIcon(item.id)}
-                        className={`h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        onClick={() => setFormDataIcon(item.id)} aria-label={item.label} aria-pressed={isSelected}
+                        className={`min-h-[44px] rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                           isSelected 
                             ? 'border-2 border-[#4A7C59] bg-[#EAF1ED] text-[#4A7C59] dark:bg-emerald-950 dark:text-emerald-300 shadow-2xs' 
                             : 'border border-[#E4E0D8] dark:border-white/10 bg-white dark:bg-[#202225] text-[#6B6358] hover:text-[#2E3230]'
@@ -1103,7 +1078,7 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
               </div>
 
               {/* View Mode Tabs and Search Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+              <div className="flex flex-col gap-2 pt-1">
                 <div className="flex items-center gap-1 p-1 bg-stone-200/60 dark:bg-white/5 rounded-xl text-xs font-semibold overflow-x-auto">
                   <button
                     type="button"
@@ -1141,13 +1116,13 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
                   </button>
                 </div>
 
-                <div className="relative min-w-[220px]">
+                <div className="relative min-w-0">
                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input 
                     type="text"
                     value={ruleSearchTerm}
                     onChange={e => setRuleSearchTerm(e.target.value)}
-                    placeholder="Поиск (+7, имя, слово)..."
+                    aria-label="Поиск правил" placeholder="Поиск (+7, имя, слово)..."
                     className="w-full pl-7 pr-7 py-1 text-xs rounded-lg border border-[#E4E0D8] dark:border-white/10 bg-white dark:bg-[#18191C] text-[#2E3230] dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4A7C59]"
                   />
                   {ruleSearchTerm && (
@@ -1431,8 +1406,8 @@ export const CategoriesSettings: React.FC<CategoriesSettingsProps> = ({
           <div className="px-6 py-3.5 border-t border-[#E4E0D8] dark:border-white/10 flex items-center justify-end gap-3 shrink-0 bg-[#FAF6F0]/30 dark:bg-black/20">
             <button 
               type="button"
-              onClick={handleSaveCategory}
-              className={`px-5 py-2 rounded-xl text-white text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              onClick={handleSaveCategory} disabled={savingCategory||!selectedCat||!formName.trim()}
+              className={`min-h-[44px] px-5 py-2 rounded-xl text-white text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                 saveSuccess 
                   ? 'bg-[#2f553e]' 
                   : 'bg-[#4A7C59] hover:bg-[#335840]'

@@ -43,7 +43,7 @@ interface SettingsModalProps {
   members: FamilyMember[];
   onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   categories: Category[];
-  onUpdateCategories: (categories: Category[]) => void;
+  onUpdateCategories: (categories: Category[]) => void | Promise<void>;
   onDeleteCategory?: (id: string) => void;
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
@@ -144,6 +144,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [networkOnline,setNetworkOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
   const [syncStatus,setSyncStatus]=useState<{familyId:string;fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string}|null>(null);
   const [settingsWriteFailed,setSettingsWriteFailed]=useState(false);
+  const [syncAttempt,setSyncAttempt]=useState(0);
   useEffect(()=>{
     const update=()=>setNetworkOnline(navigator.onLine);
     window.addEventListener('online',update);window.addEventListener('offline',update);
@@ -155,7 +156,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     return subscribeToFamilySyncStatus(currentFamilyId,status=>setSyncStatus(prev=>({
       ...status,familyId:currentFamilyId,confirmedAt:status.confirmedAt??(prev?.familyId===currentFamilyId?prev.confirmedAt:undefined)
     })));
-  },[currentFamilyId,isOfflineMode,activeSection]);
+  },[currentFamilyId,isOfflineMode,activeSection,syncAttempt]);
   const confirmedSync=syncStatus?.familyId===currentFamilyId?syncStatus:null;
 
 
@@ -1133,12 +1134,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         return (
           <div className="space-y-4 w-full min-w-0">
             <section className="terra-settings-group">
-              <h3 className="text-base font-semibold">Подключение и данные</h3>
-              <dl className="terra-settings-readout divide-y divide-[var(--terra-border)] text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Подключение и данные</h3><button type="button" disabled={isOfflineMode||!currentFamilyId||!networkOnline} onClick={()=>setSyncAttempt(n=>n+1)} className="min-h-[44px] px-3 rounded-xl border border-[var(--terra-border)] text-sm font-medium flex items-center gap-2"><RefreshCcw size={16}/> Проверить снова</button></div>
+              <dl data-testid="settings-sync-status" aria-live="polite" className="terra-settings-readout divide-y divide-[var(--terra-border)] text-sm">
                 {[
-                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?'Семейный аккаунт':'Без семейного аккаунта'],
+                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?(householdPersonal?'Личный бюджет':'Семейный аккаунт'):'Без семейного аккаунта'],
                   ['Сеть устройства',networkOnline?'Доступна по данным браузера':'Нет подключения'],
-                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.fromCache?'Локальный кэш':confirmedSync.pending?'Ожидается подтверждение записи':'Получен с сервера')],
+                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.pending?'Ожидается подтверждение записи':confirmedSync.fromCache?'Локальный кэш':'Получен с сервера')],
                   ['Последний ответ сервера',confirmedSync?.confirmedAt?new Date(confirmedSync.confirmedAt).toLocaleString('ru-RU'):'Не подтверждён в этой сессии'],
                   ['Сохранение настроек',settingsWriteFailed?'Последняя попытка завершилась ошибкой':'Нет зарегистрированной ошибки в этом окне']
                 ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
@@ -1166,13 +1167,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-base font-bold text-gray-900 dark:text-white">Telegram</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Бот, семейный чат и уведомления</p>
+                    <p className="text-xs text-[var(--terra-muted)]">Бот, семейный чат и уведомления</p>
                   </div>
                 </div>
 
 
               </div>
 
+              <p data-testid="telegram-config-status" role="status" className="text-sm text-[var(--terra-muted)]">{settings.telegramBotToken?.trim()&&settings.telegramChatId?.trim()?'Токен и ID чата заполнены':settings.telegramBotToken?.trim()?'Укажите ID чата':'Укажите токен бота'}</p>
               <div className="terra-settings-field-grid grid gap-3">
                 <div className="space-y-1.5">
                   <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота</label>
@@ -1243,13 +1245,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-semibold text-[var(--terra-ink)]">Приём сообщений от бота</h4>
-                      <p className="text-xs leading-relaxed text-[var(--terra-muted)]">Работает только пока приложение открыто и слушатель запущен</p>
+                      <p className="text-xs leading-relaxed text-[var(--terra-muted)]">Входящие команды работают только при открытом приложении. Это не переключатель фоновых напоминаний.</p>
+                      <p role="status" className="text-xs font-medium text-[var(--terra-muted)]">{householdPersonal?'Недоступно в личном режиме':!settingsReady?'Ожидание настроек':isBotActive?'Слушатель запущен':'Слушатель остановлен'}</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    disabled={householdPersonal||!settingsReady}
+                    disabled={householdPersonal||!settingsReady||(!isBotActive&&!settings.telegramBotToken?.trim())}
                     onClick={handleToggleBot}
                     aria-pressed={isBotActive}
                     className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${
@@ -1265,21 +1268,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Console Log Terminal */}
                 {isBotActive && (
                   <details className="space-y-1.5"><summary className="terra-settings-summary">Журнал работы бота</summary>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                      Журнал приёма сообщений
-                    </span>
-                    <div className="p-3.5 bg-black text-xs font-mono text-emerald-400 rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-white/5 no-scrollbar">
+                    
+                    <div className="p-3 bg-[var(--terra-soft)] text-xs font-mono text-[var(--terra-ink)] rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-[var(--terra-border)]">
                       {botLogs.length === 0 ? (
-                        <div className="text-stone-500 text-[11px] animate-pulse">Ожидание входящих сообщений от Telegram API...</div>
+                        <div className="text-[var(--terra-muted)] text-xs">Ожидание входящих сообщений…</div>
                       ) : (
                         botLogs.map((log, lIdx) => (
                           <div key={lIdx} className="leading-relaxed flex items-start gap-1.5">
                             <span className="text-stone-500 font-semibold shrink-0">[{log.timestamp}]</span>
                             <span className={
-                              log.type === 'error' ? 'text-red-400 font-semibold' :
-                              log.type === 'success' ? 'text-emerald-300 font-bold' :
-                              log.type === 'incoming' ? 'text-sky-300 font-medium' :
-                              'text-emerald-500'
+                              log.type === 'error' ? 'text-[var(--terra-danger-text)] font-semibold' :
+                              log.type === 'success' ? 'text-[var(--terra-primary-text)] font-semibold' :
+                              'text-[var(--terra-ink)]'
                             }>
                               {log.text}
                             </span>
@@ -1333,12 +1333,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
 
-                {apiKey && (
-                  <div className="flex items-center justify-end gap-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" data-testid="gemini-config-status" className="text-sm text-[var(--terra-muted)]">{!apiKey.trim()?'Ключ не задан':aiTestStatus==='loading'?'Проверка…':aiTestStatus==='success'?'Проверка успешна':aiTestStatus==='error'?'Проверка не прошла':'Ключ задан, не проверен в этом окне'}</p>
                     <button
                       type="button"
                       onClick={handleTestKey}
-                      disabled={aiTestStatus === 'loading'}
+                      disabled={aiTestStatus === 'loading'||!apiKey.trim()}
                       className="min-h-[44px] px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {aiTestStatus === 'loading' ? (
@@ -1347,11 +1346,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         <BrainCircuit size={13} className="text-purple-500" />
                       )}
                       <span>
-                        {aiTestStatus === 'success' ? 'Подключение подтверждено' : aiTestStatus === 'error' ? 'Не удалось подключиться' : 'Проверить ключ ИИ'}
+                        Проверить ключ ИИ
                       </span>
                     </button>
                   </div>
-                )}
               </div>
             </section>
 

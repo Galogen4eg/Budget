@@ -33,3 +33,11 @@ test('settings separate actual scope and do not show member expense totals in pr
  assert.doesNotMatch(f,/formatCurrencyRub\(stats.totalExpense\)/);
  assert.match(s,/terra-settings-switch-track shrink-0/);
 });
+
+test('mobile category editor and rule search use actual form and group data',()=>{
+ const s=read('components/CategoriesSettings.tsx');
+ assert.match(s,/mobile-category-editor/);assert.match(s,/await onUpdateCategories\(updated\)/);assert.match(s,/mobileRuleGroups.map/);assert.match(s,/Правила не найдены/);assert.match(s,/savePending.current=true/);
+});
+test('integration configuration and diagnostic confirmation stay distinct',()=>{
+ const s=read('components/SettingsModal.tsx');assert.match(s,/telegram-config-status/);assert.match(s,/gemini-config-status/);assert.match(s,/syncAttempt/);assert.match(s,/confirmedSync.pending\?/);
+});

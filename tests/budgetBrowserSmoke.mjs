@@ -658,6 +658,23 @@ try{
           const dialog=await settingsDialog.boundingBox();
           assert.ok(bar&&dialog&&bar.x>=dialog.x-1&&bar.x+bar.width<=dialog.x+dialog.width+1&&bar.y+bar.height<=dialog.y+dialog.height+1,label+' category footer escapes settings dialog');
         }
+        if(key==='categories'&&await body.getByTestId('mobile-category-editor').isVisible()){
+          const name=body.getByTestId('mobile-category-editor').getByRole('textbox',{name:'Название категории',exact:true});
+          const original=await name.inputValue();
+          await name.fill('QA несохранённое название');assert.equal(await name.inputValue(),'QA несохранённое название');await name.fill(original);
+          await body.getByRole('button',{name:/^Правила \(/}).click();
+          const search=body.getByRole('textbox',{name:'Поиск правил',exact:true});await search.fill('QA_NO_RULE_98473201');
+          await body.getByText('Правила не найдены',{exact:true}).waitFor({state:'visible'});
+          assert.equal(await body.getByTestId('settings-category-actions').count(),0);
+          await search.fill('');await body.getByRole('button',{name:/^Категории \(/}).click();
+        }
+        if(key==='integrations'){
+          await body.getByTestId('telegram-config-status').waitFor({state:'visible'});
+          await body.getByTestId('gemini-config-status').waitFor({state:'visible'});
+          const keyInput=body.getByLabel('Ключ Google Gemini API',{exact:true});
+          if(!await keyInput.inputValue())assert.ok(await body.getByRole('button',{name:'Проверить ключ ИИ',exact:true}).isDisabled());
+        }
+        if(key==='diagnostics')await body.getByTestId('settings-sync-status').waitFor({state:'visible'});
         if(key==='budget'){
           const days=body.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');
           assert.equal(await days.count(),31);

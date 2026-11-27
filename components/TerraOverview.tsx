@@ -45,6 +45,8 @@ interface TerraOverviewProps {
   onEditEvent?: (event: FamilyEvent) => void;
 }
 
+const OVERVIEW_CATEGORY_PREVIEW_LIMIT = 6;
+
 const TerraOverview: React.FC<TerraOverviewProps> = ({
   onOpenAddModal,
   onOpenAIChat,
@@ -872,8 +874,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   className="min-h-[44px] flex items-center gap-0.5 text-xs font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-1 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                   title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                 >
-                  <span>Все</span>
-                  <ChevronRight size={14} />
+                  <span>Все{mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT?' '+mobileCategories.length:''}</span>
+                  <ChevronRight size={14} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -895,7 +897,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   За выбранный период пока нет расходов по категориям.
                 </p>
               )}
-              {mobileCategories.map((cat, idx) => (
+              {mobileCategories.slice(0, OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat, idx) => (
                 <button type="button"
                   key={cat.id ? `mob-cat-${cat.id}` : `mob-cat-idx-${idx}`}
                   onClick={() => onDrillDown(cat.id || 'all')}
@@ -926,6 +928,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </button>
               ))}
             </div>
+            {mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {mobileCategories.length}</p>}
           </section>
 
           {/* 4. Список покупок Card (Extracted Widget) */}
@@ -1204,8 +1207,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     className="min-h-[44px] px-2 text-sm text-primary dark:text-green-400 font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
                     title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                   >
-                    <span>Аналитика</span>
-                    <ChevronRight size={13} />
+                    <span>Все{categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT?' '+categoryBreakdown.items.length:''}</span>
+                    <ChevronRight size={13} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1216,7 +1219,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     За выбранный период расходов по категориям пока нет.
                   </p>
                 )}
-                {categoryBreakdown.items.map((cat, idx) => (
+                {categoryBreakdown.items.slice(0, OVERVIEW_CATEGORY_PREVIEW_LIMIT).map((cat, idx) => (
                   <button type="button"
                     key={cat.id ? `desk-cat-${cat.id}` : `desk-cat-idx-${idx}`}
                     onClick={() => onDrillDown(cat.id)}
@@ -1241,6 +1244,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </button>
                 ))}
               </div>
+              {categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<p data-testid="overview-category-preview-count" className="pt-2 text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {categoryBreakdown.items.length}</p>}
             </div>
           </div>
 

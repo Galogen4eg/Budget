@@ -62,3 +62,20 @@ test('every operation uses a known category and every bill link is defined in th
  assert.ok(f.transactions.some(r=>r.subcategory));
  assert.ok(Object.values(f).reduce((n,rows)=>n+rows.length,0)+fixtureCategories.length+1<=500);
 });
+
+
+test('dense current-month profile has exactly 500 synthetic operations, varied categories and two owners',()=>{
+ for(const instant of ['2026-11-26T12:00:00Z','2027-01-01T00:05:00Z','2027-02-28T22:30:00Z']){
+  const now=new Date(instant),month=instant.slice(0,7);
+  const f=makeFamilyFixtures({now,members,currentMonthTarget:500});
+  const rows=f.transactions.filter(r=>r.date.startsWith(month));
+  assert.equal(rows.length,500);
+  assert.ok(new Set(rows.filter(r=>r.type==='expense').map(r=>r.category)).size>=20);
+  assert.equal(new Set(f.transactions.map(r=>r.id)).size,f.transactions.length);
+  assert.ok(f.transactions.every(r=>r.date<=now.toISOString()));
+  assert.ok(rows.every(r=>fixtureCategories.some(c=>c.id===r.category)&&members.some(m=>m.id===r.memberId)));
+  assert.ok(f.events.length>=24&&f.shopping.length>=18);
+  assert.deepEqual(f,makeFamilyFixtures({now,members,currentMonthTarget:500}));
+ }
+ assert.throws(()=>makeFamilyFixtures({now,members,currentMonthTarget:501}));
+});

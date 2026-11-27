@@ -1,5 +1,6 @@
 // Deterministic synthetic records only. No credentials, Firebase connection, or financial production data.
-export function makeFamilyFixtures({now=new Date(),members}){
+export function makeFamilyFixtures({now=new Date(),members,currentMonthTarget=0}){
+ if(!Number.isInteger(currentMonthTarget)||currentMonthTarget<0||currentMonthTarget>500)throw new Error('Invalid current-month fixture target');
  if(!(now instanceof Date)||!Number.isFinite(now.getTime())||!Array.isArray(members)||members.length<1||members.length>2||members.some(m=>!m.id||!m.userId)||new Set(members.map(m=>m.id)).size!==members.length||new Set(members.map(m=>m.userId)).size!==members.length)throw new Error('Expected one or two distinct authenticated fixture members');
  const prefix='qa-fixture-v1-';
  const key=(s)=>prefix+s;
@@ -34,6 +35,21 @@ export function makeFamilyFixtures({now=new Date(),members}){
  tx(start,0,'external','savings','Перевод на накопительный счет',170025,'expense',{externalSavingsConfirmed:true});
  // Legacy valid record: member ownership is known, optional bank metadata is absent.
  transactions.push({id:key('tx-'+day(today)+'-legacy'),date:stamp(today,11),amount:83.19,type:'expense',category:'transport',note:'Старая банковская операция (QA)',memberId:member(0).id});
+ // Stress profile: fill only the current month; preserve historical and linked rows.
+ if(currentMonthTarget){
+  const month=day(today).slice(0,7);
+  const existing=transactions.filter(r=>r.date.startsWith(month)).length;
+  const expenseCategories=fixtureCategories.filter(c=>c.transactionType!=='income'&&c.id!=='savings');
+  const first=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),1));
+  for(let i=0;i<Math.max(0,currentMonthTarget-existing);i++){
+   const category=expenseCategories[i%expenseCategories.length];
+   const offset=i%Math.max(1,today.getUTCDate()-1);
+   const d=new Date(first.getTime()+offset*86400000);
+   const timestamp=new Date(Math.max(first.getTime(),Math.min(d.getTime()+8*3600000+i%3600*1000,now.getTime()-1))).toISOString();
+   const note=category.label+' · покупка '+(i+1);
+   transactions.push({id:key('stress-'+month+'-'+i),date:timestamp,amount:(4900+(i*1379)%395000)/100,type:'expense',category:category.id,note,payee:note,rawNote:'QA BANK '+note,...owner(i)});
+  }
+ }
  const goalBalance=transactions.filter(r=>r.linkedGoalId===goalId).reduce((sum,r)=>sum+(r.type==='expense'?1:-1)*Math.round(r.amount*100),0)/100;
  const goals=[{id:goalId,title:'Отпуск',targetAmount:150000,currentAmount:goalBalance,memberId:member(0).id,color:'#4A7C59',icon:'PiggyBank'},{id:key('goal-repair'),title:'Ремонт',targetAmount:80000,currentAmount:0,memberId:member(1).id,color:'#A2845E',icon:'Home'}];
  const events=Array.from({length:24},(_,i)=>{
@@ -84,5 +100,12 @@ export const fixtureCategories=[
  ['housing','Аренда/Ипотека','Home','#2A9D8F'],
  ['utilities','ЖКХ','Home','#2A9D8F'],
  ['savings','Накопительный счет','PiggyBank','#7C3AED'],
- ['subscriptions','Подписки','Zap','#457B9D']
+ ['subscriptions','Подписки','Zap','#457B9D'],
+ ['qa-fixture-v1-cat-pets','Питомцы','Heart','#A2845E'],
+ ['qa-fixture-v1-cat-education','Образование','BookOpen','#457B9D'],
+ ['qa-fixture-v1-cat-health','Медицина и обследования','Pill','#4A7C59'],
+ ['qa-fixture-v1-cat-travel','Путешествия','Car','#2A9D8F'],
+ ['qa-fixture-v1-cat-gifts','Подарки','Gift','#D4A373'],
+ ['qa-fixture-v1-cat-home','Домашние принадлежности','Home','#A2845E'],
+ ['qa-fixture-v1-cat-leisure','Досуг и развлечения','Star','#7C3AED']
 ].map(([id,label,icon,color,parentId,transactionType])=>({id,label,icon,color,...(parentId?{parentId}:{}),...(transactionType?{transactionType}:{})}));

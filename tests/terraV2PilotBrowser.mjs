@@ -109,7 +109,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(155, 209, 168)':'rgb(53, 96, 68)',label+' history link contrast token');
     await capture(page,'overview-'+label);
     await history.scrollIntoViewIfNeeded();await capture(page,'overview-history-'+label);
-    const categoryCard=overview.getByTestId(mobile?'overview-categories-mobile':'overview-categories-desktop');await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
+    const categoryCard=overview.getByTestId(mobile?'overview-categories-mobile':'overview-categories-desktop');
+    const categoryRows=categoryCard.getByRole('button',{name:/^Аналитика категории:/});
+    assert.equal(await categoryRows.count(),6,label+' dense category preview must stay compact');
+    const countText=await categoryCard.getByTestId('overview-category-preview-count').innerText();
+    const countMatch=countText.match(/^Показано 6 из (\d+)$/);
+    assert.ok(countMatch&&Number(countMatch[1])>6,label+' full category count missing');
+    await noOverflow(categoryCard,label+' dense categories');
+    await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
     await chart.scrollIntoViewIfNeeded();
     await capture(page,'overview-chart-'+label);
     // Verify the exact existing drilldown path and its controls; no new route.

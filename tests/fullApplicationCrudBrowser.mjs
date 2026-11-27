@@ -509,6 +509,11 @@ await scenario('CHAT message and other-account heart reaction',async()=>{
  phase='second account receives message';const received=q.locator('[data-chat-message-id="'+saved.id+'"]');
  await received.getByTestId('chat-message-text').waitFor({state:'visible'});
  assert.equal(await received.getByTestId('chat-message-text').textContent(),'QA сообщение');
+ const search=btn(q,'Поиск');await search.click();
+ const searchInput=q.getByRole('textbox',{name:'Поиск по сообщениям'});
+ await searchInput.fill('QA отсутствующий запрос');
+ await received.waitFor({state:'hidden'});
+ await search.click();await searchInput.waitFor({state:'hidden'});await received.waitFor({state:'visible'});
  const heart=btn(received,'Реакция сердце');
  await heart.click();await currentDoc(saved.ref,x=>x.exists&&x.data().heartUsers?.includes(users[0].uid),'heart set');
  phase='heart undo';await heart.click();await currentDoc(saved.ref,x=>x.exists&&!x.data().heartUsers?.includes(users[0].uid),'heart removed');

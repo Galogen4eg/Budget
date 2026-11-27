@@ -17,3 +17,9 @@ export function unseenPurchaseCompletions<T extends {id:string;title:string;comp
 export function assertDebtDeletionSafe(debt:{id:string;linkedExpenseId?:string|null},bills:readonly {id:string;linkedDebtId?:string|null}[],transactions:readonly {linkedDebtId?:string|null;linkedExpenseId?:string|null}[]):void {
  if(bills.some(b=>b.linkedDebtId===debt.id||b.id===debt.linkedExpenseId)||transactions.some(t=>t.linkedDebtId===debt.id||(debt.linkedExpenseId&&t.linkedExpenseId===debt.linkedExpenseId)))throw new Error('Долг связан с платежами или операциями. Сначала проверьте и удалите связи.');
 }
+
+/** A closed search never filters the conversation, including a stale query. */
+export function filterChatMessages<T extends {text?:string}>(messages:readonly T[],query:string,searchOpen:boolean):readonly T[]{
+ const q=searchOpen?query.trim().toLocaleLowerCase('ru-RU'):'';
+ return q?messages.filter(message=>(message.text||'').toLocaleLowerCase('ru-RU').includes(q)):messages;
+}

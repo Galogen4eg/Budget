@@ -66,6 +66,10 @@ export function makeFamilyFixtures({now=new Date(),members,currentMonthTarget=0}
  const projects=[{id:key('project-1'),title:'Обновление комнаты',description:'Учебный проект',totalBudget:45000,currency:'₽',status:'active',startDate:day(at(-20)),endDate:day(at(40)),color:'#4A7C59',icon:'Home',expenses:[]}];
  const wishlist=['Настольная лампа','Книги','Рюкзак'].map((title,i)=>({id:key('wish-'+i),title,price:[1990,850,3500][i],currency:'₽',ownerId:member(i).userId,priority:['low','medium','high'][i],createdAt:stamp(at(-3-i))}));
  const chat=['На выходных съездим за город?','Да, возьмём термос.','Добавил продукты в список.','Посмотрим планы на вечер.'].map((text,i)=>({id:key('chat-'+i),topicId:'general',text,userId:member(i).userId,userName:'Участник '+(i%members.length+1),timestamp:at(-4+i).getTime()+36000000,type:'text',heartUsers:[]}));
+ if(currentMonthTarget){
+  const messages=['Нужно проверить список покупок.','Договорились, посмотрю вечером.','Забронировали время на выходные.','Напомни, пожалуйста, про документы.','Добавил необходимые вещи в список.','Да, всё в порядке.'];
+  for(let i=0;i<36;i++)chat.push({id:key('chat-history-'+i),topicId:'general',text:messages[i%messages.length]+' '+(i+1),userId:member(i).userId,userName:'Участник '+(i%members.length+1),timestamp:at(-15+Math.floor(i/4)).getTime()+36000000+(i%4)*3600000,type:'text',heartUsers:[]});
+ }
  return {transactions,goals,events,shopping,pantry,debts,subscriptions,loyalty,meterReadings,projects,wishlist,chat};
 }
 

@@ -687,8 +687,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {MENU_TABS.map(({id,label})=>{
                   const checked=visibleMenuTabs(settings.enabledTabs).includes(id);
                   return <label key={id} className="terra-settings-row flex min-h-[44px] items-center justify-between gap-3 text-sm cursor-pointer">
-                    <span>{label}{id==='overview'&&<span className="block text-xs text-[var(--terra-muted)]">Всегда доступен</span>}</span>
-                    <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
+                    <span>{label}{id==='overview'&&<span id="overview-always-visible" className="block text-xs text-[var(--terra-muted)]">Всегда доступен</span>}</span>
+                    <input type="checkbox" aria-label={label} aria-describedby={id==='overview'?'overview-always-visible':undefined} checked={checked} disabled={id==='overview'} onChange={e=>{
                       const patch=menuPreferencePatch(settings.enabledTabs,settings.startTab,id,e.target.checked);
                       void saveSettingsPatch(patch);
                     }} className="h-5 w-5 accent-[#2D5A43]"/>

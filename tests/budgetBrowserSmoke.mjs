@@ -124,7 +124,7 @@ try{
       if(width<768&&height>=width){
         await art.waitFor({state:'visible',timeout:15000});
         const loaded=await art.locator('.terra-splash-image').evaluate(async el=>{
-          const url=getComputedStyle(el).backgroundImage.match(/url\\(["']?(.*?)["']?\\)/)?.[1];
+          const url=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];
           if(!url)return null;
           const img=new Image();img.src=url;await img.decode();
           return {url,width:img.naturalWidth,height:img.naturalHeight};

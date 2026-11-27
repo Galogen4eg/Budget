@@ -321,9 +321,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   max="31" 
                   value={day} 
                   onChange={e => setDay(e.target.value)}
-                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] text-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-12"
+                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] text-left focus:outline-none focus:ring-2 focus:ring-[var(--terra-focus)] transition-colors min-w-0"
                 />
-                <span className="absolute right-3 text-stone-400 text-xs font-semibold">число</span>
               </div>
             </div>
           </div>

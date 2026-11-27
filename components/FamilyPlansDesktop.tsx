@@ -277,13 +277,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   };
 
   return (
-    <div className="flex items-start min-w-0 w-full bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-white font-body">
+    <div className="terra-plans-desktop grid items-start min-w-0 w-full bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-white font-body">
       
       {/* Левая и центральная область: Календарь планов */}
-      <main className="flex-1 flex flex-col min-w-0 p-6 xl:p-8">
+      <main className="flex-1 flex flex-col min-w-0 p-4 xl:p-6">
         
         {/* Верхняя панель: Месяц, бейдж дней, фильтры и контролы */}
-        <header className="flex flex-wrap items-center justify-between gap-4 mb-5 shrink-0">
+        <header className="flex flex-col gap-2 mb-3 shrink-0">
           
           {/* Название месяца / недели + счетчик */}
           <div className="flex flex-wrap items-center gap-3 min-w-0">
@@ -355,8 +355,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               Общие ({events.filter(event=>matchesCalendarMember(event,'common',memberIds)).length})
             </button>}
 
+          </div>
+          <div className="flex flex-wrap items-center gap-2 justify-between min-w-0">
             {/* Переключатель вида (Месяц / Неделя / Расписание) */}
-            <div role="group" aria-label="Вид календаря" className="flex flex-none shrink-0 items-center gap-1">
+            <div role="group" aria-label="Вид календаря" className={FILTER_RAIL+" flex-1"}>
               <button 
                 onClick={() => setViewMode('month')}
                 aria-pressed={viewMode === 'month'}
@@ -788,13 +790,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: Выбранный день */}
-      <aside className="w-[min(340px,30vw)] min-w-[250px] bg-[var(--terra-surface)] border-l border-[var(--terra-border)] flex flex-col shrink-0 p-4 xl:p-6 space-y-4">
+      <aside className="min-w-0 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl flex flex-col p-4 space-y-3">
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-              ИНСПЕКТОР ДНЯ
+              Выбранный день
             </span>
             <span className="text-stone-500 font-medium capitalize">
               {selectedDate.toLocaleDateString('ru-RU', { weekday: 'long' })}

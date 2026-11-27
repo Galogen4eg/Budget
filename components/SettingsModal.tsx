@@ -669,7 +669,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         );
       case 'navigation':
         return (
-          <div className="terra-appearance-grid">
+          <div className="terra-appearance-grid terra-menu-settings-grid">
             <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
               <h3 className="text-base font-semibold">Навигация</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Скрытые вкладки не отображаются в меню, но доступны по ссылкам из обзора. Данные и права доступа не меняются.</p>
@@ -1529,7 +1529,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
-            <div data-testid="settings-menu-scroll-container" className="md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
+            <div data-testid="settings-menu-scroll-container" className="md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-3 space-y-3 bg-[var(--terra-canvas)] pb-6">
               {/* Profile Card */}
               <button type="button"
                 onClick={()=>selectSection('account')}
@@ -1556,15 +1556,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
 
               {renderSettingsSearch()}
-              <nav aria-label="Разделы настроек" className="space-y-4">
+              <nav aria-label="Разделы настроек" className="space-y-3">
                 {SETTINGS_GROUPS.map(group=>{
                   const entries=filteredSections.filter(item=>item.group===group.id);
                   if(!entries.length)return null;
                   return <section key={group.id}>
                     <h3 className="px-1 pb-2 text-xs font-semibold text-[var(--terra-muted)]">{group.label}</h3>
-                    <div className="rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)] divide-y divide-[var(--terra-border)]">
+                    <div className="rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] divide-y divide-[var(--terra-border)]">
                       {entries.map(item=><button key={item.id} type="button" onClick={()=>selectSection(item.id)}
-                        className="w-full min-h-[44px] p-3 flex items-center gap-3 text-left hover:bg-[var(--terra-soft)] rounded-xl focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                        className="w-full min-h-[56px] px-3 py-2 flex items-center gap-3 text-left hover:bg-[var(--terra-soft)] rounded-xl focus-visible:ring-2 focus-visible:ring-primary transition-colors">
                         <span className="shrink-0 text-[var(--terra-primary)]">{item.icon}</span>
                         <span className="min-w-0 flex-1"><span className="block text-sm font-semibold break-words">{item.label}</span><span className="block text-xs text-[var(--terra-muted)] break-words">{item.subtitle}</span></span>
                         <ChevronRight size={16} className="shrink-0 text-[var(--terra-muted)]"/>
@@ -1591,9 +1591,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[216px] lg:w-[240px] bg-[var(--terra-surface)] border-r border-[var(--terra-border)] p-3 flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex w-[208px] lg:w-[224px] bg-[var(--terra-surface)] border-r border-[var(--terra-border)] p-3 flex-col shrink-0 overflow-y-auto">
             {renderSettingsSearch()}
-            <nav aria-label="Разделы настроек" className="space-y-4 flex-1 pt-4">
+            <nav aria-label="Разделы настроек" className="space-y-3 flex-1 pt-3">
               {SETTINGS_GROUPS.map(group=>{
                 const entries=filteredSections.filter(section=>section.group===group.id);
                 if(!entries.length)return null;

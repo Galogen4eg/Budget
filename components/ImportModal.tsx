@@ -705,7 +705,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* СПИСОК ОПЕРАЦИЙ */}
-        <div className="overflow-y-auto overscroll-y-contain min-h-0 px-3 sm:px-8 py-4 space-y-2.5 flex-1 bg-[var(--terra-canvas)]">
+        <div className="overflow-y-auto overscroll-y-contain min-h-0 px-3 sm:px-5 py-3 space-y-2.5 flex-1 bg-[var(--terra-canvas)]">
           {unassignedCount > 0 && (
             <div className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -713,7 +713,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   <Sparkles size={20} />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                  <div className="text-sm font-bold text-stone-900 dark:text-white flex flex-wrap items-center gap-2">
                     <span>Найдено {unassignedCount} нераспознанных операций</span>
                     <span className="text-[10px] bg-[#E09F3E]/20 text-[#B87008] dark:text-amber-300 font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider">
                       Требует разбора

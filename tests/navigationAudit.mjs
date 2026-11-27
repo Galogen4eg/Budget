@@ -1,5 +1,6 @@
 /** Shared UI scenarios. Caller owns browser, data and network isolation. */
-export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
+import {mkdir} from 'node:fs/promises';
+export async function runNavigationAudit(page,{includeInventoryDetails=false,inventoryOnly=false,captureScreens=false,extraViewports=[[320,568],[768,1024],[1280,800],[1920,1080]]}={}){
 page.setDefaultTimeout(10000);
 const failures=[],counts=[];
 const first=loc=>loc.filter({visible:true}).first();
@@ -40,6 +41,18 @@ async function inventory(id){
  counts.push({viewport:label,section:id,...result});
  const geometry=await page.evaluate(section=>{const shell=document.querySelector('[data-terra-shell]'),tab=document.querySelector('[data-terra-tabbar]'),p=document.querySelector('[data-tab-panel="'+section+'"]');if(!shell||!p)return null;const shown=el=>!!el?.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';return {overflow:shell.scrollWidth>shell.clientWidth+1,headerCount:[...p.querySelectorAll('[data-terra-mobile-header]')].filter(shown).length,mobile:innerWidth<768,overlap:shown(tab)&&p.getBoundingClientRect().bottom>tab.getBoundingClientRect().top+2};},id);
  if(geometry){if(geometry.overflow)throw new Error('Shell horizontal overflow');if(geometry.overlap)throw new Error('Tabbar overlaps content');if(geometry.mobile&&geometry.headerCount!==1)throw new Error('Expected one mobile section header, got '+geometry.headerCount);}
+ if(['shopping','budget','plans','chat','services'].includes(id)){
+  const ux=await panel(id).evaluate((el,section)=>{
+   const mobile=innerWidth<768,rect=x=>x?.getBoundingClientRect();
+   const find=key=>[...el.querySelectorAll('[data-testid="'+key+'"]')].find(x=>x.getClientRects().length);
+   if(section==='budget'){const suffix=mobile?'mobile':'desktop';const h=find('budget-history-'+suffix),c=find('budget-calendar-'+suffix);return {ok:!!h&&!!c&&Boolean(h.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING),detail:'history before calendar'};}
+   if(section==='shopping'){const library=find('shopping-library'),tools=library?.querySelector('.terra-shopping-tools');const buttons=[...(tools?.children??[])];const input=[...el.querySelectorAll('[aria-label="Быстрое добавление товаров"]')].find(x=>x.getClientRects().length);const search=[...el.querySelectorAll('[aria-label="Поиск по товарам в семейном списке"]')].find(x=>x.getClientRects().length);const sameRow=buttons.length===3&&buttons.every(x=>Math.abs(rect(x).top-rect(buttons[0]).top)<2&&rect(x).height>=44&&rect(x).width>=44);return {ok:sameRow&&(!mobile||!!input&&!!search&&rect(input).top<rect(search).top),detail:'compact tools and quick input before search'};}
+   if(section==='services'){const rows=[...el.querySelectorAll('.terra-service-row')];return {ok:rows.length===3&&rows.every(x=>rect(x).height>=44&&Math.abs(rect(x).left-rect(rows[0]).left)<2),detail:'aligned service list'};}
+   if(section==='chat'){const input=el.querySelector('[aria-label="Сообщение семье"]'),send=el.querySelector('[aria-label="Отправить сообщение"]');return {ok:!!input&&!!send&&rect(send).width>=44&&rect(send).height>=44&&rect(input).width>0,detail:'chat composer geometry'};}
+   const modes=[...el.querySelectorAll('.terra-calendar-views')].find(x=>x.getClientRects().length);return {ok:!mobile||!!modes&&[...modes.children].every(x=>Math.abs(rect(x).top-rect(modes.firstElementChild).top)<2&&rect(x).height>=44&&rect(x).width>=44),detail:'calendar modes on one row'};
+  },id);
+  if(!ux.ok)throw new Error('UX composition: '+ux.detail);
+ }
  if(id==='overview'&&includeInventoryDetails){
   const result=await panel(id).evaluate(el=>{
    const mobile=innerWidth<768;
@@ -55,6 +68,12 @@ async function inventory(id){
  if(includeInventoryDetails){
   const controls=await panel(id).evaluate(el=>[...el.querySelectorAll('button,a[href],input,select,textarea,[role=button],[role=switch],[role=tab],[role=checkbox]')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').map(e=>({tag:e.tagName.toLowerCase(),role:e.getAttribute('role'),name:(e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.textContent?.trim()||'').replace(/\s+/g,' ').slice(0,120),disabled:!!(e.disabled||e.getAttribute('aria-disabled')==='true'),pressed:e.getAttribute('aria-pressed'),expanded:e.getAttribute('aria-expanded')})));
   console.log('CONTROL INVENTORY '+label+' '+id+' '+JSON.stringify(controls));
+ }
+ if(captureScreens){
+  await page.evaluate(async()=>{await document.fonts.ready;});
+  const theme=await page.evaluate(()=>document.documentElement.classList.contains('dark')?'dark':'light');
+  await mkdir('artifacts/terra-v2-pilot/workspaces',{recursive:true});
+  await page.screenshot({path:'artifacts/terra-v2-pilot/workspaces/'+theme+'-'+label+'-'+id+'.png',animations:'disabled'});
  }
  console.log('INVENTORY '+label+' '+id+' '+JSON.stringify(result));
 }
@@ -82,6 +101,7 @@ async function checkSections(){
    const before=await picker.getAttribute('aria-label');
    action='previous month in picker';await button(p,'Предыдущий месяц').click();
    if(await picker.getAttribute('aria-label')===before)throw new Error('Month did not change');
+   if(await p.getByTestId('family-daily-limit-mobile').filter({visible:true}).count())throw new Error('Archive shows daily guidance');
    action='next month in picker';await button(p,'Следующий месяц').click();
    if(await picker.getAttribute('aria-label')!==before)throw new Error('Month did not return');
    await button(p,'Текущий месяц').click();
@@ -145,8 +165,8 @@ async function checkSections(){
   const back=button(p,'К спискам чатов');
   if(mobile()){action='return to chat list';await back.waitFor({state:'visible'});await back.click();}
   action='wait for topic list';await expectVisible(p.getByRole('heading',{name:'Семейные беседы'}));
-  await expectVisible(button(p,'Создать тему'));
-  // Topic creation is deliberately not invoked in the navigation-only suite.
+  if(await p.getByRole('button',{name:'Создать тему',exact:true}).count())throw new Error('Unimplemented topic creation exposed');
+  // Only existing topics are offered.
   const topics=p.getByTestId('chat-topics-scroll-container').getByRole('button');
   if(await topics.count()){
    action='open existing topic';await first(topics).click();
@@ -374,8 +394,9 @@ async function checkButtons(){
  await buttonScenario('CHT-01-create-topic-unavailable',async()=>{
   await nav('chat','Чат');const p=panel('chat');if(mobile())await button(p,'К спискам чатов').click();
   action='check explicit unavailable topic creation';
-  const create=button(p,'Создать тему');await expectVisible(create);check(await create.isDisabled(),'Unimplemented topic creation must be disabled');
-  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'explicitly disabled; topic persistence not implemented'});
+  check(await p.getByRole('button',{name:'Создать тему',exact:true}).count()===0,'Unimplemented topic creation must not be offered');
+  unavailable.push({viewport:label,id:'CHT-01-create-topic',reason:'not offered; topic persistence not implemented'});
+  if(mobile())await first(p.getByTestId('chat-topics-scroll-container').getByRole('button')).click();
  });
  await buttonScenario('SRV-04-wallet-editor-cancel',async()=>{
   await nav('services','Сервисы');const p=panel('services');action='open wallet';await button(p,/^Карты лояльности/,false).click();

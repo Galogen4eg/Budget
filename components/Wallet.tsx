@@ -440,30 +440,13 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
   };
 
   return (
-    <div className="space-y-6 w-full text-stone-800 dark:text-stone-100 font-sans pb-32 md:pb-12">
+    <div className="space-y-4 w-full text-stone-800 dark:text-stone-100 font-sans pb-4">
       
       {/* 1. Header & Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <nav className="hidden sm:flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
-            {onClose ? (
-              <button 
-                type="button"
-                onClick={onClose}
-                className="hover:text-[#4a7c59] dark:hover:text-green-400 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Сервисы</span>
-              </button>
-            ) : (
-              <span>Сервисы</span>
-            )}
-            <span className="text-stone-300 dark:text-stone-600">/</span>
-            <span className="text-stone-800 dark:text-white font-bold">Wallet</span>
-          </nav>
-
           <div className="flex items-baseline gap-2.5">
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-white">
+            <h1 className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-stone-900 dark:text-white">
               Мои карты
             </h1>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400">
@@ -475,7 +458,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
         <button 
           type="button"
           onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#4a7c59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-bold tracking-wide shadow-sm active:scale-98 transition cursor-pointer"
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl sm:rounded-2xl bg-[#4a7c59] hover:bg-[#3d6749] text-white text-xs sm:text-sm font-bold tracking-wide shadow-sm active:scale-98 transition cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Добавить карту</span>
@@ -483,8 +466,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
       </div>
 
       {/* 2. Filter Bar & View Toggle */}
-      <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 border border-stone-200/90 dark:border-white/10 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="space-y-2 min-w-0">
+        <div className="flex flex-col gap-2 min-w-0">
           
           {/* Category Badges Horizontal Ribbon */}
           <div className="relative flex items-center min-w-0 flex-1">
@@ -533,21 +516,21 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
           </div>
 
           {/* Search Input & Grid/List switcher */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative flex-1 md:w-56">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Фильтр карт..."
-                className="w-full h-9 pl-8 pr-7 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-medium text-stone-800 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
+                placeholder="Поиск карт" aria-label="Поиск карт"
+                className="w-full min-h-[44px] pl-8 pr-12 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs font-medium text-stone-800 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-[#4a7c59] transition"
               />
               {searchQuery && (
                 <button 
                   type="button" 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  onClick={() => setSearchQuery('')} aria-label="Очистить поиск карт"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-[var(--terra-muted)]"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -557,8 +540,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             <div className="flex items-center bg-stone-100 dark:bg-stone-800 rounded-xl p-0.5 gap-0.5">
               <button 
                 type="button"
-                onClick={() => setViewMode('grid')}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+                onClick={() => setViewMode('grid')} aria-pressed={viewMode==='grid'}
+                className={`w-11 h-11 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'grid' 
                     ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
@@ -569,8 +552,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
               </button>
               <button 
                 type="button"
-                onClick={() => setViewMode('list')}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+                onClick={() => setViewMode('list')} aria-pressed={viewMode==='list'}
+                className={`w-11 h-11 rounded-lg flex items-center justify-center transition cursor-pointer ${
                   viewMode === 'list' 
                     ? 'bg-white dark:bg-[var(--terra-soft)] text-[#4a7c59] dark:text-green-400 shadow-xs' 
                     : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
@@ -607,7 +590,7 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
           </button>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6">
+        <div className="terra-wallet-grid grid gap-3">
           {filteredCards.map((card) => {
             const gradient = getCardGradient(card.color);
             return (
@@ -796,106 +779,6 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
         </div>
       )}
 
-      {/* 4. Editorial Family Insights Section (Bottom) */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        
-        {/* Family Access Panel */}
-        <div className="lg:col-span-2 bg-white dark:bg-[var(--terra-surface)] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-              <div>
-                <span className="text-xs uppercase tracking-widest text-[#4a7c59] dark:text-green-400 font-extrabold">
-                  Семейный доступ
-                </span>
-                <h2 className="font-display text-2xl font-bold text-stone-900 dark:text-white mt-1">
-                  Единый кошелек карт
-                </h2>
-                <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
-                  Все карты мгновенно синхронизируются в реальном времени между смартфонами всех членов семьи.
-                </p>
-              </div>
-
-              {/* Family Avatar Rings */}
-              <div className="flex items-center -space-x-2 shrink-0">
-                <div className="w-10 h-10 rounded-full bg-[#4a7c59] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white dark:ring-stone-900">
-                  Я
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#705c30] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white dark:ring-stone-900">
-                  МС
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#1d62cd] text-white flex items-center justify-center text-xs font-bold ring-2 ring-white dark:ring-stone-900">
-                  ДС
-                </div>
-                <div className="w-10 h-10 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 flex items-center justify-center text-xs font-bold ring-2 ring-white dark:ring-stone-900">
-                  +1
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-stone-100 dark:border-white/5 text-center">
-            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-white/5">
-              <span className="block text-[11px] text-stone-500 dark:text-stone-400 font-medium">Офлайн-доступ</span>
-              <span className="font-display font-extrabold text-[#4a7c59] dark:text-green-400 text-sm mt-0.5 block">100%</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-white/5">
-              <span className="block text-[11px] text-stone-500 dark:text-stone-400 font-medium">Apple Wallet</span>
-              <span className="font-display font-extrabold text-stone-800 dark:text-white text-sm mt-0.5 block">Подключен</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-white/5">
-              <span className="block text-[11px] text-stone-500 dark:text-stone-400 font-medium">Автоввод на кассе</span>
-              <span className="font-display font-extrabold text-stone-800 dark:text-white text-sm mt-0.5 block">Вкл ✓</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-white/5">
-              <span className="block text-[11px] text-stone-500 dark:text-stone-400 font-medium">Безопасность</span>
-              <span className="font-display font-extrabold text-[#4a7c59] dark:text-green-400 text-sm mt-0.5 block">AES-256</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Scan Card / Action */}
-        <div className="bg-white dark:bg-[var(--terra-surface)] rounded-3xl p-6 sm:p-8 border border-stone-200/90 dark:border-white/10 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="w-12 h-12 rounded-2xl bg-[#f0e8db] dark:bg-[#332a1e] text-[#705c30] dark:text-[#dcc48e] flex items-center justify-center mb-4">
-              <Camera className="w-6 h-6" />
-            </div>
-            <h3 className="font-display text-xl font-bold text-stone-900 dark:text-white">
-              Быстрое сканирование
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 leading-relaxed">
-              Сфотографируйте пластиковую карту или выберите фото из галереи — система мгновенно определит штрихкод.
-            </p>
-
-            <div className="mt-5 flex flex-col gap-2.5">
-              <button 
-                type="button"
-                onClick={handleOpenAddModal}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-white font-bold text-xs transition cursor-pointer"
-              >
-                <Camera className="w-4 h-4 text-[#4a7c59] dark:text-green-400" />
-                <span>Сканировать камерой</span>
-              </button>
-              <button 
-                type="button"
-                onClick={handleOpenAddModal}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-white font-bold text-xs transition cursor-pointer"
-              >
-                <Upload className="w-4 h-4 text-[#705c30]" />
-                <span>Загрузить фото карты</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 p-3.5 rounded-2xl bg-[#edf4ef]/60 dark:bg-[var(--terra-primary-soft)] border border-[#d1dbd1] dark:border-green-800/40 flex items-start gap-2.5 text-xs text-stone-600 dark:text-stone-300">
-            <Lightbulb className="w-4 h-4 text-[#4a7c59] dark:text-green-400 shrink-0 mt-0.5" />
-            <span>
-              <b>Совет Terra:</b> Нажмите «Показать код» на кассе, чтобы открыть штрихкод на максимальной контрастности.
-            </span>
-          </div>
-        </div>
-
-      </div>
-
       {/* 5. Barcode View Modal (Terra Mobile Loyalty Card Spec matching Mockup 2) */}
       {activeBarcodeCard && (
         <LoyaltyCardMobileModal
@@ -938,44 +821,8 @@ const WalletApp: React.FC<WalletProps> = ({ cards, setCards, onClose }) => {
             </div>
 
             {/* Scrollable Form Body */}
-            <form onSubmit={handleSaveCard} className="p-6 flex flex-col gap-4 font-sans text-stone-800 dark:text-stone-100">
+            <form onSubmit={handleSaveCard} className="p-4 sm:p-5 flex flex-col gap-3 font-sans text-stone-800 dark:text-stone-100">
               
-              {/* AI Camera Scanning Banner */}
-              <div 
-                onClick={() => {
-                  // Pre-fill demo fast scan simulation
-                  if (!formName) {
-                    setFormName('Перекрёсток');
-                    setFormNumber('778920345519');
-                    setFormCategory('groceries');
-                    setFormSubtitle('Клубная карта');
-                    setFormDiscount('5% кэшбэк');
-                    setFormBalance('560 баллов');
-                  }
-                }}
-                className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-[#edf4ef] via-[#f0e8db] to-[#edf4ef] dark:from-[#243628] dark:via-[#332a1e] dark:to-[#243628] cursor-pointer hover:shadow-md transition-all group border border-[#d1dbd1] dark:border-green-800/40"
-              >
-                <div className="flex items-center gap-3.5 relative z-10">
-                  <div className="w-11 h-11 rounded-2xl bg-[#4a7c59] text-white flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                    <Camera className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#4a7c59] dark:text-green-400">
-                        Автосканирование
-                      </span>
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#705c30] text-white">
-                        AI Vision
-                      </span>
-                    </div>
-                    <p className="text-xs text-stone-600 dark:text-stone-300 font-medium mt-0.5 leading-snug">
-                      Нажмите, чтобы распознать карту по фото или штрихкоду
-                    </p>
-                  </div>
-                  <ChevronLeft className="w-5 h-5 text-stone-400 rotate-180 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-
               {/* Section Divider */}
               <div className="flex items-center gap-3 my-0.5">
                 <div className="h-px bg-stone-200 dark:bg-stone-800 flex-1" />

@@ -515,7 +515,8 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
     <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-4 md:pb-6 text-[var(--terra-ink)] dark:text-gray-100 font-body transition-colors">
       {/* 1. Unified Header */}
       <TerraMobileHeader
-        title="Список покупок"
+        title="Покупки"
+        headingLabel="Список покупок"
         onAdd={handleOpenAdd}
         addTitle="Добавить товар"
         onOpenSettings={onOpenSettings}
@@ -598,10 +599,10 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col w-full max-w-3xl mx-auto px-4 pt-3 space-y-4">
+      <div className="flex flex-col w-full max-w-3xl mx-auto px-4 pt-3 gap-2.5">
         
         {/* Status Counters Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
           <div className="text-xs font-semibold text-[var(--terra-primary)] dark:text-emerald-400">
             <span>{allActiveCount} в списке</span>
           </div>
@@ -610,43 +611,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
           </div>
         </div>
 
-        {/* 2. Search Bar with Mic Icon */}
-        <div className="relative flex items-center">
-          <div className="absolute left-3.5 text-[#A39E93] dark:text-stone-500 pointer-events-none">
-            <Search size={17} />
-          </div>
-          <input 
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск товаров"
-            aria-label="Поиск по товарам в семейном списке"
-            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
-          />
-          {searchQuery ? (
-            <button 
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label="Очистить поиск товаров"
-              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[var(--terra-ink)] dark:hover:text-white cursor-pointer"
-            >
-              <X size={15} />
-            </button>
-          ) : (
-            <button 
-              type="button"
-              onClick={startListening}
-              aria-label="Голосовой ввод товара"
-              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--terra-primary)] dark:text-emerald-400 hover:opacity-80 cursor-pointer"
-            >
-              <Mic size={17} />
-            </button>
-          )}
-        </div>
-
         {/* Quick Add Box */}
-        <div className={`${SURFACE_CARD} flex flex-col gap-1.5` }>
-          <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-2">
+        <div className="flex flex-col gap-1.5">
+          <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-1.5 rounded-xl border border-[var(--terra-control-border)] bg-[var(--terra-surface)] pl-3 pr-1 py-1">
             <input 
               ref={quickInputRef}
               type="text"
@@ -654,8 +621,9 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
               onChange={e => setQuickAddText(e.target.value)}
               placeholder="Например, молоко 1 л"
               aria-label="Быстрое добавление товаров"
-              className="min-h-[44px] flex-1 bg-transparent text-xs sm:text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
+              className="min-h-[44px] flex-1 bg-transparent text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 focus:outline-none min-w-0"
             />
+            <button type="button" onClick={startListening} aria-label="Голосовой ввод товара" className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] terra-press"><Mic size={17}/></button>
             <button 
               type="submit"
               disabled={!quickAddText.trim() || isSubmittingQuick}
@@ -674,6 +642,33 @@ export const ShoppingListMobile: React.FC<ShoppingListMobileProps> = ({
                 </span>
               ))}
             </div>
+          )}
+        </div>
+
+
+        {/* 2. Search Bar with Mic Icon */}
+        <div className="relative flex items-center">
+          <div className="absolute left-3.5 text-[#A39E93] dark:text-stone-500 pointer-events-none">
+            <Search size={17} />
+          </div>
+          <input 
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Поиск товаров"
+            aria-label="Поиск по товарам в семейном списке"
+            className="min-h-[44px] w-full pl-10 pr-12 py-2.5 rounded-2xl bg-white dark:bg-[var(--terra-surface)] text-sm text-[var(--terra-ink)] dark:text-white placeholder:text-[#A39E93] dark:placeholder-stone-500 border border-[var(--terra-border)] dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
+          />
+          {searchQuery && (
+            <button 
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Очистить поиск товаров"
+              className="absolute right-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-[#A39E93] hover:text-[var(--terra-ink)] dark:hover:text-white cursor-pointer"
+            >
+              <X size={15} />
+            </button>
+
           )}
         </div>
 
@@ -1038,10 +1033,10 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
             onOpenEdit(item);
           }
         }}
-        data-terra-shopping-item data-shopping-id={item.id} className="relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
+        data-terra-shopping-item data-shopping-id={item.id} className="terra-active-shopping-row relative z-10 bg-[var(--terra-surface)] p-2 flex flex-wrap items-center justify-between gap-2 transition-colors cursor-pointer touch-pan-y"
       >
         {/* Checkbox + Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
+        <div className="terra-shopping-name flex items-center gap-2 min-w-0 flex-1 basis-[180px]">
           <button 
             type="button"
             onClick={(e) => {
@@ -1081,7 +1076,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
 
         {/* Quantity Stepper Pill */}
         <div 
-          className="flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5 shrink-0 max-w-full" 
+          className="terra-shopping-stepper flex items-center bg-[var(--terra-soft)] rounded-xl p-0.5 shrink-0 max-w-full" 
           onClick={(e) => e.stopPropagation()}
         >
           <button 
@@ -1095,7 +1090,7 @@ const SwipeableShoppingItem: React.FC<SwipeableShoppingItemProps> = ({
           >
             -
           </button>
-          <span className="text-sm font-semibold text-[var(--terra-ink)] px-2 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
+          <span className="text-sm font-semibold text-[var(--terra-ink)] px-1.5 min-w-[34px] text-center tabular-nums [overflow-wrap:anywhere]">
             {item.amount || '1'} {item.unit || 'шт'}
           </span>
           <button 

@@ -54,9 +54,9 @@ export function OverviewExpenseChart({
       <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(maximum)}</dd></div>
       {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
     </dl>
-    <div data-testid="overview-chart-plot" className="terra-overview-chart-plot w-full min-w-0">
-      {privacyMode ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
-        !hasExpenses ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
+    <div data-testid="overview-chart-plot" className={privacyMode||!hasExpenses?'min-h-[76px] flex items-center justify-center w-full min-w-0':'terra-overview-chart-plot w-full min-w-0'}>
+      {privacyMode ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
+        !hasExpenses ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 4}} accessibilityLayer={false}
             onClick={selectFromChart} barCategoryGap="22%">

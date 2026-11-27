@@ -47,7 +47,7 @@ export function makeFamilyFixtures({now=new Date(),members,currentMonthTarget=0}
    const d=new Date(first.getTime()+offset*86400000);
    const timestamp=new Date(Math.max(first.getTime(),Math.min(d.getTime()+8*3600000+i%3600*1000,now.getTime()-1))).toISOString();
    const note=category.label+' · покупка '+(i+1);
-   transactions.push({id:key('stress-'+month+'-'+i),date:timestamp,amount:(4900+(i*1379)%395000)/100,type:'expense',category:category.id,note,payee:note,rawNote:'QA BANK '+note,...owner(i)});
+   transactions.push({id:key('stress-'+month+'-'+i),date:timestamp,amount:(4900+(i*1379)%395000)/100,type:'expense',category:category.id,note,payee:note,rawNote:'QA BANK '+note,...owner(i%expenseCategories.length+Math.floor(i/expenseCategories.length))});
   }
  }
  const goalBalance=transactions.filter(r=>r.linkedGoalId===goalId).reduce((sum,r)=>sum+(r.type==='expense'?1:-1)*Math.round(r.amount*100),0)/100;
@@ -81,7 +81,7 @@ export function fixtureSettings(members){
   ]
  };
 }
-// Existing canonical IDs, not custom fixture IDs. Never overwrite them in production.
+// Canonical and fixture-only IDs. Never seed or overwrite these records in production.
 export const fixtureCategories=[
  ['income','Доходы','Landmark','#2F855A',null,'income'],
  ['salary','Зарплата','Briefcase','#2F855A','income','income'],
@@ -107,5 +107,17 @@ export const fixtureCategories=[
  ['qa-fixture-v1-cat-travel','Путешествия','Car','#2A9D8F'],
  ['qa-fixture-v1-cat-gifts','Подарки','Gift','#D4A373'],
  ['qa-fixture-v1-cat-home','Домашние принадлежности','Home','#A2845E'],
- ['qa-fixture-v1-cat-leisure','Досуг и развлечения','Star','#7C3AED']
+ ['qa-fixture-v1-cat-leisure','Досуг и развлечения','Star','#7C3AED'],
+ ["qa-fixture-v1-cat-repair","Ремонт и обслуживание дома","Home","#4A7C59"],
+ ["qa-fixture-v1-cat-sport","Спорт и фитнес","Activity","#457B9D"],
+ ["qa-fixture-v1-cat-books","Книги и периодические издания","BookOpen","#A2845E"],
+ ["qa-fixture-v1-cat-mobile","Мобильная связь","Smartphone","#4A7C59"],
+ ["qa-fixture-v1-cat-internet","Интернет","Globe","#457B9D"],
+ ["qa-fixture-v1-cat-insurance","Страхование","Shield","#A2845E"],
+ ["qa-fixture-v1-cat-taxes","Налоги и государственные услуги","Landmark","#4A7C59"],
+ ["qa-fixture-v1-cat-beauty","Уход за собой","Heart","#457B9D"],
+ ["qa-fixture-v1-cat-tech","Электроника и аксессуары для техники","Smartphone","#A2845E"],
+ ["qa-fixture-v1-cat-car","Обслуживание автомобиля","Car","#4A7C59"],
+ ["qa-fixture-v1-cat-vet","Ветеринарные услуги","Heart","#457B9D","qa-fixture-v1-cat-pets"],
+ ["qa-fixture-v1-cat-online-study","Дополнительные занятия и онлайн-курсы","BookOpen","#A2845E","qa-fixture-v1-cat-education"]
 ].map(([id,label,icon,color,parentId,transactionType])=>({id,label,icon,color,...(parentId?{parentId}:{}),...(transactionType?{transactionType}:{})}));

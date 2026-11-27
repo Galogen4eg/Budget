@@ -20,6 +20,7 @@ import { FILTER_CHIP_ACTIVE, SURFACE_CARD, SECTION_HEADING, DASHBOARD_CARD, TOOL
 import { OverviewHeaderBar } from './overview/OverviewHeaderBar';
 import { OverviewMetricsCards } from './overview/OverviewMetricsCards';
 import { OverviewExpenseChart } from './overview/OverviewExpenseChart';
+import { OverviewCategoriesModal } from './overview/OverviewCategoriesModal';
 import { OverviewRecentTransactions } from './overview/OverviewRecentTransactions';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
@@ -88,6 +89,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   const [chartScale, setChartScale] = useState<'day' | 'week' | 'month'>('day');
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [allCategoriesOpen,setAllCategoriesOpen]=useState(false);
   const [selectedCatModalId, setSelectedCatModalId] = useState<string | null>(null);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [selectedDayDetailDate, setSelectedDayDetailDate] = useState<Date | null>(null);
@@ -874,7 +876,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   className="min-h-[44px] flex items-center gap-0.5 text-xs font-semibold text-[var(--terra-primary-text)] transition-colors cursor-pointer px-1 rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                   title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                 >
-                  <span>Все{mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT?' '+mobileCategories.length:''}</span>
+                  <span>Аналитика</span>
                   <ChevronRight size={14} aria-hidden="true" />
                 </button>
                 <button
@@ -928,7 +930,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                 </button>
               ))}
             </div>
-            {mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {mobileCategories.length}</p>}
+            {mobileCategories.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<div className="flex items-center justify-between flex-wrap gap-1 border-t border-[var(--terra-border)] pt-1">
+                <p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {mobileCategories.length}</p>
+                <button type="button" onClick={()=>setAllCategoriesOpen(true)} className="min-h-[44px] px-2 text-sm font-semibold text-[var(--terra-primary-text)] rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]" aria-label="Все категории расходов">Все категории <ChevronRight size={14} className="inline" aria-hidden="true"/></button>
+              </div>}
           </section>
 
           {/* 4. Список покупок Card (Extracted Widget) */}
@@ -1207,7 +1212,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     className="min-h-[44px] px-2 text-sm text-primary dark:text-green-400 font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
                     title="Открыть аналитику всех категорий" aria-label="Аналитика всех категорий"
                   >
-                    <span>Все{categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT?' '+categoryBreakdown.items.length:''}</span>
+                    <span>Аналитика</span>
                     <ChevronRight size={13} aria-hidden="true" />
                   </button>
                 </div>
@@ -1227,7 +1232,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     className="min-h-[44px] w-full text-left p-3 rounded-xl flex flex-col justify-between hover:bg-[var(--terra-soft)] transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <div className="flex items-center justify-between text-xs gap-2">
-                      <span className="font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">{cat.name}</span>
+                      <span className="font-bold text-[var(--terra-ink)] min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{cat.name}</span>
                       <span className="text-xs font-semibold tabular-nums text-[var(--terra-ink)] flex-shrink-0">
                         {settings.privacyMode?'•••':`${cat.percent}%`}
                       </span>
@@ -1244,7 +1249,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   </button>
                 ))}
               </div>
-              {categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<p data-testid="overview-category-preview-count" className="pt-2 text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {categoryBreakdown.items.length}</p>}
+              {categoryBreakdown.items.length>OVERVIEW_CATEGORY_PREVIEW_LIMIT&&<div className="flex items-center justify-between flex-wrap gap-1 border-t border-[var(--terra-border)] pt-1">
+                <p data-testid="overview-category-preview-count" className="text-xs text-[var(--terra-muted)]">Показано {OVERVIEW_CATEGORY_PREVIEW_LIMIT} из {categoryBreakdown.items.length}</p>
+                <button type="button" onClick={()=>setAllCategoriesOpen(true)} className="min-h-[44px] px-2 text-sm font-semibold text-[var(--terra-primary-text)] rounded-lg hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]" aria-label="Все категории расходов">Все категории <ChevronRight size={14} className="inline" aria-hidden="true"/></button>
+              </div>}
             </div>
           </div>
 
@@ -1539,6 +1547,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         />
       )}
 
+      {allCategoriesOpen&&<OverviewCategoriesModal items={categoryBreakdown.items} total={categoryBreakdown.total} period={currentMonthName} privacyMode={settings.privacyMode===true}
+        onClose={()=>setAllCategoriesOpen(false)} onSelect={id=>{setAllCategoriesOpen(false);onDrillDown(id);}}/>}
       {/* Expense Categories Breakdown Modal */}
       {isCatModalOpen && (
         <CategoriesModal

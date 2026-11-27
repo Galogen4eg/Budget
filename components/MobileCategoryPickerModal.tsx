@@ -40,6 +40,12 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
   useModalBackHandler(isOpen, onClose);
   const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть"]'});
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const clearSearch = () => {
+    // Move focus before removing the focused clear button from the DOM.
+    searchInputRef.current?.focus({preventScroll:true});
+    setSearchQuery('');
+  };
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
 
   // Inline Category Creation Drawer Panel
@@ -455,6 +461,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               <Search size={18} className="text-[var(--terra-muted)] mr-2.5 shrink-0" />
               <input 
                 type="text"
+                ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск категории"
@@ -463,7 +470,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
               {searchQuery && (
                 <button 
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={clearSearch}
                   aria-label="Очистить поиск" className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 >
                   <X size={15} />
@@ -474,6 +481,12 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
 
           {/* Categories Accordion List */}
           <div className="px-4 space-y-3">
+            {filteredParents.length === 0 && (
+              <div className="py-6 text-center text-sm text-[var(--terra-muted)]" role="status">
+                <p className="font-medium text-[var(--terra-ink)]">Категории не найдены</p>
+                <p className="mt-1 text-xs">Попробуйте другой запрос.</p>
+              </div>
+            )}
             {filteredParents.map(parent => {
               const subcats = subcategoriesByParent.get(parent.id) || [];
               const isExpanded = Boolean(expandedCatIds[parent.id]);

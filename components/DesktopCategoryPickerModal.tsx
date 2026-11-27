@@ -42,6 +42,12 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
   const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть"]'});
   const reduced=Boolean(useReducedMotion());
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const clearSearch = () => {
+    // Move focus before removing the focused clear button from the DOM.
+    searchInputRef.current?.focus({preventScroll:true});
+    setSearchQuery('');
+  };
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({});
 
   // Inline Category Creation Panel
@@ -446,6 +452,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] group-focus-within:text-[#3E6543] transition-colors" size={17} />
             <input 
               type="text"
+              ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Быстрый поиск категории или подкатегории..."
@@ -455,7 +462,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
             {searchQuery && (
               <button 
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={clearSearch}
                 aria-label="Очистить поиск"
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
               >

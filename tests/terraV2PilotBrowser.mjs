@@ -314,7 +314,12 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const managementPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
     await managementPicker.waitFor({state:'visible'});const overviewCategorySearch=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
     await targetSize(overviewCategorySearch,label+' category search');await overviewCategorySearch.fill('терра-нет-категории');
+    await managementPicker.getByText('Категории не найдены',{exact:true}).waitFor({state:'visible'});
+    await capture(page,'overview-category-picker-empty-'+label);
     await targetSize(button(managementPicker,'Очистить поиск'),label+' clear category search');await button(managementPicker,'Очистить поиск').click();
+    assert.equal(await overviewCategorySearch.inputValue(),'',label+' clear category search value');
+    assert.equal(await overviewCategorySearch.evaluate(el=>document.activeElement===el),true,label+' clear category search focus');
+    await managementPicker.getByText('Категории не найдены',{exact:true}).waitFor({state:'hidden'});
     await noOverflow(managementPicker,label+' category management');await capture(page,'overview-category-picker-'+label);
     await page.keyboard.press('Escape');await managementPicker.waitFor({state:'hidden'});
     assert.equal(await manage.evaluate(el=>document.activeElement===el),true,label+' category management focus return');

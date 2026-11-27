@@ -13,7 +13,7 @@ async function capture(page,name){
  await page.evaluate(async()=>{await document.fonts.ready;});
  // Playwright's animations:disabled completes CSS/Web Animations, not every
  // requestAnimationFrame-driven Motion transition. Capture the settled picker.
- await page.waitForFunction(()=>[...document.querySelectorAll('[data-terra-picker-panel]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]')).every(el=>{
+ await page.waitForFunction(()=>[...document.querySelectorAll('[data-terra-picker-panel],[data-terra-settle-panel]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]')).every(el=>{
   const style=getComputedStyle(el),backdrop=getComputedStyle(el.parentElement);
   const m=new DOMMatrixReadOnly(style.transform==='none'?undefined:style.transform);
   return Number(style.opacity)>=.999&&Number(backdrop.opacity)>=.999&&Math.abs(m.m41)<.05&&Math.abs(m.m42)<.05&&Math.abs(m.a-1)<.001&&Math.abs(m.d-1)<.001;
@@ -257,6 +257,55 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      const pair=await daily.locator('dl').evaluate(el=>[...el.children].map(x=>x.getBoundingClientRect().toJSON()));
      assert.ok(pair[0].right<=pair[1].left+1,label+' daily values overlap');
     }
+    // Exercise modal focus and real UI states without contacting AI providers or writing a ledger.
+    const notificationTrigger=button(mobile?overview:page,'Уведомления');
+    await notificationTrigger.click();
+    const notificationDialog=page.getByTestId('terra-notifications-dialog');
+    await notificationDialog.waitFor({state:'visible'});
+    await noOverflow(notificationDialog,label+' notifications');
+    const notificationFilters=notificationDialog.getByRole('group',{name:'Фильтр уведомлений'});
+    const unreadFilter=button(notificationFilters,/^Новые/,false);
+    await targetSize(unreadFilter,label+' unread filter');await unreadFilter.click();
+    assert.equal(await unreadFilter.getAttribute('aria-pressed'),'true');
+    await capture(page,'overview-notifications-'+label);
+    await page.keyboard.press('Escape');await notificationDialog.waitFor({state:'hidden'});
+    assert.equal(await notificationTrigger.evaluate(el=>document.activeElement===el),true,label+' notifications focus return');
+    const assistantTrigger=button(overview,mobile?'AI Ассистент':'Спросить ИИ-помощника');
+    await assistantTrigger.click();
+    const assistant=page.getByTestId('terra-ai-dialog');await assistant.waitFor({state:'visible'});
+    await noOverflow(assistant,label+' assistant');
+    const composer=assistant.getByRole('textbox',{name:'Сообщение ассистенту'});
+    await targetSize(button(assistant,'Закрыть чат'),label+' assistant close');
+    await capture(page,'overview-assistant-'+label);
+    const attach=button(assistant,'Дополнительные действия');
+    await attach.click();assert.equal(await attach.getAttribute('aria-expanded'),'true');
+    await capture(page,'overview-assistant-actions-'+label);
+    await page.keyboard.press('Escape');assert.equal(await attach.getAttribute('aria-expanded'),'false');
+    assert.equal(await attach.evaluate(el=>document.activeElement===el),true,label+' assistant actions focus return');
+    await attach.click();await button(assistant,'Быстрый список покупок').click();
+    assert.equal(await composer.inputValue(),'Добавь в список покупок: ',label+' quick list must only prepare a draft');
+    await composer.fill('');
+    // Mock speech input only inside the isolated browser. No real microphone or external request.
+    await page.evaluate(()=>{
+      const previous=Object.getOwnPropertyDescriptor(window,'SpeechRecognition');
+      window.__terraQaRestoreSpeech=()=>{if(previous)Object.defineProperty(window,'SpeechRecognition',previous);else delete window.SpeechRecognition;};
+      class QaSpeechRecognition{
+        start(){}
+        stop(){this.onresult?.({results:[[{transcript:'QA голосовой черновик'}]]});this.onend?.();}
+        abort(){}
+      }
+      Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:QaSpeechRecognition});
+    });
+    try{
+      await attach.click();await button(assistant,'Голосовой ввод / Запись').click();
+      const voice=page.getByRole('dialog',{name:'Голосовой ввод',exact:true});await voice.waitFor({state:'visible'});
+      await capture(page,'overview-assistant-voice-'+label);
+      await button(voice,'Завершить запись').click();await voice.waitFor({state:'hidden'});
+      assert.equal(await composer.inputValue(),'QA голосовой черновик',label+' real transcript remains a draft');
+    }finally{await page.evaluate(()=>{window.__terraQaRestoreSpeech?.();delete window.__terraQaRestoreSpeech;});}
+    await composer.fill('');
+    await page.keyboard.press('Escape');await assistant.waitFor({state:'hidden'});
+    assert.equal(await assistantTrigger.evaluate(el=>document.activeElement===el),true,label+' assistant focus return');
     const values=chart.locator('summary').filter({hasText:'Значения графика'});
     await values.waitFor({state:'visible'});await targetSize(values,label+' chart values');await values.click();
     const point=chart.getByTestId('overview-chart-values').getByRole('button').first();

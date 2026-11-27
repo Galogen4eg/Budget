@@ -36,3 +36,13 @@ test('category picker entrances do not scale or translate an entire viewport',()
   assert.doesNotMatch(panel,/scale:|100%|spring/);
  }
 });
+
+test('assistant does not fabricate voice commands, file analysis or initial family balances',()=>{
+ const s=read('components/AIChat.tsx');
+ assert.doesNotMatch(s,/Купили фермерские яблоки и сыр на 720 рублей|Проанализируй и запиши операции|Все семейные показатели в норме/);
+ assert.match(s,/if\(transcript\)setInput\(/);
+ assert.match(s,/onClick=\{finishVoiceRecording\}/);
+ assert.match(s,/Анализ файлов недоступен/);
+ assert.match(read('components/AIChatModal.tsx'),/useModalSurface\(/);
+ assert.match(read('components/AIChatModal.tsx'),/useMobileViewport\(/);
+});

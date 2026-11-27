@@ -38,7 +38,7 @@ export function OverviewExpenseChart({
     if (point) onPointSelect(point);
   };
   return <>
-    <div className="terra-chart-toolbar flex flex-wrap items-start justify-between gap-3">
+    <div className="terra-chart-toolbar flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0">
         <h3 className={SECTION_HEADING}>Динамика расходов</h3>
         <p className="mt-1 text-sm text-[var(--terra-muted)]">{subtitle}</p>
@@ -49,21 +49,21 @@ export function OverviewExpenseChart({
           onClick={() => setScale(value)}>{scaleLabels[value]}</button>)}
       </div>
     </div>
-    <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm tabular-nums">
+    <dl className="flex flex-wrap gap-x-4 gap-y-2 text-sm tabular-nums">
       <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(average)}</dd></div>
       <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="font-semibold text-[var(--terra-ink)] break-words">{amount(maximum)}</dd></div>
       {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
     </dl>
-    <div data-testid="overview-chart-plot" className="terra-overview-chart-plot w-full min-w-0">
-      {privacyMode ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
-        !hasExpenses ? <p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
+    <div data-testid="overview-chart-plot" className={privacyMode||!hasExpenses?'min-h-[76px] flex items-center justify-center w-full min-w-0':'terra-overview-chart-plot w-full min-w-0'}>
+      {privacyMode ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
+        !hasExpenses ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">За выбранный период расходов нет</p> :
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={points} margin={{top: 12, right: 4, bottom: 4, left: 4}} accessibilityLayer={false}
             onClick={selectFromChart} barCategoryGap="22%">
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3" />
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile ? 20 : 12}
               tick={{ fontSize: 12, fill: 'var(--terra-muted)' }} />
-            <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={80}
+            <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={mobile ? 62 : 80}
               tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
             {limit > 0 && <ReferenceLine y={limit} stroke="var(--terra-offline-text)" strokeDasharray="4 4" />}
             <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.55}}
@@ -88,7 +88,7 @@ export function OverviewExpenseChart({
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--terra-border)] text-sm text-[var(--terra-muted)] pt-1">
       {!privacyMode && <span className="flex-1 min-w-[120px]">{complianceText}</span>}
       <button type="button" onClick={onOpenBudget} className="min-h-[44px] px-2 inline-flex items-center gap-1 font-semibold rounded-lg text-[var(--terra-primary-text)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-        {mobile ? 'К бюджету' : 'Подробный отчет'}<ChevronRight size={15} aria-hidden="true"/>
+        К бюджету<ChevronRight size={15} aria-hidden="true"/>
       </button>
     </div>
   </>;

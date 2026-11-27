@@ -37,15 +37,25 @@ await rows.doc(original.id).set(original);
 const populated=process.argv.includes('--populated');
 if(populated){
  const fixtureMembers=users.map((u,i)=>({id:i?'b':'a',userId:u.uid}));
- const fixtures=makeFamilyFixtures({now:new Date(date),members:fixtureMembers});
+ const fixtures=makeFamilyFixtures({now:new Date(date),members:fixtureMembers,currentMonthTarget:500});
  // Seed once in the emulator, never in the production database.
- const batch=db.batch();
+ // Firestore batches stay below 500 writes; local emulator only.
+ let batch=db.batch(),writes=0;
+ const flush=async()=>{if(writes){await batch.commit();batch=db.batch();writes=0;}};
  batch.set(family.collection('config').doc('settings'),fixtureSettings(fixtureMembers),{merge:true});
- for(const category of fixtureCategories)if(category.id!=='food')batch.create(family.collection('categories').doc(category.id),category);
- for(const [kind,records] of Object.entries(fixtures)){
-  for(const record of records)batch.create(family.collection(kind).doc(record.id),record);
+ writes++;
+ for(const category of fixtureCategories)if(category.id!=='food'){
+  batch.create(family.collection('categories').doc(category.id),category);writes++;
+  if(writes>=400)await flush();
  }
- await batch.commit();
+ for(const [kind,records] of Object.entries(fixtures)){
+  for(const record of records){
+   batch.create(family.collection(kind).doc(record.id),record);writes++;
+   if(writes>=400)await flush();
+  }
+ }
+ await flush();
+ assert.equal(fixtures.transactions.filter(r=>r.date.startsWith(date.slice(0,7))).length,500,'dense current month');
  for(const [kind,records] of Object.entries(fixtures)){
   const snapshot=await family.collection(kind).get();
   assert.equal(snapshot.size,records.length+(kind==='transactions'?1:0),'fixture count '+kind);

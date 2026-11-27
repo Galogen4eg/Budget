@@ -195,3 +195,9 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-category-icon[aria-pressed=true]{background:var(--terra-primary-soft);color:var(--terra-primary-text);outline:2px solid var(--terra-primary-solid);}
 .terra-categories-workspace :is(button,input,select,summary):focus-visible{outline:2px solid var(--terra-focus);outline-offset:2px;}
 .terra-categories-workspace button:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Overview phase 1: useful density, same accessible target sizes. */
+.terra-overview-balance-card,.terra-overview-list-card{padding:12px;}
+.terra-overview-balance-card .terra-daily-pair dd{font-size:20px;line-height:1.25;}
+.terra-overview-balance-card .terra-daily-pair{gap:10px;}
+.terra-overview-metric-card{padding:16px;}

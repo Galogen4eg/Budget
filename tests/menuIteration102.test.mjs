@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {visibleMenuTabs,menuPreferencePatch,settingsSearchMatches} from '../utils/menuNavigation.ts';
+import {visibleMenuTabs,menuPreferencePatch,settingsSearchMatches,hiddenMenuTabs,resolvedStartTab} from '../utils/menuNavigation.ts';
 test('menu visibility keeps Overview, rejects unknown IDs and normalizes duplicate IDs',()=>{
  assert.deepEqual(visibleMenuTabs(['chat','chat','unknown']),['overview','chat']);
  assert.equal(visibleMenuTabs().length,6);
@@ -39,4 +39,17 @@ test('controlled settings inputs initiate optimistic updates within the input ev
  assert.match(handler,/void saveSettingsPatch\(\{ \[key\]: value \}\)/);
  assert.doesNotMatch(handler,/Promise\.resolve\(\)\.then/);
  assert.match(source,/void saveSettingsPatch\(patch\)/);
+});
+
+test('all hidden sections remain reachable regardless of overview widgets; invalid startup falls back',()=>{
+ assert.deepEqual(hiddenMenuTabs(),[]);
+ assert.deepEqual(hiddenMenuTabs([]),['budget','plans','shopping','chat','services']);
+ assert.deepEqual(hiddenMenuTabs(['overview','chat','unknown','chat']),['budget','plans','shopping','services']);
+ assert.equal(resolvedStartTab(['overview'],'chat'),'overview');
+ assert.equal(resolvedStartTab(undefined,'services'),'services');
+ assert.equal(resolvedStartTab(undefined,'unknown'),'overview');
+ const overview=readFileSync(new URL('../components/TerraOverview.tsx',import.meta.url),'utf8');
+ assert.match(overview,/hiddenMenuTabs\(settings.enabledTabs\)/);
+ assert.match(overview,/aria-label="Другие разделы"/);
+ assert.equal((overview.match(/\{hiddenSections\}/g)||[]).length,2);
 });

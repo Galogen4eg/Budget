@@ -30,6 +30,7 @@ import { budgetDailyLimit, sumMoney, daysUntilNextSalary, formatBudgetMoney, cen
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { calculateFamilyBudgetProjection } from '../utils/familyBudgetProjection';
 import { toast } from 'sonner';
+import { hiddenMenuTabs, MENU_TABS } from '../utils/menuNavigation';
 
 interface TerraOverviewProps {
   onOpenAddModal: () => void;
@@ -83,6 +84,13 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   
   const { user: firebaseUser, familyId } = useAuth();
   const personalOnly=householdPersonal||personalDisplayOnly;
+  const hiddenTabs=hiddenMenuTabs(settings.enabledTabs);
+  const hiddenSections=hiddenTabs.length>0?<section aria-label="Другие разделы" className={DASHBOARD_CARD+' space-y-2'} data-testid="overview-hidden-sections">
+    <h2 className="text-sm font-semibold text-[var(--terra-ink)]">Другие разделы</h2>
+    <div className="flex flex-wrap gap-2">
+      {MENU_TABS.filter(tab=>hiddenTabs.includes(tab.id)).map(tab=><button key={tab.id} type="button" onClick={()=>onNavigateTab(tab.id)} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' max-w-full'}>{tab.label}<ChevronRight size={14} aria-hidden="true"/></button>)}
+    </div>
+  </section>:null;
   const showShopping=settings.widgets?.find(w=>w.id==='shopping')?.isVisible!==false;
   const showWeekEvents=settings.widgets?.find(w=>w.id==='week_events')?.isVisible!==false;
 
@@ -728,6 +736,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
 
         {/* Mobile Dashboard Cards Stream */}
         <div className="px-3 pt-3 space-y-3 pb-2">
+          {hiddenSections}
           {/* 1. Hero Balance Card */}
           <section data-testid="overview-balance-mobile" className={`${DASHBOARD_CARD} terra-overview-balance-card space-y-2.5`}>
             <div className="flex items-start justify-between gap-2">
@@ -1058,6 +1067,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             onOpenAddModal={onOpenAddModal}
             onOpenAIChat={onOpenAIChat}
           />
+          {hiddenSections}
         {/* ALERT BANNER: Daily Limit Exceeded (Terra Warning) */}
         {isCurrentCalendarMonth&&!settings.privacyMode&&isOverDailyLimit && (
           <section 

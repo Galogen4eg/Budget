@@ -766,6 +766,18 @@ export const updateItem = async (familyId: string, collectionName: string, id: s
   await updateDoc(docRef, cleanUpdates);
 };
 
+/** Synchronize only the email field of the currently bound member; never rename or rebind. */
+export async function syncOwnMemberEmail(familyId:string,memberId:string,uid:string,email:string):Promise<void>{
+ if(!familyId||!memberId||!uid||!email||auth.currentUser?.uid!==uid||auth.currentUser.email!==email)throw new Error('Аккаунт изменился');
+ const ref=doc(db,'families',familyId,'members',memberId);
+ await runTransaction(db,async tx=>{
+   if(auth.currentUser?.uid!==uid||auth.currentUser.email!==email)throw new Error('Аккаунт изменился');
+   const snap=await tx.get(ref);
+   if(!snap.exists()||snap.data().userId!==uid)throw new Error('Привязка участника изменилась');
+   if(snap.data().email!==email)tx.update(ref,{email});
+ });
+}
+
 export const updateItemsBatch = async (familyId: string, collectionName: string, items: any[]) => {
     if (!familyId || items.length === 0) return;
     const chunkSize = 450;

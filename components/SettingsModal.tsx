@@ -1,5 +1,7 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {accountLoginFromEmail,normalizeAccountLogin} from '../utils/accountIdentity';
+import {TOOLBAR_ACTION,TOOLBAR_ACTION_PRIMARY,TOOLBAR_ACTION_IDLE} from './filterUiTokens';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -14,7 +16,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, FamilyMember, Category, LearnedRule, Transaction } from '../types';
 import { auth } from '../firebase';
-import { updatePassword, updateEmail, updateProfile, sendPasswordResetEmail, sendEmailVerification, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { updatePassword, updateEmail, sendPasswordResetEmail, sendEmailVerification, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,7 +27,7 @@ import BudgetSettingsSection from './BudgetSettingsSection';
 import { MENU_TABS, visibleMenuTabs, menuPreferencePatch, settingsSearchMatches } from '../utils/menuNavigation';
 import MembersSettingsSection from './MembersSettingsSection';
 import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
-import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus } from '../utils/db';
+import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus, syncOwnMemberEmail } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
@@ -100,12 +102,7 @@ const ToggleSwitch = ({ checked, onChange, id }: { checked: boolean; onChange: (
   </button>
 );
 
-const getInitialUsername = (email: string, displayName?: string | null): string => {
-  if (email.endsWith('@family.local')) {
-    return email.replace('@family.local', '');
-  }
-  return displayName || email;
-};
+
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   settings, onClose, onUpdate, savingsRate, setSavingsRate, 
@@ -247,7 +244,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
 
   const currentEmail = currentUser?.email || '';
-  const initialUsername = getInitialUsername(currentEmail, currentUser?.displayName);
+  const initialUsername=accountLoginFromEmail(currentEmail);
+  const ownMember=members.find(m=>Boolean(currentUser?.uid)&&m.userId===currentUser?.uid);
+  const profileName=ownMember?.name||currentUser?.displayName||initialUsername||'Пользователь';
+  const accountAvailable=Boolean(currentUser&&!isOfflineMode&&networkOnline);
+  const accountScope=currentUser?.uid+':'+(currentFamilyId||'');
+  const accountScopeRef=useRef(accountScope);accountScopeRef.current=accountScope;
+  const accountBusy=useRef(false);
+  const [emailSyncError,setEmailSyncError]=useState(false);
+  const [isSyncingEmail,setIsSyncingEmail]=useState(false);
 
   const [accountLogin, setAccountLogin] = useState(initialUsername);
   const [currentPasswordForLogin, setCurrentPasswordForLogin] = useState('');
@@ -443,63 +448,65 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     setAccountLogin(initialUsername);
   }, [initialUsername]);
+  useEffect(()=>{
+    setEmailSyncError(false);setCurrentPasswordForLogin('');setRequiresLoginPassword(false);
+    setCurrentPasswordForPass('');setNewPassword('');setConfirmPassword('');setRequiresPassConfirm(false);
+    setShowCurrentPass(false);setShowNewPass(false);setShowConfirmPass(false);
+  },[accountScope]);
+  useEffect(()=>{
+    if(activeSection!=='account'||showMobileMenu){
+      setCurrentPasswordForLogin('');setCurrentPasswordForPass('');setNewPassword('');setConfirmPassword('');
+      setShowCurrentPass(false);setShowNewPass(false);setShowConfirmPass(false);
+    }
+  },[activeSection,showMobileMenu]);
 
+  const syncProfileEmail=async(email:string)=>{
+    if(!currentFamilyId||!ownMember||!currentUser)return;
+    await syncOwnMemberEmail(currentFamilyId,ownMember.id,currentUser.uid,email);
+  };
+  const retryProfileEmail=async()=>{
+    if(!accountAvailable||accountBusy.current||!currentUser?.email||!currentFamilyId||!ownMember)return;
+    accountBusy.current=true;setIsSyncingEmail(true);
+    try{await syncProfileEmail(currentUser.email);setEmailSyncError(false);toast.success('Email семейного профиля обновлён');}
+    catch{setEmailSyncError(true);toast.error('Не удалось синхронизировать email профиля');}
+    finally{accountBusy.current=false;setIsSyncingEmail(false);}
+  };
   const handleUpdateAccountLogin = async () => {
-    if (!currentUser) {
-      toast.error('Вы находитесь в локальном демо-режиме');
-      return;
-    }
-    const cleanLogin = accountLogin.trim();
-    if (!cleanLogin) {
-      toast.error('Логин не может быть пустым');
-      return;
-    }
-
-    setIsUpdatingLogin(true);
-    try {
-      const formattedEmail = cleanLogin.includes('@') ? cleanLogin.toLowerCase() : `${cleanLogin.toLowerCase()}@family.local`;
-      if (currentUser.email !== formattedEmail) {
-        try {
-          if (currentPasswordForLogin && currentUser.email) {
-            const credential = EmailAuthProvider.credential(currentUser.email, currentPasswordForLogin);
-            await reauthenticateWithCredential(currentUser, credential);
-          }
-          await updateEmail(currentUser, formattedEmail);
-          setRequiresLoginPassword(false);
-          setCurrentPasswordForLogin('');
-        } catch (emailErr: any) {
-          if (emailErr?.code === 'auth/requires-recent-login') {
-            setRequiresLoginPassword(true);
-            toast.error('Для изменения e-mail/логина введите ваш текущий пароль');
-            setIsUpdatingLogin(false);
-            return;
-          } else if (emailErr?.code === 'auth/email-already-in-use') {
-            toast.error('Этот логин или e-mail уже занят другим пользователем');
-            setIsUpdatingLogin(false);
-            return;
-          } else if (emailErr?.code === 'auth/wrong-password' || emailErr?.code === 'auth/invalid-credential') {
-            toast.error('Неверный текущий пароль');
-            setIsUpdatingLogin(false);
-            return;
-          }
-          throw emailErr;
-        }
+    if(!currentUser||!accountAvailable||accountBusy.current)return;
+    const formattedEmail=normalizeAccountLogin(accountLogin);
+    if(!formattedEmail){toast.error('Введите корректный email или логин');return;}
+    if(currentUser.email===formattedEmail)return;
+    accountBusy.current=true;setIsUpdatingLogin(true);setEmailSyncError(false);
+    let authChanged=false;
+    try{
+      if(currentPasswordForLogin&&currentUser.email){
+        await reauthenticateWithCredential(currentUser,EmailAuthProvider.credential(currentUser.email,currentPasswordForLogin));
       }
-
-      await updateProfile(currentUser, { displayName: cleanLogin });
-      if (members.some(m => m.userId === currentUser.uid)) {
-        await onUpdateMembers(members.map(m => m.userId === currentUser.uid
-          ? { ...m, name: cleanLogin, email: formattedEmail } : m));
+      await updateEmail(currentUser,formattedEmail);
+      authChanged=true;
+      if(accountScopeRef.current!==accountScope||auth.currentUser?.uid!==currentUser.uid)return;
+      setAccountLogin(accountLoginFromEmail(formattedEmail));
+      setRequiresLoginPassword(false);setCurrentPasswordForLogin('');
+      await syncProfileEmail(formattedEmail);
+      toast.success('Логин обновлён');
+    }catch(err:any){
+      if(authChanged){
+        setEmailSyncError(true);
+        toast.error('Логин изменён, но email семейного профиля не синхронизирован. Повторите синхронизацию.');
+      }else if(err?.code==='auth/requires-recent-login'){
+        setRequiresLoginPassword(true);toast.error('Введите текущий пароль для изменения логина');
+      }else if(err?.code==='auth/email-already-in-use'){
+        toast.error('Этот логин или email уже занят');
+      }else if(err?.code==='auth/wrong-password'||err?.code==='auth/invalid-credential'){
+        toast.error('Неверный текущий пароль');
+      }else{
+        toast.error(err?.code==='auth/operation-not-allowed'?'Сервер не разрешил изменение email. Логин не изменён.':'Не удалось изменить логин');
       }
-      toast.success('Логин и профиль успешно обновлены!');
-    } catch (err: any) {
-      toast.error(err?.message || 'Не удалось обновить логин');
-    } finally {
-      setIsUpdatingLogin(false);
-    }
+    }finally{accountBusy.current=false;setIsUpdatingLogin(false);}
   };
 
   const handleUpdatePassword = async () => {
+    if(accountBusy.current||!accountAvailable)return;
     if (!currentUser) {
       toast.error('Вы находитесь в локальном демо-режиме');
       return;
@@ -513,7 +520,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       return;
     }
 
-    setIsUpdatingPassword(true);
+    accountBusy.current=true;setIsUpdatingPassword(true);
     try {
       if (currentPasswordForPass && currentUser.email) {
         const credential = EmailAuthProvider.credential(currentUser.email, currentPasswordForPass);
@@ -525,6 +532,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       setConfirmPassword('');
       setCurrentPasswordForPass('');
       setRequiresPassConfirm(false);
+      setShowCurrentPass(false);setShowNewPass(false);setShowConfirmPass(false);
     } catch (err: any) {
       if (err?.code === 'auth/requires-recent-login') {
         setRequiresPassConfirm(true);
@@ -535,11 +543,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         toast.error(err?.message || 'Не удалось обновить пароль');
       }
     } finally {
-      setIsUpdatingPassword(false);
+      accountBusy.current=false;setIsUpdatingPassword(false);
     }
   };
 
   const handleSendResetEmail = async () => {
+    if(!accountAvailable||isSendingResetEmail||currentUser?.email?.endsWith('@family.local'))return;
     if (!currentUser?.email) {
       toast.error('Учетная запись не привязана к e-mail');
       return;
@@ -715,9 +724,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* CARD 1: Учетная запись */}
             <section className="terra-settings-group">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-semibold flex items-center justify-center shrink-0" aria-hidden="true">{(currentUser?.displayName||initialUsername||'П')[0].toUpperCase()}</div>
+                <div className="w-12 h-12 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-semibold flex items-center justify-center shrink-0" aria-hidden="true">{profileName[0].toUpperCase()}</div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold text-[var(--terra-ink)] break-words">{currentUser?.displayName || initialUsername || 'Пользователь'}</h3>
+                  <h3 className="text-lg font-semibold text-[var(--terra-ink)] break-words">{profileName}</h3>
                   <p className="text-sm text-[var(--terra-muted)] [overflow-wrap:anywhere]">{currentUser?.email || 'Email не указан'}</p>
                   <p className="text-xs text-[var(--terra-muted)] mt-1">{isOfflineMode?'Демонстрационный режим':isHouseholdOwner?'Владелец семейного пространства':currentUser?'Учетная запись':'Нет активного аккаунта'}</p>
                 </div>
@@ -730,7 +739,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Login Input Block */}
               <div className="space-y-2">
                 <label htmlFor="settings-account-login" className="block text-sm font-semibold text-[var(--terra-ink)]">
-                  Логин / Имя пользователя
+                  Логин для входа
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
@@ -738,26 +747,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       <AtSign size={18} />
                     </span>
                     <input
-                      id="settings-account-login" autoComplete="username" type="text"
+                      id="settings-account-login" autoComplete="username" type="text" autoCapitalize="none" spellCheck={false} disabled={!accountAvailable||isUpdatingLogin}
                       value={accountLogin}
                       onChange={e => setAccountLogin(e.target.value)}
-                      placeholder="Имя пользователя"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500 transition-all duration-200"
+                      placeholder="Email или логин"
+                      className="min-h-[44px] w-full rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-control-border)] text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 pl-10 pr-4"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleUpdateAccountLogin}
-                    disabled={isUpdatingLogin || !accountLogin.trim() || accountLogin === initialUsername}
-                    className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                    disabled={!accountAvailable||isUpdatingLogin||isUpdatingPassword||isSyncingEmail||!normalizeAccountLogin(accountLogin)||normalizeAccountLogin(accountLogin)===currentEmail||(requiresLoginPassword&&!currentPasswordForLogin)}
+                    className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}
                   >
                     {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     <span>Сохранить логин</span>
                   </button>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 inline-block">
-                  Используется для упоминаний в задачах и общих планах покупок.
-                </span>
+                <p className="text-sm text-[var(--terra-muted)]">Логин используется для входа. Имя участника и его финансовые записи при смене логина сохраняются.</p>
+                {ownMember&&<button type="button" className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE} onClick={()=>selectSection('family')}>Изменить имя участника</button>}
+                {accountLogin.trim()&&!normalizeAccountLogin(accountLogin)&&<p role="status" className="text-sm text-[var(--terra-danger-text)]">Введите корректный email или логин без пробелов.</p>}
+                {!accountAvailable&&<p role="status" className="text-sm text-[var(--terra-muted)]">Для изменений аккаунта требуется подключение и вход.</p>}
+                {ownMember&&currentEmail&&(emailSyncError||Boolean(ownMember.email&&ownMember.email!==currentEmail))&&<div role="status" className="space-y-2 border-t border-[var(--terra-border)] pt-3">
+                  <p className="text-sm text-[var(--terra-offline-text)]">Email семейного профиля отличается от адреса входа.</p>
+                  <button type="button" disabled={!accountAvailable||isUpdatingLogin||isUpdatingPassword||isSyncingEmail} onClick={()=>void retryProfileEmail()} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}>{isSyncingEmail?'Синхронизация…':'Синхронизировать email профиля'}</button>
+                </div>
 
                 {requiresLoginPassword && (
                   <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1">
@@ -789,11 +803,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                   <div className="relative">
                     <input
-                      id="settings-password-current" autoComplete="current-password" type={showCurrentPass ? 'text' : 'password'}
+                      id="settings-password-current" disabled={!accountAvailable||isUpdatingPassword} autoComplete="current-password" type={showCurrentPass ? 'text' : 'password'}
                       value={currentPasswordForPass}
                       onChange={e => setCurrentPasswordForPass(e.target.value)}
                       placeholder="Текущий пароль"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="min-h-[44px] w-full rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-control-border)] text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 pl-3 pr-12"
                     />
                     <button
                       type="button"
@@ -811,11 +825,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                   <div className="relative">
                     <input
-                      id="settings-password-new" autoComplete="new-password" type={showNewPass ? 'text' : 'password'}
+                      id="settings-password-new" disabled={!accountAvailable||isUpdatingPassword} autoComplete="new-password" type={showNewPass ? 'text' : 'password'}
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="Минимум 6 символов"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="min-h-[44px] w-full rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-control-border)] text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 pl-3 pr-12"
                     />
                     <button
                       type="button"
@@ -833,11 +847,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                   <div className="relative">
                     <input
-                      id="settings-password-confirm" autoComplete="new-password" type={showConfirmPass ? 'text' : 'password'}
+                      id="settings-password-confirm" disabled={!accountAvailable||isUpdatingPassword} autoComplete="new-password" type={showConfirmPass ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Повторите ввод"
-                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500"
+                      className="min-h-[44px] w-full rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-control-border)] text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 pl-3 pr-12"
                     />
                     <button
                       type="button"
@@ -858,8 +872,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={handleUpdatePassword}
-                  disabled={isUpdatingPassword || newPassword.length < 6 || newPassword !== confirmPassword || (requiresPassConfirm&&!currentPasswordForPass)}
-                  className="px-6 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+                  disabled={!accountAvailable||isUpdatingLogin||isUpdatingPassword||isSyncingEmail||newPassword.length<6||newPassword!==confirmPassword||(requiresPassConfirm&&!currentPasswordForPass)}
+                  className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY}
                 >
                   {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
                   <span>Обновить пароль</span>
@@ -871,7 +885,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSendResetEmail}
-                    disabled={isSendingResetEmail}
+                    disabled={!accountAvailable||isSendingResetEmail}
                     className="min-h-[44px] text-sm text-[var(--terra-primary-text)] flex items-center gap-1.5 transition-colors cursor-pointer text-left break-words"
                   >
                     <Mail size={14} />

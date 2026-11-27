@@ -684,7 +684,45 @@ await scenario('SVC-debt linked obligation create, edit, unlink and conflict rej
  await b.getByRole('heading',{name:'Удалить долг?'}).waitFor({state:'visible'});
  await btn(b,'Удалить').click();await currentDoc(saved.ref,x=>!x.exists,'linked debt delete after unlink');
 });
-console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:10,passed:10-failures.length}));
+await scenario('ACCOUNT actual login and password changes preserve family identity',async()=>{
+ phase='capture unchanged records';
+ const beforeA=(await family.collection('members').doc('a').get()).data();
+ const beforeB=(await family.collection('members').doc('b').get()).data();
+ const beforeLedger=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+ await nav(b,'overview','Обзор');
+ await btn(b,'Настройки').click();
+ const settings=b.getByRole('dialog',{name:'Настройки',exact:true});
+ await btn(settings.getByRole('navigation',{name:'Разделы настроек'}),/^Профиль и безопасность/,false).click();
+ const login=settings.locator('#settings-account-login');
+ assert.equal(await login.inputValue(),users[1].email);
+ await login.fill('QA B');
+ assert.equal(await btn(settings,'Сохранить логин').isDisabled(),true);
+ const newEmail='changed-'+id+'@example.test';
+ await login.fill(newEmail);
+ phase='change login on Auth emulator';await btn(settings,'Сохранить логин').click();
+ await currentDoc(family.collection('members').doc('b'),snap=>snap.data()?.email===newEmail,'own member email confirmed');
+ assert.equal((await auth.getUser(users[1].uid)).email,newEmail);
+ assert.deepEqual((await family.collection('members').doc('b').get()).data(),{...beforeB,email:newEmail});
+ assert.deepEqual((await family.collection('members').doc('a').get()).data(),beforeA);
+ assert.equal((await auth.getUser(users[1].uid)).displayName,users[1].displayName);
+ phase='validate password mismatch';
+ const nextPassword='emulator-new-password-'+id;
+ const current=settings.locator('#settings-password-current'),newPass=settings.locator('#settings-password-new'),confirm=settings.locator('#settings-password-confirm');
+ await current.fill(password);await newPass.fill(nextPassword);await confirm.fill('mismatch');
+ assert.equal(await btn(settings,'Обновить пароль').isDisabled(),true);
+ await confirm.fill(nextPassword);
+ phase='save password on Auth emulator';await btn(settings,'Обновить пароль').click();
+ await b.waitForFunction(()=>document.querySelector('#settings-password-new')?.value==='',null,{timeout:20000});
+ const signIn=async(email,pass)=>fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,returnSecureToken:true})});
+ const verified=await signIn(newEmail,nextPassword);assert.equal(verified.ok,true,'new login and password rejected');
+ assert.equal((await verified.json()).localId,users[1].uid);
+ assert.equal((await signIn(newEmail,password)).ok,false,'old password still accepted');
+ assert.equal((await signIn(users[0].email,password)).ok,true,'other account affected');
+ assert.equal((await db.collection('users').doc(users[1].uid).get()).data().familyId,fid);
+ assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),beforeLedger);
+ await btn(settings,'Закрыть настройки').click();
+});
+console.log('FULL APPLICATION SUMMARY '+JSON.stringify({failures,scenarios:11,passed:11-failures.length}));
 if(failures.length)process.exitCode=1;
 }
 

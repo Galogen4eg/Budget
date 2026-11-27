@@ -548,7 +548,7 @@ const DebtSnowball: React.FC<Props> = ({
           <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-1 sm:mb-2">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Ближайший платёж</span>
+                <span className="text-[11px] sm:text-xs font-semibold leading-tight break-words">Ближайший платёж</span>
                 <span className="p-1 sm:p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 shrink-0">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#4a7c59] dark:text-emerald-400" />
                 </span>
@@ -556,7 +556,7 @@ const DebtSnowball: React.FC<Props> = ({
               <div className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
                 {nextUpcomingDebt?formatCurrencyWithKopecks(nextUpcomingDebt.monthlyPayment||0):'—'}
               </div>
-              <div className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 font-medium mt-1 truncate">
+              <div className="text-xs text-[var(--terra-muted)] font-medium mt-1 break-words">
                 {nextUpcomingDebt?nextUpcomingDebt.name+' · '+formatDate(nextUpcomingDebt.dueDate):'Нет неоплаченных платежей с датой'}
               </div>
               {daysToNextPayment !== null && daysToNextPayment >= 0 && (
@@ -572,7 +572,7 @@ const DebtSnowball: React.FC<Props> = ({
           <div className="bg-white dark:bg-[var(--terra-surface)] rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 border border-stone-200/90 dark:border-white/10 shadow-card flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-stone-500 dark:text-stone-400 mb-1 sm:mb-2">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Нагрузка в месяц</span>
+                <span className="text-[11px] sm:text-xs font-semibold leading-tight break-words">Нагрузка в месяц</span>
                 <span className="p-1 sm:p-1.5 rounded-lg bg-[var(--terra-primary-soft)] dark:bg-[var(--terra-primary-soft)] text-[#4a7c59] dark:text-emerald-400 shrink-0">
                   <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </span>

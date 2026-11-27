@@ -771,7 +771,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {ownMember&&currentEmail&&(emailSyncError||Boolean(ownMember.email&&ownMember.email!==currentEmail))&&<div role="status" className="space-y-2 border-t border-[var(--terra-border)] pt-3">
                   <p className="text-sm text-[var(--terra-offline-text)]">Email семейного профиля отличается от адреса входа.</p>
                   <button type="button" disabled={!accountAvailable||isUpdatingLogin||isUpdatingPassword||isSyncingEmail} onClick={()=>void retryProfileEmail()} className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE}>{isSyncingEmail?'Синхронизация…':'Синхронизировать email профиля'}</button>
-                </div>
+                </div>}
 
                 {requiresLoginPassword && (
                   <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1">

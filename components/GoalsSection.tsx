@@ -78,15 +78,15 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                                         background: `linear-gradient(135deg, ${goal.color}, ${goal.color}dd)` 
                                     }}
                                 >
-                                    {isCompleted ? <CheckCircle2 size={20} /> : getIconById(goal.icon, 20)}
+                                    {isCompleted&&!settings.privacyMode ? <CheckCircle2 size={20} /> : getIconById(goal.icon, 20)}
                                 </div>
                                 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
                                         <h4 className="font-bold text-xs text-[#1C1C1E] dark:text-white truncate pr-2 leading-tight">{goal.title}</h4>
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md tabular-nums ${isCompleted ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-white dark:bg-black/20 text-gray-400 shadow-sm'}`}>
-                                            {percent}%
+                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md tabular-nums ${isCompleted&&!settings.privacyMode ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-white dark:bg-black/20 text-gray-400 shadow-sm'}`}>
+                                            {settings.privacyMode?'•••':percent+'%'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-baseline">
@@ -102,7 +102,7 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                             </div>
 
                             {/* Progress Bar */}
-                            <div className="h-2.5 w-full bg-white dark:bg-black/20 rounded-full overflow-hidden shadow-inner ring-1 ring-black/5 dark:ring-white/5">
+                            {!settings.privacyMode&&<div className="h-2.5 w-full bg-white dark:bg-black/20 rounded-full overflow-hidden shadow-inner ring-1 ring-black/5 dark:ring-white/5">
                                 <motion.div 
                                     initial={{ width: 0 }}
                                     animate={{ width: `${percent}%` }}
@@ -112,7 +112,7 @@ const GoalsSection: React.FC<GoalsSectionProps> = ({ goals, settings, onEditGoal
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
                                 </motion.div>
-                            </div>
+                            </div>}
                             
                             {/* Remaining Hint (Visible on Hover/Touch) */}
                             {!isCompleted && !settings.privacyMode && (

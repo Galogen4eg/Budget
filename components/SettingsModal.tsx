@@ -29,6 +29,7 @@ import MembersSettingsSection from './MembersSettingsSection';
 import type { BudgetOwnershipIssue, BudgetLinkIssue, SavingsLinkIssue } from '../utils/db';
 import { confirmExternalSavingsTransfer, restoreMissingSavingsLink, alignLinkedTransactionOwner, subscribeToHouseholdBudgetPolicy, assignLegacyFinancialOwner, previewHouseholdBudgetPolicy, saveHouseholdBudgetPolicy, subscribeToFamilySyncStatus, syncOwnMemberEmail } from '../utils/db';
 import AIKnowledgeTab from './AIKnowledgeTab';
+import GrokSettingsSection from './GrokSettingsSection';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
 import { testTelegramBotConnection, sendTelegramMessage, cleanTelegramBotToken, cleanTelegramChatId } from '../utils/telegram';
@@ -85,7 +86,7 @@ const SECTIONS: SectionConfig[] = [
   { id:'budget', label:'Параметры бюджета', subtitle:'Остатки, зарплата, накопления, резерв', keywords:'деньги баланс лимит финансовые личные семейные', group:'family', icon:<Calculator size={18}/> },
   { id:'categories', label:'Категории и правила', subtitle:'Категории расходов, авто-правила', keywords:'траты доходы классификация', group:'family', icon:<Tag size={18}/> },
   { id:'data', label:'История операций', subtitle:'Дубли, экспорт, удаление', keywords:'архив очистка аудит транзакции резервная копия выписка', group:'tools', icon:<FolderOpen size={18}/> },
-  { id:'integrations', label:'Интеграции', subtitle:'Telegram и Gemini', keywords:'бот чат id ии api ассистент', group:'tools', icon:<Send size={18}/> },
+  { id:'integrations', label:'Интеграции', subtitle:'Telegram, Grok и Gemini', keywords:'бот чат id ии api ассистент grok xai ключ', group:'tools', icon:<Send size={18}/> },
   { id:'diagnostics', label:'Диагностика и установка', subtitle:'Синхронизация, сеть, PWA', keywords:'сервер данные офлайн android ios safari установка', group:'tools', icon:<Database size={18}/> },
 ];
 
@@ -1305,6 +1306,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
               </div>
             </section>
+
+            <GrokSettingsSection key={currentUser?.uid||'offline'}/>
 
             {/* Gemini API Key */}
             <section className="terra-settings-group">

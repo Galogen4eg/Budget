@@ -220,6 +220,39 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.equal(await budgetAll.evaluate(el=>document.activeElement===el),true,label+' budget categories focus return');
     await button(page.locator('nav'),'Обзор').click();
     console.log('PASS TERRA BUDGET PILOT '+label+' summary, all shortcuts, month history 20/40, full categories, focus');
+    await button(page.locator('nav'),'Планы').click();
+    const plans=page.locator('[data-tab-panel="plans"]');
+    const scroll=plans.getByTestId('plans-scroll-container');
+    const views=plans.getByRole('group',{name:'Вид календаря'});
+    await views.waitFor({state:'visible'});
+    await noOverflow(scroll,label+' plans');
+    const participants=plans.getByRole('group',{name:mobile?'Фильтр участников планов':'Участник планов'});
+    await noOverflow(participants,label+' participants');
+    for(const choice of await participants.getByRole('button').all())await targetSize(choice,label+' participant');
+    await scroll.evaluate(el=>{el.scrollTop=0;});
+    await capture(page,'plans-month-'+label);
+    const selectedDay=plans.getByTestId('plans-selected-day');
+    if(mobile){
+     const jump=button(plans,/^События дня \(/,false);
+     await targetSize(jump,label+' selected day shortcut');await jump.click();
+     assert.equal(await selectedDay.evaluate(el=>document.activeElement===el),true,label+' selected day focus');
+     assert.ok(await scroll.evaluate(el=>el.scrollTop>0),label+' selected day did not scroll');
+    }else await selectedDay.scrollIntoViewIfNeeded();
+    assert.ok(!(await selectedDay.innerText()).includes('(+2 дн.)')&&!(await selectedDay.innerText()).includes('(+4 дн.)'),label+' fixture duration leaked as multiple days');
+    await capture(page,'plans-selected-day-'+label);
+    for(const mode of ['Неделя','День','Расписание']){
+     const choice=button(views,mode);await targetSize(choice,label+' '+mode);await choice.click();
+     assert.equal(await choice.getAttribute('aria-pressed'),'true');
+     await views.scrollIntoViewIfNeeded();await noOverflow(scroll,label+' '+mode);await capture(page,'plans-'+({Неделя:'week',День:'day',Расписание:'list'}[mode])+'-'+label);
+    }
+    await button(views,'Месяц').click();
+    const add=button(plans,'Добавить событие');await add.click();
+    const editor=page.getByRole('dialog',{name:'Новый план'});
+    await editor.waitFor({state:'visible'});
+    await noOverflow(editor,label+' event editor');await capture(page,'plans-editor-'+label);
+    await button(editor,'Закрыть редактор события').click();await editor.waitFor({state:'hidden'});
+    console.log('PASS TERRA PLANS PILOT '+label+' selected day scroll, period views, event editor');
+    await button(page.locator('nav'),'Обзор').click();
    }
   }
   assert.equal(await ledger(),before,'UI pilot changed transaction records');

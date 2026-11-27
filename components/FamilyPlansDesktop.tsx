@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FamilyEvent, AppSettings, FamilyMember, ChecklistItem } from '../types';
 import { findEventConflicts } from '../utils/eventConflicts';
-import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember } from '../utils/calendarDates';
+import { parseLocalCalendarDate, calendarEndTime, filterEventsForCalendarMonth, matchesCalendarMember, calendarViewPeriod } from '../utils/calendarDates';
 import { shiftCalendarMonth, selectedDayInMonth } from '../utils/calendarMonthNavigation';
 import { ConflictResolverModal } from './ConflictResolverModal';
 import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE_CARD } from './filterUiTokens';
@@ -59,20 +59,13 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
   const [isConflictResolverOpen, setIsConflictResolverOpen] = useState(false);
   const [selectedConflictPair, setSelectedConflictPair] = useState<{ eventA: FamilyEvent; eventB: FamilyEvent } | null>(null);
 
+  const visiblePeriod=useMemo(()=>calendarViewPeriod(currentDate,selectedDate,viewMode),[currentDate,selectedDate,viewMode]);
+  const periodEvents=useMemo(()=>events.filter(e=>e.date>=visiblePeriod.from&&e.date<=visiblePeriod.to),[events,visiblePeriod]);
   const { conflictingEventIds, conflictPairs } = useMemo(() => {
-    return findEventConflicts(events);
-  }, [events]);
+    return findEventConflicts(events,visiblePeriod);
+  }, [events,visiblePeriod]);
 
-  const hasCurrentMonthConflicts = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-
-    return events.some(evt => {
-      if (!evt.date || !conflictingEventIds.has(evt.id)) return false;
-      const [y, m] = evt.date.split('-').map(Number);
-      return y === year && (m - 1) === month;
-    });
-  }, [events, currentDate, conflictingEventIds]);
+  const hasPeriodConflicts=conflictPairs.length>0;
 
   const monthName = currentDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
   const daysInCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -333,10 +326,10 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             <button type="button" aria-pressed={filterMemberId === 'all'}
               onClick={() => setFilterMemberId('all')}
               className={`${FILTER_CHIP} ${filterMemberId === 'all' ? FILTER_CHIP_ACTIVE : FILTER_CHIP_IDLE}`}>
-              Все ({events.length})
+              Все ({periodEvents.length})
             </button>
             {members.map(m => {
-              const count = events.filter(e => e.memberIds && e.memberIds.includes(m.id)).length;
+              const count = periodEvents.filter(e => matchesCalendarMember(e,m.id,memberIds)).length;
               const isSelected = filterMemberId === m.id;
               return (
                 <button key={m.id} type="button" aria-pressed={isSelected}
@@ -352,7 +345,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             {members.length>1 && <button type="button" aria-pressed={filterMemberId==='common'}
               onClick={()=>setFilterMemberId('common')}
               className={`${FILTER_CHIP} ${filterMemberId==='common'?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE}`}>
-              Общие ({events.filter(event=>matchesCalendarMember(event,'common',memberIds)).length})
+              Общие ({periodEvents.filter(event=>matchesCalendarMember(event,'common',memberIds)).length})
             </button>}
 
           </div>
@@ -449,7 +442,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
               </div>
 
               {/* Сетка дней (7 колонок, гибкие карточки с мягким скруглением) */}
-              <div className="grid grid-cols-7 gap-2 min-w-0">
+              <div data-testid="plans-month-grid" className="grid grid-cols-7 gap-2 min-w-0">
                 {calendarData.map((d, i) => {
                   const dateObj = new Date(d.year, d.month, d.day);
                   const dateStr = getLocalDateString(dateObj);
@@ -476,7 +469,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                         e.preventDefault();
                         setSelectedDate(new Date(d.year, d.month, d.day));
                       }}
-                      className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary p-2.5 rounded-2xl transition-colors cursor-pointer relative flex flex-col justify-between min-h-[96px] ${
+                      className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary p-2.5 rounded-2xl transition-colors cursor-pointer relative flex flex-col justify-between min-h-[84px] ${
                         d.current 
                           ? isToday
                             ? 'border-2 border-[var(--terra-primary)] ring-2 ring-[#2D5A46]/20 bg-white dark:bg-[var(--terra-surface)] z-10'
@@ -790,7 +783,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
       </main>
 
       {/* Правая колонка: Выбранный день */}
-      <aside className="min-w-0 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl flex flex-col p-4 space-y-3">
+      <aside data-testid="plans-selected-day" aria-label="События выбранного дня" className="min-w-0 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl flex flex-col p-4 space-y-3">
         
         {/* Шапка инспектора */}
         <div className="space-y-3 shrink-0">
@@ -806,7 +799,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           <div className="flex items-end justify-between">
             <div>
               <h2 className="text-2xl font-semibold font-headline text-stone-900 dark:text-white">
-                {selectedDate.getDate()} {selectedDate.toLocaleDateString('ru-RU', { month: 'long' })}
+                {selectedDate.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}
               </h2>
             </div>
             <span className="text-xs font-bold px-3 py-1 rounded-full bg-[var(--terra-soft)] dark:bg-white/10 text-stone-700 dark:text-stone-300">
@@ -822,7 +815,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
           </span>
 
           {/* Сообщение в инспекторе о пересечениях в текущем месяце */}
-          {hasCurrentMonthConflicts && (
+          {hasPeriodConflicts && (
             <button
               type="button"
               onClick={() => {
@@ -835,7 +828,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>В текущем месяце есть пересечения событий по времени</span>
+                <span>Пересечения в выбранном периоде: {conflictPairs.length}</span>
               </div>
               <ChevronRight size={16} className="shrink-0 text-amber-600" />
             </button>
@@ -856,7 +849,7 @@ export const FamilyPlansDesktop: React.FC<FamilyPlansDesktopProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
-                          {evt.time || 'Весь день'} {evt.duration ? `– ${calendarEndTime(evt.time,evt.duration)}` : ''}
+                          {evt.time || 'Весь день'} {evt.time && evt.duration ? `– ${calendarEndTime(evt.time,evt.duration)}` : ''}
                         </span>
                         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${badgeStyle.badgeBg} ${badgeStyle.badgeText}`}>
                           {badgeStyle.memberName}

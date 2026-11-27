@@ -62,3 +62,17 @@ export function matchesCalendarMember(event: Pick<FamilyEvent,'memberIds'>, filt
   if(filter==='common')return assigned.length===0 || (memberIds.length>0 && memberIds.every(id=>assigned.includes(id)));
   return assigned.includes(filter);
 }
+
+/** Inclusive local dates for the visible calendar mode, independent of the recurrence buffer. */
+export function calendarViewPeriod(currentDate:Date,selectedDate:Date,view:'month'|'week'|'day'|'list'):{from:string;to:string}{
+ const first=new Date(selectedDate.getFullYear(),selectedDate.getMonth(),selectedDate.getDate());
+ let last=new Date(first);
+ if(view==='month'||view==='list'){
+  first.setFullYear(currentDate.getFullYear(),currentDate.getMonth(),1);
+  last=new Date(first.getFullYear(),first.getMonth()+1,0);
+ }else if(view==='week'){
+  first.setDate(first.getDate()-(first.getDay()+6)%7);
+  last=new Date(first);last.setDate(last.getDate()+6);
+ }
+ return {from:formatLocalCalendarDate(first),to:formatLocalCalendarDate(last)};
+}

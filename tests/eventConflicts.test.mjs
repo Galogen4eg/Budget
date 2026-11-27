@@ -25,3 +25,12 @@ test('adjacent events meeting at the same minute do not overlap',()=>{
  const x=findEventConflicts([event('a','2026-11-21','09:00',1),event('b','2026-11-21','10:00',1)]);
  assert.equal(x.conflictPairs.length,0);
 });
+
+
+test('range warning includes overnight overlap inside period but not unrelated adjacent-month conflicts',()=>{
+ const events=[event('old-a','2026-10-10','10:00',2),event('old-b','2026-10-10','11:00',1),event('late','2026-10-31','23:30',2),event('early','2026-11-01','00:30',1),event('next-a','2026-12-01','10:00',2),event('next-b','2026-12-01','11:00',1)];
+ const result=findEventConflicts(events,{from:'2026-11-01',to:'2026-11-30'});
+ assert.deepEqual([...result.conflictingEventIds].sort(),['early','late']);
+ assert.equal(result.conflictPairs.length,1);
+ assert.equal(findEventConflicts(events).conflictPairs.length,3);
+});

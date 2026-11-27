@@ -330,7 +330,7 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
       current: true
     }));
     
-    const totalSlots = 42;
+    const totalSlots = Math.ceil((prevDays.length + currentDays.length)/7)*7;
     const nextDaysCount = totalSlots - prevDays.length - currentDays.length;
     const nextDays = Array.from({ length: nextDaysCount }, (_, i) => ({
       day: i + 1,

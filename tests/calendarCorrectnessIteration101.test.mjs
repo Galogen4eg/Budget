@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {filterEventsForCalendarMonth,matchesCalendarMember} from '../utils/calendarDates.ts';
+import {filterEventsForCalendarMonth,matchesCalendarMember,calendarViewPeriod} from '../utils/calendarDates.ts';
 import {selectedDayInMonth} from '../utils/calendarMonthNavigation.ts';
 test('selected day follows target month and clamps across February and year boundaries',()=>{
  assert.deepEqual(selectedDayInMonth(new Date(2027,0,31),new Date(2027,1,1)),new Date(2027,1,28));
@@ -34,4 +34,14 @@ test('both calendar layouts use shared schedule and member semantics',()=>{
  const desktop=readFileSync(new URL('../components/FamilyPlansDesktop.tsx',import.meta.url),'utf8');
  assert.match(desktop,/filteredDayEvents.map/);
  assert.doesNotMatch(desktop,/isEventDimmed/);
+});
+
+
+test('calendar view counts use the selected period rather than the three-month occurrence buffer',()=>{
+ const month=new Date(2026,10,1),day=new Date(2026,10,1);
+ assert.deepEqual(calendarViewPeriod(month,day,'month'),{from:'2026-11-01',to:'2026-11-30'});
+ assert.deepEqual(calendarViewPeriod(month,day,'list'),{from:'2026-11-01',to:'2026-11-30'});
+ assert.deepEqual(calendarViewPeriod(month,day,'week'),{from:'2026-10-26',to:'2026-11-01'});
+ assert.deepEqual(calendarViewPeriod(month,day,'day'),{from:'2026-11-01',to:'2026-11-01'});
+ assert.deepEqual(calendarViewPeriod(new Date(2028,1,1),day,'month'),{from:'2028-02-01',to:'2028-02-29'});
 });

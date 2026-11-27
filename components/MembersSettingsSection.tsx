@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { useModalSurface } from '../hooks/useDialogFocus';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import { 
   Users, UserPlus, Mail, Check, X, 
   Trash2, Copy, AlertCircle, ChevronRight, Link as LinkIcon, 
@@ -103,6 +106,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteColor, setInviteColor] = useState(MEMBER_PRESET_COLORS[0]);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const closeInvite=()=>{if(!isSendingInvite)setIsInviteModalOpen(false);};
+  const inviteSurface=useModalSurface(closeInvite,{enabled:isInviteModalOpen,initialSelector:"#invite-member-name"});
+  useModalBackHandler(isInviteModalOpen,closeInvite);
 
   // States for selected editing member
   const [editName, setName] = useState('');
@@ -280,33 +286,32 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
   };
 
   return (
-    <div className="w-full max-w-full space-y-8 animate-fade-in">
+    <div className="terra-members-workspace w-full max-w-full min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Участники семьи</h3><button type="button" disabled={householdPersonal||!isHouseholdOwner} onClick={()=>setIsInviteModalOpen(true)} className="min-h-[44px] px-4 py-2 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold flex items-center gap-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"><UserPlus size={18}/> Пригласить участника</button></div>
       
       {/* ──────────────────────────────────────────────────────────── */}
       {/* DESKTOP PC LAYOUT (lg and up) */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:grid grid-cols-12 gap-8 items-start">
+      <div className="terra-members-wide items-start">
         
         {/* Left Column: Member List & current session mappings (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="min-w-0 space-y-3">
           
           {/* Top session box */}
-          <div className="bg-white dark:bg-[#202225] border border-[var(--terra-border)] rounded-2xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 pb-3">
+          <div className="terra-settings-group">
+            <div className="space-y-1">
               <span className="text-xs font-bold tracking-wide uppercase text-gray-500 dark:text-gray-400">
-                Текущая активная сессия
+                Ваш профиль в семье
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-xs font-mono text-gray-700 dark:text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="block text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">
                 {currentUserEmail}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+            <div className="space-y-3">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Статус сопоставления сессии</p>
                 <div className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
-                  Вы сопоставлены с профилем: {' '}
+                  Профиль: {' '}
                   <span className="font-bold text-[#4A7C59] dark:text-emerald-400">
                     {mappedMember ? mappedMember.name : 'Гостевой режим'}
                   </span>
@@ -319,7 +324,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               {/* Profile Selector */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400" htmlFor="session-profile-link-desktop">
-                  Связать сессию с:
+                  Профиль для новых операций
                 </label>
                 <div className="relative">
                   <select 
@@ -351,7 +356,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                   {members.length}
                 </span>
               </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500">Нажмите на карточку для изменения</span>
+              
             </div>
 
             {/* List map */}
@@ -362,15 +367,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
 
                 return (
-                  <motion.div
+                  <button type="button" aria-pressed={isSelected} aria-label={`Редактировать участника: ${m.name}`}
                     key={m.id}
                     onClick={() => {
                       triggerHaptic();
                       setEditingMemberId(m.id);
                     }}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    className={`rounded-2xl p-5 shadow-3xs cursor-pointer transition-all duration-200 flex items-center justify-between border ${
+                    className={`terra-member-row w-full text-left min-h-[56px] p-3 cursor-pointer transition-colors motion-reduce:transition-none flex items-center justify-between border ${
                       isSelected 
                         ? 'bg-white dark:bg-[#1E2023] border-2 border-[#4A7C59] dark:border-emerald-500 shadow-xs' 
                         : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10'
@@ -396,13 +399,10 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                           )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3 flex-wrap">
-                          <span>{m.email || 'Локальный профиль'}</span>
+                          <span className="[overflow-wrap:anywhere]">{m.email || 'Локальный профиль'}</span>
                           <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
                           <span>Операций: {stats.transactionCount}</span>
-                          <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-white/10"></span>
-                          <span className="font-semibold text-gray-700 dark:text-gray-300">
-                            Расход: {formatCurrencyRub(stats.totalExpense)}
-                          </span>
+                          
                         </div>
                       </div>
                     </div>
@@ -414,7 +414,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       />
                       <ChevronRight size={16} className={`transition-transform duration-200 ${isSelected ? 'text-[#4A7C59] translate-x-1' : 'text-gray-400'}`} />
                     </div>
-                  </motion.div>
+                  </button>
                 );
               })}
             </div>
@@ -422,16 +422,16 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
         </div>
 
         {/* Right Column: Unified Shared Editor Drawer on PC (lg:col-span-5) */}
-        <div className="lg:col-span-5">
+        <div className="min-w-0">
           <AnimatePresence mode="wait">
             {selectedMember ? (
               <motion.div
                 key={editingMemberId}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="bg-white dark:bg-[#202225] border-2 border-[#4A7C59] dark:border-emerald-600/50 rounded-2xl p-6 shadow-sm space-y-5"
+                className="terra-settings-group"
               >
                 <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/5">
                   <div className="flex items-center gap-2">
@@ -583,23 +583,10 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       {/* ──────────────────────────────────────────────────────────── */}
       {/* MOBILE INTERACTIVE LAYOUT (< lg) - MATCHES DESIGN FILE PERFECTLY */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="block lg:hidden space-y-5">
+      <div className="terra-members-compact space-y-3">
         
-        {/* On mobile Header Area */}
-        <section className="flex flex-col gap-3">
-          <button 
-            type="button"
-            disabled={householdPersonal||!isHouseholdOwner}
-             onClick={() => setIsInviteModalOpen(true)}
-            className="w-full min-h-[48px] px-4 py-3 bg-[#4A7C59] hover:bg-[#3d6749] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
-          >
-            <UserPlus size={18} />
-            <span>+ Пригласить участника</span>
-          </button>
-        </section>
-
         {/* Card: Ваш профиль в семье */}
-        <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none flex flex-col gap-3.5 border border-gray-100 dark:border-white/5">
+        <section className="terra-settings-group">
           <div className="flex items-center gap-3">
             <div 
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0"
@@ -654,7 +641,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 {members.length}
               </span>
             </div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">Нажмите карточку для изменения</span>
+            
           </div>
 
           <div className="space-y-3">
@@ -664,13 +651,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
               const initials = m.name ? m.name.charAt(0).toUpperCase() : 'У';
 
               return (
-                <div
+                <button type="button" aria-pressed={isSelected} aria-label={`Редактировать участника: ${m.name}`}
                   key={m.id}
                   onClick={() => {
                     triggerHaptic();
                     setEditingMemberId(m.id);
                   }}
-                  className={`rounded-2xl p-4 shadow-3xs cursor-pointer transition-all border ${
+                  className={`terra-member-row w-full text-left min-h-[56px] p-3 cursor-pointer transition-colors motion-reduce:transition-none border ${
                     isSelected 
                       ? 'bg-[#4A7C59]/5 dark:bg-emerald-950/20 border-2 border-[#4A7C59] dark:border-emerald-500' 
                       : 'bg-white dark:bg-[#202225] border-gray-100 dark:border-white/5 active:scale-[0.99]'
@@ -696,22 +683,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                           )}
                         </div>
                         <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                          {m.email || 'Локальный профиль'} • Трат: {stats.transactionCount} • {formatCurrencyRub(stats.totalExpense)}
+                          {m.email || 'Локальный профиль'} · Операций: {stats.transactionCount}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 pt-2.5 text-xs font-semibold">
-                    <span 
-                      className="w-2.5 h-2.5 rounded-full inline-block"
-                      style={{ backgroundColor: m.color || '#4A7C59' }}
-                    />
-                    <span className={isSelected ? 'text-[#4A7C59] dark:text-emerald-400 font-bold' : 'text-gray-400'}>
-                      {isSelected ? 'Редактирование' : 'Нажмите для изменения'}
-                    </span>
-                  </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -719,9 +697,9 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
         {/* Card: Панель параметров участника (Mobile version of the drawer) */}
         {selectedMember && (
-          <section className="bg-white dark:bg-[#202225] rounded-2xl p-4 shadow-[0_2px_12px_rgba(46,50,48,0.04)] dark:shadow-none border border-gray-100 dark:border-white/5 flex flex-col gap-4">
+          <section className="terra-settings-group">
             <div className="flex flex-col">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Панель параметров участника</h3>
+              <h3 className="text-base font-semibold text-[var(--terra-ink)]">Редактирование участника</h3>
               <span className="text-xs text-gray-400 dark:text-gray-500 font-semibold">
                 Редактируется: {selectedMember.name}
               </span>
@@ -840,14 +818,15 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
       {/* ──────────────────────────────────────────────────────────── */}
       {/* MODULAR INVITE MEMBER DIALOG */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
+      {createPortal(<AnimatePresence>
         {isInviteModalOpen && (
           <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] bg-white dark:bg-[#1E2023] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border-0 sm:border border-gray-200 dark:border-white/10 space-y-4 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+              {...inviteSurface} role="dialog" aria-modal="true" aria-label="Приглашение участника" aria-busy={isSendingInvite}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="terra-invite-dialog w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] bg-[var(--terra-surface)] rounded-none sm:rounded-2xl p-4 sm:p-5 shadow-2xl border-0 sm:border border-gray-200 dark:border-white/10 space-y-4 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/5">
                 <div className="flex items-center gap-2.5">
@@ -855,13 +834,13 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                     <UserPlus size={18} />
                   </div>
                   <h3 className="text-base font-bold text-gray-900 dark:text-white font-headline">
-                    Добавление в команду семьи
+                    Приглашение участника
                   </h3>
                 </div>
                 <button 
                   type="button" 
-                  onClick={() => setIsInviteModalOpen(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors cursor-pointer"
+                  onClick={closeInvite} disabled={isSendingInvite} aria-label="Закрыть приглашение"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                 >
                   <X size={18} />
                 </button>
@@ -869,26 +848,26 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
 
               <form onSubmit={handleCreateNewMember} className="space-y-4 pt-1">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                  <label htmlFor="invite-member-name" className="block text-sm font-medium">
                     Имя участника <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
+                    id="invite-member-name" type="text"
                     required
                     value={inviteName}
                     onChange={(e) => setInviteName(e.target.value)}
                     placeholder="Например: Мария"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-[#18191C] border border-gray-200 dark:border-white/10 text-xs sm:text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
-                    autoFocus
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                    E-mail для синхронизации (необязательно)
+                  <label htmlFor="invite-member-email" className="block text-sm font-medium">
+                    Email для приглашения (необязательно)
                   </label>
+                  <p className="text-xs text-[var(--terra-muted)]">Приглашение появится при входе с этим email. Письмо не отправляется.</p>
                   <input
-                    type="email"
+                    id="invite-member-email" type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="maria@example.com"
@@ -905,8 +884,8 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                       <button
                         key={c}
                         type="button"
-                        onClick={() => setInviteColor(c)}
-                        className={`h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        onClick={() => setInviteColor(c)} aria-pressed={inviteColor===c} aria-label={`Цвет участника ${MEMBER_PRESET_COLORS.indexOf(c)+1}`}
+                        className={`min-h-[44px] rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                           inviteColor === c 
                             ? 'ring-2 ring-offset-2 ring-[#4A7C59] scale-102 border-2 border-white dark:border-[#202225]' 
                             : 'opacity-85 hover:opacity-100 hover:scale-101'
@@ -922,15 +901,15 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
                 <div className="pt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsInviteModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer"
+                    onClick={closeInvite} disabled={isSendingInvite}
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-xs font-bold transition-all cursor-pointer"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
                     disabled={isSendingInvite || householdPersonal || !isHouseholdOwner || !inviteName.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-[#4A7C59] hover:bg-[#3d6749] text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] font-semibold text-sm disabled:opacity-50 cursor-pointer"
                   >
                     {isSendingInvite ? 'Приглашение...' : 'Создать участника'}
                   </button>
@@ -939,7 +918,7 @@ export const MembersSettingsSection: React.FC<MembersSettingsSectionProps> = ({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,document.body)}
     </div>
   );
 };

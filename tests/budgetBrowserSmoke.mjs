@@ -158,7 +158,7 @@ try{
      // Exercise the compiled utilities (including arbitrary values and dark variants), not just the presence of a CSS file.
      const compiled=await page.evaluate(()=>{
        const probe=document.createElement('div');
-       probe.className='flex min-h-[44px] rounded-2xl bg-surface text-graphite dark:text-graphite';
+       probe.className='flex min-h-[44px] rounded-2xl bg-[var(--terra-surface)] text-[var(--terra-ink)]';
        document.body.appendChild(probe);
        const style=getComputedStyle(probe);
        const actual={display:style.display,minHeight:style.minHeight,radius:style.borderRadius,background:style.backgroundColor,color:style.color};
@@ -222,7 +222,28 @@ try{
       // The member chips are HISTORY filters. They must not reallocate
       // the shared family opening balance, paid bills or savings reserve.
       await page.getByRole('button',{name:'Бюджет',exact:true}).first().click();
-      const familyLimit=page.locator('[data-testid="family-daily-limit-desktop"]');
+      const budgetPanel=page.locator('[data-tab-panel="budget"]');
+      const budgetMetrics=budgetPanel.locator('.terra-budget-metrics');
+      const familyLimit=budgetPanel.getByTestId('family-daily-limit-desktop');
+      const currentMonthButton=budgetPanel.getByRole('button',{name:'Текущий месяц',exact:true}).filter({visible:true});
+      // Navigation can lazily mount this panel. Wait for its actual period
+      // state instead of counting a conditional button before mount.
+      await budgetMetrics.waitFor({state:'visible'});
+      const initialPeriod=await budgetMetrics.getAttribute('data-current-period');
+      assert.ok(['true','false'].includes(initialPeriod),'Budget period state missing');
+      if(initialPeriod==='false'){
+        await currentMonthButton.click();
+      }
+      await budgetPanel.locator('.terra-budget-metrics[data-current-period="true"]').waitFor({state:'visible'});
+      await familyLimit.waitFor({state:'visible'});
+      await budgetPanel.getByRole('button',{name:'Предыдущий месяц',exact:true}).filter({visible:true}).first().click();
+      const archiveMetrics=budgetPanel.locator('.terra-budget-metrics[data-current-period="false"]');
+      await archiveMetrics.waitFor({state:'visible'});
+      await familyLimit.waitFor({state:'hidden'});
+      assert.equal(await archiveMetrics.locator(':scope > div').count(),1,'Archive must not contain duplicate KPI cards');
+      await page.screenshot({path:'artifacts/budget-browser/desktop-1920-budget-archive.png',animations:'disabled'});
+      await currentMonthButton.click();
+      await budgetPanel.locator('.terra-budget-metrics[data-current-period="true"]').waitFor({state:'visible'});
       await familyLimit.waitFor({state:'visible'});
       const originalFamilyLimit=(await familyLimit.innerText()).trim();
       const memberRail=page.getByRole('group',{name:'Участник бюджета'}).filter({visible:true}).first();
@@ -616,6 +637,58 @@ try{
       assert.ok(await settingsDialog.getByRole('button',{name:'Установить приложение',exact:true}).isVisible() ||
         await settingsDialog.getByText('Приложение открыто в отдельном окне.').isVisible());
     }
+    // Capture every settings page at the real viewport, not a static mock.
+    const allSettings=['account','appearance','navigation','family','budget','categories','data','integrations','diagnostics'];
+    const settingsNav=key=>settingsDialog.locator('[data-settings-nav="'+key+'"]').filter({visible:true}).first();
+    const settingsBack=async()=>{if(width<768)await settingsDialog.getByRole('button',{name:'Назад',exact:true}).click();};
+    await settingsBack();
+    for(const theme of ['light','dark']){
+      await settingsNav('appearance').click();
+      await settingsDialog.getByRole('group',{name:'Тема приложения'}).getByRole('button',{name:theme==='light'?'Светлая':'Тёмная',exact:true}).click();
+      await page.waitForFunction(theme=>document.documentElement.classList.contains('dark')===(theme==='dark'),theme);
+      await settingsBack();
+      for(const key of allSettings){
+        await settingsNav(key).click();
+        const body=settingsDialog.locator('[data-settings-section="'+key+'"]').filter({visible:true});
+        await body.waitFor({state:'visible'});
+        const g=await body.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
+        assert.ok(g.scroll<=g.width+2,label+' settings '+key+' '+theme+' horizontal overflow '+JSON.stringify(g));
+        if(key==='categories'&&await body.getByTestId('settings-category-actions').isVisible()){
+          const bar=await body.getByTestId('settings-category-actions').boundingBox();
+          const dialog=await settingsDialog.boundingBox();
+          assert.ok(bar&&dialog&&bar.x>=dialog.x-1&&bar.x+bar.width<=dialog.x+dialog.width+1&&bar.y+bar.height<=dialog.y+dialog.height+1,label+' category footer escapes settings dialog');
+        }
+        if(key==='categories'&&await body.getByTestId('mobile-category-editor').isVisible()){
+          const name=body.getByTestId('mobile-category-editor').getByRole('textbox',{name:'Название категории',exact:true});
+          const original=await name.inputValue();
+          await name.fill('QA несохранённое название');assert.equal(await name.inputValue(),'QA несохранённое название');await name.fill(original);
+          await body.getByRole('button',{name:/^Правила \(/}).click();
+          const search=body.getByRole('textbox',{name:'Поиск правил',exact:true});await search.fill('QA_NO_RULE_98473201');
+          await body.getByText('Правила не найдены',{exact:true}).waitFor({state:'visible'});
+          assert.equal(await body.getByTestId('settings-category-actions').count(),0);
+          await search.fill('');await body.getByRole('button',{name:/^Категории \(/}).click();
+        }
+        if(key==='integrations'){
+          await body.getByTestId('telegram-config-status').waitFor({state:'visible'});
+          await body.getByTestId('gemini-config-status').waitFor({state:'visible'});
+          const keyInput=body.getByLabel('Ключ Google Gemini API',{exact:true});
+          if(!await keyInput.inputValue())assert.ok(await body.getByRole('button',{name:'Проверить ключ ИИ',exact:true}).isDisabled());
+        }
+        if(key==='diagnostics')await body.getByTestId('settings-sync-status').waitFor({state:'visible'});
+        if(key==='budget'){
+          const days=body.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');
+          assert.equal(await days.count(),31);
+          assert.ok(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44;})),label+' salary targets');
+        }
+        if(key==='family')await body.getByRole('button',{name:'Пригласить участника',exact:true}).waitFor({state:'visible'});
+        await page.screenshot({path:'artifacts/budget-browser/'+label+'-settings-'+theme+'-'+key+'.png',animations:'disabled'});
+        await settingsBack();
+      }
+    }
+    await settingsNav('appearance').click();
+    await settingsDialog.getByRole('group',{name:'Тема приложения'}).getByRole('button',{name:'Светлая',exact:true}).click();
+    await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+    console.log('PASS '+label+' all nine settings blocks light/dark geometry');
     await settingsDialog.getByRole('button',{name:'Закрыть настройки'}).filter({visible:true}).click();
     await settingsDialog.waitFor({state:'hidden'});
     await nav.getByRole('button',{name:'Обзор',exact:true}).click();

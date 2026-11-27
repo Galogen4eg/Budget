@@ -666,7 +666,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
 
               {/* Visual Bar Chart */}
               <div className="w-full pt-4 pb-1 overflow-x-auto" tabIndex={0} aria-label="График по всем периодам">
-                <div className="relative h-40 flex items-end justify-between gap-1.5 px-1" style={{minWidth:Math.max(240,mobileBars.length*24)}}>
+                <div className="relative h-40 flex items-end justify-between gap-1.5 px-2" style={{minWidth:Math.max(240,mobileBars.length*(chartGranularity==='daily'?32:56))}}>
                   {mobileBars.map((bar) => {
                     const expPercent = chartBarPercent(bar.expense,chartMax);
                     const incPercent = chartBarPercent(bar.income,chartMax);
@@ -690,7 +690,7 @@ export const DrillDownMobile: React.FC<DrillDownMobileProps> = ({
                           )}
                         </div>
 
-                        <span className="text-xs font-medium text-[var(--terra-muted)]">
+                        <span className="text-xs font-medium text-[var(--terra-muted)] tabular-nums whitespace-nowrap">
                           {labelText}
                         </span>
                       </div>

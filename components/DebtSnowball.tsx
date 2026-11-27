@@ -478,7 +478,7 @@ const DebtSnowball: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-5 md:space-y-7 w-full text-stone-800 dark:text-stone-100 font-sans pb-12 antialiased">
+    <div className="space-y-4 w-full text-stone-800 dark:text-stone-100 font-sans pb-12 antialiased">
       
       {/* 1. Breadcrumbs & Sync Status (Адаптивный для мобильного и десктопа) */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -622,21 +622,6 @@ const DebtSnowball: React.FC<Props> = ({
 
       </section>
 
-      {/* 4. Теплый органический баннер «Финансовая гармония» (в стиле Terra) */}
-      <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f0ede6] dark:bg-[#202022] p-4 sm:p-5 border border-stone-200/80 dark:border-white/10 flex items-center gap-3.5 shadow-2xs">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#4a7c59] text-white flex items-center justify-center shrink-0 shadow-sm">
-          <ShieldCheck className="w-6 h-6" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs sm:text-sm font-display font-bold text-stone-900 dark:text-white">
-            Финансовая гармония
-          </div>
-          <p className="text-[11px] sm:text-xs text-stone-600 dark:text-stone-300 leading-relaxed mt-0.5">
-            Все текущие платежи спланированы. При сохранении текущего темпа до полной ликвидации задолженностей осталось <b>{monthsToDebtFreedom > 0 ? `${monthsToDebtFreedom} мес.` : 'менее месяца'}</b>.
-          </p>
-        </div>
-      </div>
-
       {/* 5. Секция «Активные обязательства» (Двухколоночная на десктопе, вертикальный стек на смартфонах) */}
       <section aria-label="Список кредитных обязательств" className="space-y-4">
         <div className="flex items-center justify-between">
@@ -654,7 +639,7 @@ const DebtSnowball: React.FC<Props> = ({
             <button 
               type="button"
               onClick={() => setSortBy(sortBy === 'date' ? 'amount' : sortBy === 'amount' ? 'progress' : 'date')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer font-medium"
+              className="min-h-[44px] flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer font-medium"
               title="Переключить сортировку"
             >
               <ArrowUpDown className="w-3.5 h-3.5 text-[#4a7c59] dark:text-emerald-400" />
@@ -685,7 +670,7 @@ const DebtSnowball: React.FC<Props> = ({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="terra-debt-grid grid gap-3">
               {sortedDebts.map((debt) => {
                 const linkedExpense = findLinkedExpenseForDebt(debt.id, settings.mandatoryExpenses);
                 const paymentStatus = computeDebtMonthPaymentStatus(debt, linkedExpense, transactions, settings, new Date());

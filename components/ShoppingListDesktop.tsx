@@ -843,10 +843,10 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
   return (
     <div data-testid="shopping-scroll-container" className="flex-1 min-h-0 min-w-0 w-full h-full overflow-y-auto overscroll-y-contain bg-[var(--terra-canvas)] dark:bg-[var(--terra-canvas)] text-[var(--terra-ink)] dark:text-stone-100 font-sans p-6 lg:p-8">
-      <div className="terra-shopping-layout w-full max-w-[1280px] mx-auto flex flex-col gap-5 pb-8">
+      <div className="terra-shopping-layout w-full max-w-[1600px] mx-auto flex flex-col gap-4 pb-8">
         
         {/* Top Header & Summary */}
-        <header className="flex flex-col gap-6">
+        <header className="flex flex-col gap-3">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-3">
@@ -917,9 +917,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
           </div>
 
           {/* Filters & Segmented Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[var(--terra-soft)] dark:bg-[var(--terra-surface)] p-3.5 rounded-2xl border border-[var(--terra-border)] dark:border-white/5">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Quick search filter within list */}
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] dark:text-stone-400" size={17} />
               <input 
                 type="text"
@@ -1007,8 +1007,6 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
               </form>
             </div>
             
-            {beforeContent}
-
             {groupedDepartments.length > 0 ? (
               groupedDepartments.map(({ dept, items: deptItems }, deptIdx) => (
                 <section key={`dept-sec-${dept.id || deptIdx}`} className="flex flex-col gap-3">
@@ -1197,8 +1195,9 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
 
           </div>
 
-          {/* Right Column: Smart Summary, Quick Favorites & Sync */}
-          <div className="flex flex-col gap-5 min-w-0">
+          {/* Right Column: Shopping tools and favorites */}
+          <div className="flex flex-col gap-3 min-w-0">
+            {beforeContent}
             
             {/* Quick Add Templates (Dynamic Family Favorites) */}
             <div className={`${SURFACE_CARD} flex flex-col gap-3`}>

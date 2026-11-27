@@ -614,7 +614,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
     const listEvents = listTab === 'upcoming' ? scheduleUpcomingEvents : schedulePastEvents;
 
     return (
-      <div className={`${SURFACE_CARD} space-y-3.5`}>
+      <div className={`space-y-2 terra-plans-toolbar`}>
         {/* Tab Toggle: Предстоящие / Прошедшие */}
         <div className="flex items-center justify-between border-b border-[#EAE5DB]/60 dark:border-white/5 pb-3">
           <div className="flex bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] p-1 rounded-xl">
@@ -767,9 +767,8 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         }
       />
 
-      {beforeContent}
       {/* Main scroll content */}
-      <div className="px-4 pt-3 pb-4 md:pb-6 space-y-4 max-w-3xl mx-auto w-full">
+      <div className="px-4 pt-3 pb-4 md:pb-6 space-y-3 max-w-3xl mx-auto w-full">
         
         {/* Banner: Conflict Warning if overlapping events exist */}
         {conflictPairs.length > 0 && (
@@ -838,7 +837,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
           </div>
 
           {/* Row 2: Segmented Switcher (Месяц / Неделя / Расписание) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] p-1 rounded-2xl gap-1 w-full">
+          <div role="group" aria-label="Вид календаря" className="terra-calendar-views grid grid-cols-4 bg-[var(--terra-soft)] p-1 rounded-xl gap-1 w-full">
             <button
               type="button"
               onClick={() => setViewMode('month')}
@@ -874,6 +873,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
             <button
               type="button"
               onClick={() => setViewMode('list')}
+              aria-label="Расписание"
               aria-pressed={viewMode === 'list'}
               className={`min-h-[44px] py-2 px-1 rounded-xl text-xs flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer ${
                 viewMode === 'list'
@@ -882,7 +882,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
               }`}
             >
               <ListTodo size={15} />
-              <span>Расписание</span>
+              <span>Список</span>
             </button>
           </div>
 
@@ -936,6 +936,7 @@ const FamilyPlansMobile: React.FC<FamilyPlansMobileProps> = ({
         {viewMode === 'month' && renderCalendarGrid()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'list' && renderScheduleList()}
+        {beforeContent}
 
         {/* CARD 3: Selected Day Card & Monthly Summary (Image 1 Spec) */}
         {viewMode !== 'list' && (

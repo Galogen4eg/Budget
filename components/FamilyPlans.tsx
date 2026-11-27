@@ -458,15 +458,6 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-y-contain touch-pan-y" data-testid="plans-scroll-container">
-      {isDesktop&&(<FamilyAgendaPanel events={events} members={members}
-        onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
-        onToggleTask={handleToggleTask}
-        onEnableReminders={()=>void enableReminders()}
-        remindersEnabled={remindersEnabled}
-        pushEnabled={pushEnabled}
-        telegramRemindersEnabled={telegramRemindersEnabled}
-        telegramConfigured={telegramConfigured}
-        onToggleTelegramReminders={toggleTelegramReminders}/>)}
         <div className="flex-none min-w-0">
         {isDesktop ? (
             <FamilyPlansDesktop 
@@ -488,6 +479,16 @@ const FamilyPlans: React.FC<FamilyPlansProps> = ({
             />
         )}
         </div>
+
+      {isDesktop&&(<FamilyAgendaPanel events={events} members={members}
+        onOpenEvent={(event,prefill)=>setActiveEvent({event:event||null,prefill})}
+        onToggleTask={handleToggleTask}
+        onEnableReminders={()=>void enableReminders()}
+        remindersEnabled={remindersEnabled}
+        pushEnabled={pushEnabled}
+        telegramRemindersEnabled={telegramRemindersEnabled}
+        telegramConfigured={telegramConfigured}
+        onToggleTelegramReminders={toggleTelegramReminders}/>)}
 
         <AnimatePresence>
             {activeEvent && (

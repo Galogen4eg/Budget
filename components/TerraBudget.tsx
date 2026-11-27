@@ -466,11 +466,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
 
         {/* Mobile Page Content */}
-        <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 space-y-4 max-w-md mx-auto">
+        <div className="flex flex-col w-full px-3.5 pb-4 md:pb-6 pt-3 gap-3 max-w-3xl mx-auto">
           {/* KPI & Family Overview Card */}
           <section className={`${SURFACE_CARD} flex flex-col gap-3.5`}>
             {/* Top Row: Daily Safe Limit & Pace Badge */}
-            <div className="flex flex-wrap items-start justify-between gap-2">
+            {isCurrentMonthView&&<div className="flex flex-wrap items-start justify-between gap-2">
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-[var(--terra-muted)] dark:text-gray-400">{isCurrentMonthView ? (personalOnly?'Личный ориентир в день':'Семейный ориентир в день') : 'История бюджета'}</span>
                 <div className="flex flex-wrap items-baseline gap-1.5 mt-0.5">
@@ -488,10 +488,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                   {!isCurrentMonthView ? 'Архив' : !personalOpeningKnown ? 'Укажите остаток' : 'Нет остатка'}
                 </span>
               )}
-            </div>
+            </div>}
 
             {/* Monthly Budget Progress Bar & Breakdown */}
-            <div className="flex flex-col gap-1.5 pt-3 border-t border-[var(--terra-border)]">
+            <div className={`flex flex-col gap-1.5 ${isCurrentMonthView?'pt-3 border-t border-[var(--terra-border)]':''}`}>
+              {!isCurrentMonthView&&<h2 className="text-sm font-semibold">Итоги выбранного месяца</h2>}
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-medium">
                 <span className="text-[var(--terra-muted)] dark:text-gray-400">
                   {settings.privacyMode ? "Расходы к доходам: •••" : monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
@@ -557,8 +558,71 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </section>
 
+          <div role="group" aria-label="Разделы бюджета" className={FILTER_RAIL}>
+            {([['Операции','history'],['Календарь','calendar'],['Лимиты','limits'],['Платежи','payments']] as const).map(([label,id])=><button key={id} type="button" className={FILTER_CHIP+' '+FILTER_CHIP_IDLE} onClick={()=>{const target=document.getElementById('budget-'+id+'-mobile');target?.scrollIntoView({block:'start',behavior:'auto'});target?.focus({preventScroll:true});}}>{label}</button>)}
+          </div>
+          {/* Shared history controls retain day/member context */}
+          <section id="budget-history-mobile" tabIndex={-1} aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
+            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
+              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
+              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
+              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
+            {/* Transactions List */}
+            <div className="divide-y divide-[var(--terra-border)] pt-1">
+              {visibleHistory.length===0 && (
+                <div className="rounded-xl border border-dashed border-[var(--terra-border)] dark:border-white/10 p-4 text-center text-xs text-[var(--terra-muted)] dark:text-gray-400">
+                  {historyEmptyText}
+                </div>
+              )}
+              {visibleHistory.map(tx => {
+                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья', color: '#4A7C59' };
+                const isIncome = tx.type === 'income';
+                const cat = categories.find(c => c.id === tx.category);
+                const catLabel = cat?.label || (isIncome ? 'Доход' : 'Расход');
+                const displayTitle = tx.note || tx.payee || catLabel;
+                const brandKey = getMerchantBrandKey(displayTitle);
+                const txDate = new Date(tx.date);
+                const timeFormatted = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleDateString('ru-RU', { month: 'short' })}`;
+
+                return (
+                  <button type="button"
+                    key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type}
+                    onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${displayTitle}`}
+                    className="min-h-[48px] w-full flex items-center justify-between gap-2 px-1 py-2.5 text-left hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-9 h-9 rounded-xl" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-[var(--terra-ink)] dark:text-white truncate">
+                          {displayTitle}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[var(--terra-muted)] dark:text-gray-400">
+                          <span className="font-medium" style={{ color: txMember.color }}>
+                            {txMember.name}
+                          </span>
+                          <span>· {cat?.label || 'Неизвестная категория'}</span>
+                          <span>· {dateFormatted}, {timeFormatted}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-sm font-semibold tabular-nums shrink-0 min-w-0 max-w-[46%] text-right [overflow-wrap:anywhere] ${
+                      isIncome ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-ink)]'
+                    }`}>
+                      {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+
           {/* Financial Calendar Section */}
-          <section data-testid="budget-calendar-mobile" className={`${SURFACE_CARD} flex flex-col min-w-0 gap-2.5`}>
+          <section id="budget-calendar-mobile" tabIndex={-1} data-testid="budget-calendar-mobile" className={`${SURFACE_CARD} flex flex-col min-w-0 gap-2.5`}>
             {/* Header with full-width controls */}
             <div className="w-full flex items-center justify-between p-1 rounded-xl bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)]">
               <button 
@@ -758,70 +822,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           </section>
 
-          {/* Shared history controls retain day/member context */}
-          <section aria-label="История операций бюджета" data-testid="budget-history-mobile" className={SURFACE_CARD+' space-y-3'}>
-            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
-              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
-              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
-              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
-            {/* Transactions List */}
-            <div className="divide-y divide-[var(--terra-border)] pt-1">
-              {visibleHistory.length===0 && (
-                <div className="rounded-xl border border-dashed border-[var(--terra-border)] dark:border-white/10 p-4 text-center text-xs text-[var(--terra-muted)] dark:text-gray-400">
-                  {historyEmptyText}
-                </div>
-              )}
-              {visibleHistory.map(tx => {
-                const txMember = members.find(m => m.id === tx.memberId) || { name: 'Семья', color: '#4A7C59' };
-                const isIncome = tx.type === 'income';
-                const cat = categories.find(c => c.id === tx.category);
-                const catLabel = cat?.label || (isIncome ? 'Доход' : 'Расход');
-                const displayTitle = tx.note || tx.payee || catLabel;
-                const brandKey = getMerchantBrandKey(displayTitle);
-                const txDate = new Date(tx.date);
-                const timeFormatted = txDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                const dateFormatted = `${txDate.getDate()} ${txDate.toLocaleDateString('ru-RU', { month: 'short' })}`;
-
-                return (
-                  <button type="button"
-                    key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type}
-                    onClick={() => onEditTransaction(tx)}
-                    aria-label={`Редактировать операцию: ${displayTitle}`}
-                    className="min-h-[48px] w-full flex items-center justify-between gap-2 px-1 py-2.5 text-left hover:bg-[var(--terra-soft)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-                        <BrandIcon name={displayTitle} brandKey={brandKey} category={cat} size="sm" className="w-9 h-9 rounded-xl" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-semibold text-[var(--terra-ink)] dark:text-white truncate">
-                          {displayTitle}
-                        </span>
-                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[var(--terra-muted)] dark:text-gray-400">
-                          <span className="font-medium" style={{ color: txMember.color }}>
-                            {txMember.name}
-                          </span>
-                          <span>· {cat?.label || 'Неизвестная категория'}</span>
-                          <span>· {dateFormatted}, {timeFormatted}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-semibold tabular-nums shrink-0 min-w-0 max-w-[46%] text-right [overflow-wrap:anywhere] ${
-                      isIncome ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-ink)]'
-                    }`}>
-                      {settings.privacyMode ? '•••' : `${isIncome ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
           {/* Scheduled Monthly Mandatory Payments */}
-          <section className={`${SURFACE_CARD} flex flex-col gap-3`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A]" />
+          <section id="budget-payments-mobile" tabIndex={-1} className={`${SURFACE_CARD} flex flex-col gap-3`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A] shrink-0" />
                 <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Обязательные платежи</span>
               </div>
               <div className="flex items-center gap-2">
@@ -964,7 +969,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </button>
             </div>
           </section>
-          <div className="mt-4"><BudgetPlanningPanel settings={settings} categories={categories}
+          <div id="budget-limits-mobile" tabIndex={-1}><BudgetPlanningPanel settings={settings} categories={categories}
             transactions={transactions} monthTransactions={familyMonthTransactions}
             currentMonth={currentMonth} isCurrentMonth={isCurrentMonthView}
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/></div>
@@ -1004,6 +1009,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <ChevronRight size={16} />
             </button>
           </div>
+
+          {!isCurrentMonthView&&<button type="button" onClick={()=>onMonthChange(new Date())} className={FILTER_CHIP+' '+FILTER_CHIP_IDLE}>Текущий месяц</button>}
 
           {/* Family Member Filter Pills */}
           <div className="flex min-w-0 items-center gap-2">
@@ -1089,9 +1096,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       </header>
 
       {/* 2. TOP KPI CARDS: «Темп расходов и дневной лимит» */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="terra-budget-metrics grid gap-3" data-current-period={isCurrentMonthView}>
         {/* Card 1: Дневной безопасный лимит */}
-        <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
+        {isCurrentMonthView&&<div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center">
               <span className="text-sm font-semibold text-primary-dark dark:text-green-400">
@@ -1120,10 +1127,10 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               {!isCurrentMonthView ? 'Лимит не рассчитывается' : !personalOpeningKnown ? 'Укажите личный начальный остаток' : 'Нет доступного остатка'}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* Current-day metrics do not apply to historical months. */}
-        {isCurrentMonthView ? (
+        {isCurrentMonthView && (
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
@@ -1163,48 +1170,24 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </span>
           </div>
         </div>
-        ) : (
-          <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
-            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">Расходы выбранного месяца</span>
-            <span className="text-2xl font-bold text-graphite dark:text-white tabular-nums">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</span>
-            <p className="text-xs text-graphite-muted dark:text-gray-400">Показатели «сегодня» и «вчера» доступны в текущем месяце</p>
-          </div>
         )}
 
                 {/* Card 3: Итоги месяца */}
         <div className={`${SURFACE_CARD} flex min-w-0 flex-col justify-between gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
-              Месячный прогресс бюджета
+              {isCurrentMonthView?'Месячный прогресс бюджета':'Итоги выбранного месяца'}
             </span>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[var(--terra-soft)] dark:bg-white/5 text-graphite dark:text-white">
-              {currentDayNum} из {totalDaysInMonth} дней
+              {isCurrentMonthView?`${currentDayNum} из ${totalDaysInMonth} дней`:'Архив'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 py-1 my-1">
-            <div className="text-center px-1">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Доходы</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-primary dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}
-              </span>
-            </div>
-
-            <div className="text-center px-1 border-y lg:border-y-0 lg:border-x border-surface-border/70 dark:border-white/5">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Расходы</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-[#D95C48] dark:text-red-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}
-              </span>
-            </div>
-
-            <div className="text-center px-1">
-              <span className="text-xs font-medium text-graphite-muted dark:text-gray-400 block">Результат месяца</span>
-              <span className="text-xs lg:text-sm font-semibold font-headline text-emerald-700 dark:text-green-400 tabular-nums [overflow-wrap:anywhere] block">
-                {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
-              </span>
-              <span className="text-xs text-graphite-muted dark:text-gray-400 block">Доходы − расходы</span>
-            </div>
-          </div>
+          <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
+            <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}</dd></div>
+            <div><dt>Расходы</dt><dd className="text-[var(--terra-ink)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</dd></div>
+            <div><dt>Результат месяца<span className="block text-xs font-normal text-[var(--terra-muted)]">Доходы − расходы</span></dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
+          </dl>
 
           <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>
@@ -1219,6 +1202,41 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
       <div className="terra-budget-columns grid gap-5">
         {/* LEFT / CENTER: Full Calendar & Selected Day Detail (7 cols) */}
         <div className="min-w-0 flex flex-col gap-4">
+          {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
+          <section className={`${SURFACE_CARD} min-w-0 flex flex-col gap-3`}
+            aria-label="История операций бюджета" data-testid="budget-history-desktop">
+            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
+              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
+              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
+              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
+            <div className="divide-y divide-[var(--terra-border)] max-h-[420px] overflow-y-auto overscroll-contain">
+              {visibleHistory.length===0 && (
+                <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
+                  {historyEmptyText}
+                </p>
+              )}
+              {visibleHistory.map(tx => {
+                const member=members.find(m=>m.id===tx.memberId);
+                const category=categories.find(cat=>cat.id===tx.category);
+                const title=tx.note || tx.payee || category?.label || 'Операция';
+                return (
+                  <button type="button" key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type} onClick={() => onEditTransaction(tx)}
+                    aria-label={`Редактировать операцию: ${title}`}
+                    className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[var(--terra-surface)] dark:hover:bg-[var(--terra-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-graphite dark:text-white break-words">{title}</span>
+                      <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
+                        {member?.name || 'Семья'} · {category?.label || 'Неизвестная категория'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
+                      </span>
+                    </span>
+                    <span className={`shrink-0 min-w-0 max-w-[46%] text-right text-sm font-semibold tabular-nums [overflow-wrap:anywhere] ${tx.type==='income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'}`}>
+                      {settings.privacyMode ? '•••' : `${tx.type==='income' ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
           {/* Full Interactive Calendar Card */}
           <div data-testid="budget-calendar-desktop" className={`${SURFACE_CARD} min-w-0`}>
             {/* Calendar Header */}
@@ -1733,41 +1751,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>
           </div>
 
-          {/* 3. Family Operations Feed: explicit day/month scope, never a silent fallback. */}
-          <section className={`${SURFACE_CARD} min-w-0 flex flex-col gap-3`}
-            aria-label="История операций бюджета" data-testid="budget-history-desktop">
-            <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
-              historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
-              historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
-              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
-            <div className="divide-y divide-[var(--terra-border)]">
-              {visibleHistory.length===0 && (
-                <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">
-                  {historyEmptyText}
-                </p>
-              )}
-              {visibleHistory.map(tx => {
-                const member=members.find(m=>m.id===tx.memberId);
-                const category=categories.find(cat=>cat.id===tx.category);
-                const title=tx.note || tx.payee || category?.label || 'Операция';
-                return (
-                  <button type="button" key={tx.id} data-history-row={tx.id} data-history-category={tx.category} data-history-type={tx.type} onClick={() => onEditTransaction(tx)}
-                    aria-label={`Редактировать операцию: ${title}`}
-                    className="min-h-[48px] w-full flex items-center justify-between gap-3 rounded-xl border border-transparent px-2 text-left hover:border-surface-border hover:bg-[var(--terra-surface)] dark:hover:bg-[var(--terra-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-graphite dark:text-white break-words">{title}</span>
-                      <span className="block text-[11px] text-graphite-muted dark:text-gray-400">
-                        {member?.name || 'Семья'} · {category?.label || 'Неизвестная категория'} · {new Date(tx.date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})}
-                      </span>
-                    </span>
-                    <span className={`shrink-0 min-w-0 max-w-[46%] text-right text-sm font-semibold tabular-nums [overflow-wrap:anywhere] ${tx.type==='income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'}`}>
-                      {settings.privacyMode ? '•••' : `${tx.type==='income' ? '+' : '-'}${formatBudgetMoney(tx.amount)} ₽`}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+
         </div>
       </div>
       </div>

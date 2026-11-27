@@ -45,7 +45,9 @@ test('services cards share surface style',()=>{
 });
 
 test('chat and shared mobile header use consistent page hierarchy and controls',()=>{
- assert.match(chat,/Создать тему/);
+ assert.doesNotMatch(chat,/aria-label="Создать тему"/);
+ assert.match(chat,/aria-label="Сообщение семье"/);
+ assert.match(chat,/aria-label="Отправить сообщение"/);
  assert.match(chat,/rounded-none md:rounded-2xl/);
  assert.match(mobileHeader,/PAGE_HEADING/);
  assert.match(mobileHeader,/\$\{ICON_ACTION\}/);

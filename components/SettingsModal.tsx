@@ -43,7 +43,7 @@ interface SettingsModalProps {
   members: FamilyMember[];
   onUpdateMembers: (members: FamilyMember[]) => void | Promise<void>;
   categories: Category[];
-  onUpdateCategories: (categories: Category[]) => void;
+  onUpdateCategories: (categories: Category[]) => void | Promise<void>;
   onDeleteCategory?: (id: string) => void;
   learnedRules: LearnedRule[];
   onUpdateRules: (rules: LearnedRule[]) => void;
@@ -144,6 +144,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [networkOnline,setNetworkOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
   const [syncStatus,setSyncStatus]=useState<{familyId:string;fromCache:boolean;pending:boolean;confirmedAt?:number;error?:string}|null>(null);
   const [settingsWriteFailed,setSettingsWriteFailed]=useState(false);
+  const [syncAttempt,setSyncAttempt]=useState(0);
   useEffect(()=>{
     const update=()=>setNetworkOnline(navigator.onLine);
     window.addEventListener('online',update);window.addEventListener('offline',update);
@@ -155,7 +156,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     return subscribeToFamilySyncStatus(currentFamilyId,status=>setSyncStatus(prev=>({
       ...status,familyId:currentFamilyId,confirmedAt:status.confirmedAt??(prev?.familyId===currentFamilyId?prev.confirmedAt:undefined)
     })));
-  },[currentFamilyId,isOfflineMode,activeSection]);
+  },[currentFamilyId,isOfflineMode,activeSection,syncAttempt]);
   const confirmedSync=syncStatus?.familyId===currentFamilyId?syncStatus:null;
 
 
@@ -184,7 +185,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   });
 
   // Family ID Switch State
-  const [newFamilyId, setNewFamilyId] = useState(currentFamilyId || '');
+  const [newFamilyId, setNewFamilyId] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [factIdToDelete, setFactIdToDelete] = useState<string | null>(null);
 
@@ -559,7 +560,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const apiKey = settings.geminiApiKey || '';
 
   useEffect(() => {
-    if (currentFamilyId) setNewFamilyId(currentFamilyId);
+    setNewFamilyId('');
   }, [currentFamilyId]);
 
   useBodyScrollLock();
@@ -634,7 +635,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     <div className="relative min-w-0">
       <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--terra-muted)] pointer-events-none"/>
       <input type="search" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}
-        aria-label="Поиск настроек" placeholder="Поиск настроек" className="min-h-[44px] w-full min-w-0 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] pl-9 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"/>
+        aria-label="Поиск настроек" placeholder="Поиск настроек" className="min-h-[44px] w-full min-w-0 rounded-xl border border-[var(--terra-border)] bg-[var(--terra-surface)] pl-9 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"/>
     </div>
   );
 
@@ -642,22 +643,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     switch (activeSection) {
       case 'appearance':
         return (
-          <div className="terra-appearance-grid">
-            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
+          <div className="terra-appearance-grid terra-settings-two-up">
+            <section className="terra-settings-group">
               <div><h3 className="text-base font-semibold">Тема приложения</h3><p className="text-sm text-gray-500 dark:text-gray-400">Личная настройка, не меняет оформление у другого участника семьи.</p></div>
-              <div role="group" aria-label="Тема приложения" className="grid grid-cols-3 gap-2">
+              <div role="group" aria-label="Тема приложения" className="terra-settings-theme grid grid-cols-3 gap-1 p-1 rounded-xl bg-[var(--terra-soft)]">
                 {(['light','dark','system'] as const).map(theme => <button key={theme} type="button" aria-pressed={settings.theme===theme} onClick={()=>handleChange('theme',theme)}
-                  className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[#2D5A43] text-white border-transparent':'border-gray-200 dark:border-white/10'}`}>{theme==='light'?'Светлая':theme==='dark'?'Тёмная':'Системная'}</button>)}
+                  className={`min-h-[44px] min-w-0 rounded-lg px-1 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors motion-reduce:transition-none ${settings.theme===theme?'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]':'text-[var(--terra-ink)]'}`}>{theme==='light'?'Светлая':theme==='dark'?'Тёмная':'Системная'}</button>)}
               </div>
             </section>
-            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
-              <h3 className="text-base font-semibold">Отображение бюджета</h3>
+            <section className="terra-settings-group">
+              <h3 className="text-base font-semibold">Приватность и видимость</h3>
               <button type="button" role="switch" aria-checked={settings.privacyMode} onClick={()=>handleChange('privacyMode',!settings.privacyMode)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left focus-visible:ring-2 focus-visible:ring-primary rounded-xl">
-                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Режим приватности в поддерживаемых финансовых карточках</span></span><span className="text-sm font-medium shrink-0">{settings.privacyMode?'Вкл.':'Выкл.'}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">Скрывать суммы</span><span className="block text-xs text-gray-500 dark:text-gray-400">Скрывает суммы в поддерживаемых финансовых экранах.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${settings.privacyMode?'is-on':''}`}><span/></span>
               </button>
               <div className="border-t border-gray-200 dark:border-white/10 pt-4 space-y-2">
                 <button type="button" role="switch" aria-checked={!householdPersonal&&!hideSharedBudget} disabled={householdPersonal} onClick={()=>setHideSharedBudget(!hideSharedBudget)} className="min-h-[44px] w-full flex items-center justify-between gap-3 text-left rounded-xl focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
-                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span className="text-sm font-medium shrink-0">{householdPersonal||hideSharedBudget?'Выкл.':'Вкл.'}</span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold">Показывать совместный бюджет</span><span className="block text-xs text-gray-500 dark:text-gray-400">Только на этом устройстве. Не меняет доступ участников, данные или семейные планы.</span></span><span aria-hidden="true" className={`terra-settings-switch-track shrink-0 ${!householdPersonal&&!hideSharedBudget?'is-on':''}`}><span/></span>
                 </button>
                 <label htmlFor="settings-budget-default" className="block text-sm font-semibold">Бюджет при открытии приложения</label>
                 <select id="settings-budget-default" disabled={householdPersonal||hideSharedBudget} value={householdPersonal||hideSharedBudget?'personal':settings.defaultBudgetMode} onChange={e=>handleChange('defaultBudgetMode',e.target.value)} className="w-full min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent p-2 text-sm">
@@ -669,14 +670,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         );
       case 'navigation':
         return (
-          <div className="terra-appearance-grid">
-            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
+          <div className="terra-appearance-grid terra-menu-settings-grid terra-settings-two-up">
+            <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Навигация</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Скрытые вкладки не отображаются в меню, но доступны по ссылкам из обзора. Данные и права доступа не меняются.</p>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-3">
+              <div className="divide-y divide-[var(--terra-border)]">
                 {MENU_TABS.map(({id,label})=>{
                   const checked=visibleMenuTabs(settings.enabledTabs).includes(id);
-                  return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-2 text-sm">
+                  return <label key={id} className="terra-settings-row flex min-h-[44px] items-center justify-between gap-3 text-sm cursor-pointer">
                     <span>{label}</span>
                     <input type="checkbox" checked={checked} disabled={id==='overview'} onChange={e=>{
                       const patch=menuPreferencePatch(settings.enabledTabs,settings.startTab,id,e.target.checked);
@@ -692,12 +693,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </select>
               </label>
             </section>
-            <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
+            <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Карточки обзора</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Скрытие карточек не удаляет данные и не меняет основной раздел.</p>
               {([['shopping','Список покупок'],['week_events','События недели']] as const).map(([id,label])=>{
                 const widget=settings.widgets?.find(w=>w.id===id);
-                return <label key={id} className="flex min-h-[44px] items-center justify-between gap-3 text-sm">
+                return <label key={id} className="terra-settings-row flex min-h-[44px] items-center justify-between gap-3 text-sm cursor-pointer">
                   <span>{label}</span>
                   <input type="checkbox" checked={widget?.isVisible!==false} onChange={e=>{
                     const next={id,isVisible:e.target.checked,mobile:{colSpan:2,rowSpan:1},desktop:{colSpan:1,rowSpan:1},...widget};
@@ -710,69 +711,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         );
       case 'account':
         return (
-          <div className="space-y-6 w-full max-w-full">
-            {/* Top Session Status Card */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#2D5A43] dark:text-emerald-400">
-                <Shield size={16} />
-                <span>Безопасность и аккаунт</span>
-              </div>
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--terra-surface)] border border-[var(--terra-border)] text-xs text-gray-600 dark:text-gray-300">
-                <span>Сессия активна: Веб-терминал</span>
-              </div>
-            </div>
-
+          <div className="terra-settings-stack">
             {/* CARD 1: Учетная запись */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
-                    <User size={20} />
-                  </div>
-                  <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Учетная запись</h3>
-                </div>
-                <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                  Личные данные
-                </span>
-              </div>
-
-              {/* User Info Highlight Card */}
-              <div className="p-5 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h4 className="font-headline font-bold text-xl text-gray-900 dark:text-white">
-                      {currentUser?.displayName || accountLogin || 'Пользователь'}
-                    </h4>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#2D5A43] dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-semibold">
-                      <Award size={13} />
-                      <span>Администратор пространства</span>
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {currentUser?.email || 'Email не указан'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-6 flex-wrap sm:flex-nowrap">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Привязанный телефон</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">+7 (926) •••-42-18</span>
-                  </div>
-                  <div className="h-8 w-px bg-gray-200 dark:bg-white/10 hidden sm:block" />
-                  <div className="flex flex-col">
-                    <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Дата регистрации</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">
-                      {currentUser?.metadata?.creationTime 
-                        ? new Date(currentUser.metadata.creationTime).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-                        : '14 октября 2023'}
-                    </span>
-                  </div>
+            <section className="terra-settings-group">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-semibold flex items-center justify-center shrink-0" aria-hidden="true">{(currentUser?.displayName||initialUsername||'П')[0].toUpperCase()}</div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-semibold text-[var(--terra-ink)] break-words">{currentUser?.displayName || initialUsername || 'Пользователь'}</h3>
+                  <p className="text-sm text-[var(--terra-muted)] [overflow-wrap:anywhere]">{currentUser?.email || 'Email не указан'}</p>
+                  <p className="text-xs text-[var(--terra-muted)] mt-1">{isOfflineMode?'Демонстрационный режим':isHouseholdOwner?'Владелец семейного пространства':currentUser?'Учетная запись':'Нет активного аккаунта'}</p>
                 </div>
               </div>
+              {(currentUser?.phoneNumber||currentUser?.metadata?.creationTime)&&<dl className="terra-settings-readout divide-y divide-[var(--terra-border)]">
+                {currentUser?.phoneNumber&&<div><dt>Телефон</dt><dd>{currentUser.phoneNumber}</dd></div>}
+                {currentUser?.metadata?.creationTime&&<div><dt>Дата регистрации</dt><dd>{new Date(currentUser.metadata.creationTime).toLocaleDateString('ru-RU')}</dd></div>}
+              </dl>}
 
               {/* Login Input Block */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                <label htmlFor="settings-account-login" className="block text-sm font-semibold text-[var(--terra-ink)]">
                   Логин / Имя пользователя
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -781,10 +738,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       <AtSign size={18} />
                     </span>
                     <input
-                      type="text"
+                      id="settings-account-login" autoComplete="username" type="text"
                       value={accountLogin}
                       onChange={e => setAccountLogin(e.target.value)}
-                      placeholder="alexey_smirnov"
+                      placeholder="Имя пользователя"
                       className="w-full pl-10 pr-4 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43] dark:focus:ring-emerald-500 transition-all duration-200"
                     />
                   </div>
@@ -795,7 +752,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                   >
                     {isUpdatingLogin ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                    <span>{accountLogin !== initialUsername ? 'Сохранить логин' : 'Изменить'}</span>
+                    <span>Сохранить логин</span>
                   </button>
                 </div>
                 <span className="text-xs text-gray-500 dark:text-gray-400 inline-block">
@@ -804,11 +761,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {requiresLoginPassword && (
                   <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-2 animate-in fade-in slide-in-from-top-1">
-                    <label className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                      Введите текущий пароль для подтверждения смены логина:
+                    <label htmlFor="settings-login-password" className="text-sm font-medium text-[var(--terra-offline-text)]">
+                      Текущий пароль для подтверждения смены логина
                     </label>
                     <input
-                      type="password"
+                      id="settings-login-password" autoComplete="current-password" type="password"
                       value={currentPasswordForLogin}
                       onChange={e => setCurrentPasswordForLogin(e.target.value)}
                       placeholder="Текущий пароль"
@@ -820,42 +777,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* CARD 2: Смена пароля */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-5">
-              <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] flex items-center justify-center text-[#2D5A43] dark:text-emerald-400 shadow-xs">
-                    <Lock size={20} />
-                  </div>
-                  <h3 className="font-headline text-lg font-bold text-gray-900 dark:text-white">Смена пароля</h3>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-[#2D5A43] dark:text-emerald-400 font-semibold">
-                  <CheckCircle2 size={16} />
-                  <span>Пароль надежно зашифрован</span>
-                </div>
-              </div>
-
-              {requiresPassConfirm && (
-                <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 animate-in fade-in">
-                  <label className="text-xs font-bold text-amber-800 dark:text-amber-300">Введите текущий пароль для подтверждения:</label>
-                  <input
-                    type="password"
-                    value={currentPasswordForPass}
-                    onChange={e => setCurrentPasswordForPass(e.target.value)}
-                    placeholder="Текущий пароль"
-                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] text-sm border border-amber-300 dark:border-amber-700/50 outline-none focus:ring-2 focus:ring-[#2D5A43]"
-                  />
-                </div>
-              )}
+            <section className="terra-settings-group">
+              <h3 className="text-base font-semibold">Смена пароля</h3>
+              {requiresPassConfirm&&<p role="status" className="text-sm text-[var(--terra-offline-text)]">Введите текущий пароль для подтверждения.</p>}
 
               {/* 3 Fields Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="terra-settings-password-grid grid gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                  <label htmlFor="settings-password-current" className="block text-sm font-medium mb-1">
                     Текущий пароль
                   </label>
                   <div className="relative">
                     <input
-                      type={showCurrentPass ? 'text' : 'password'}
+                      id="settings-password-current" autoComplete="current-password" type={showCurrentPass ? 'text' : 'password'}
                       value={currentPasswordForPass}
                       onChange={e => setCurrentPasswordForPass(e.target.value)}
                       placeholder="Текущий пароль"
@@ -863,7 +797,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      onClick={() => setShowCurrentPass(!showCurrentPass)} aria-label={showCurrentPass?'Скрыть текущий пароль':'Показать текущий пароль'}
                       className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -872,12 +806,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                  <label htmlFor="settings-password-new" className="block text-sm font-medium mb-1">
                     Новый пароль
                   </label>
                   <div className="relative">
                     <input
-                      type={showNewPass ? 'text' : 'password'}
+                      id="settings-password-new" autoComplete="new-password" type={showNewPass ? 'text' : 'password'}
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="Минимум 6 символов"
@@ -885,8 +819,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => setShowNewPass(!showNewPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      onClick={() => setShowNewPass(!showNewPass)} aria-label={showNewPass?'Скрыть новый пароль':'Показать новый пароль'}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg cursor-pointer"
                     >
                       {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -894,12 +828,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                  <label htmlFor="settings-password-confirm" className="block text-sm font-medium mb-1">
                     Повторите новый пароль
                   </label>
                   <div className="relative">
                     <input
-                      type={showConfirmPass ? 'text' : 'password'}
+                      id="settings-password-confirm" autoComplete="new-password" type={showConfirmPass ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Повторите ввод"
@@ -907,8 +841,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPass(!showConfirmPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)} aria-label={showConfirmPass?'Скрыть подтверждение пароля':'Показать подтверждение пароля'}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg cursor-pointer"
                     >
                       {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -916,24 +850,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {confirmPassword&&newPassword!==confirmPassword&&<p role="status" className="text-sm text-[var(--terra-danger-text)]">Пароли не совпадают.</p>}
               {/* Requirements Bar & Action */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
-                  <span className={`inline-flex items-center gap-1 ${/[A-Z]/.test(newPassword) ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
-                    <Check size={14} /> Заглавные буквы
-                  </span>
-                  <span className={`inline-flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
-                    <Check size={14} /> Цифры
-                  </span>
-                  <span className={`inline-flex items-center gap-1 ${newPassword.length >= 6 ? 'text-[#2D5A43] dark:text-emerald-400 font-semibold' : 'text-gray-400'}`}>
-                    <Check size={14} /> Мин. 6 символов
-                  </span>
-                </div>
+                <p className="text-sm text-[var(--terra-muted)]">Минимум 6 символов. Используйте уникальный пароль.</p>
 
                 <button
                   type="button"
                   onClick={handleUpdatePassword}
-                  disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                  disabled={isUpdatingPassword || newPassword.length < 6 || newPassword !== confirmPassword || (requiresPassConfirm&&!currentPasswordForPass)}
                   className="px-6 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                 >
                   {isUpdatingPassword ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
@@ -947,17 +872,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     onClick={handleSendResetEmail}
                     disabled={isSendingResetEmail}
-                    className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[44px] text-sm text-[var(--terra-primary-text)] flex items-center gap-1.5 transition-colors cursor-pointer text-left break-words"
                   >
                     <Mail size={14} />
-                    <span>Сбросить пароль по электронной почте ({currentUser.email})</span>
+                    <span>Сбросить пароль по электронной почте</span>
                   </button>
                 </div>
               )}
             </section>
 
             {/* No security control is exposed until a real server-side MFA enrollment flow exists. */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-4 sm:p-6">
+            <section className="terra-settings-group">
               <div className="flex items-start gap-3">
                 <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#4A7C59]" aria-hidden="true" />
                 <div className="min-w-0 space-y-1">
@@ -974,10 +899,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </section>
 
             {/* BOTTOM ACTIONS */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 pb-4">
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                Настройки семьи синхронизируются между участниками после сохранения.
-              </div>
+            <div className="flex justify-start pt-2 pb-2">
+              
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(true)}
@@ -992,7 +915,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       case 'family':
         return (
-          <div className="space-y-6 w-full max-w-full">
+          <div className="terra-settings-stack">
             {/* Members Settings */}
             <MembersSettingsSection 
               members={members}
@@ -1004,7 +927,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Family Space ID & Sync */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="terra-settings-group">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-[#2D5A43] dark:text-emerald-400 flex items-center justify-center">
@@ -1012,7 +935,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 dark:text-white">ID семейного пространства</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Синхронизация общей базы данных между устройствами</p>
+                    <p className="text-xs text-[var(--terra-muted)]">Текущее семейное пространство</p>
                   </div>
                 </div>
 
@@ -1032,8 +955,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <div className="space-y-3">
+                <p className="text-sm font-mono break-all" data-testid="settings-family-id">{currentFamilyId||'Не подключено'}</p>
+                <div className="border-t border-[var(--terra-border)] pt-3 space-y-2"><label htmlFor="settings-join-family" className="block text-sm font-semibold">Подключиться к другому пространству</label>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <input 
+                  <input id="settings-join-family" 
                     type="text" 
                     value={newFamilyId}
                     onChange={e => setNewFamilyId(e.target.value)}
@@ -1043,7 +968,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button 
                     type="button"
                     onClick={handleUpdateFamilyId}
-                    disabled={isJoining || newFamilyId.trim() === currentFamilyId}
+                    disabled={isJoining || !newFamilyId.trim() || newFamilyId.trim() === currentFamilyId}
                     className="px-5 py-3 rounded-xl bg-[#2D5A43] hover:bg-[#204332] text-white font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
                   >
                     {isJoining ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
@@ -1055,10 +980,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   Для подключения нужно приглашение на подтверждённый email вашего аккаунта. ID сам по себе не даёт доступ. Записи прежней семьи не переносятся и не удаляются.
                 </p>
                 {currentUser?.email&&!currentUser.emailVerified&&<button type="button" className="min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 px-3 text-sm" onClick={async()=>{try{await sendEmailVerification(currentUser);toast.success('Письмо отправлено. После подтверждения войдите повторно.');}catch{toast.error('Не удалось отправить письмо подтверждения');}}}>Отправить письмо подтверждения email</button>}
+                </div>
               </div>
             </section>
             {/* Advanced access controls remain opt-in. */}
-            <details className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-3">
+            <details className="terra-settings-group">
               <summary className="terra-settings-summary">Разграничение финансового доступа</summary>
               <div className="pt-3 space-y-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Для простого скрытия совместного бюджета используйте «Оформление и приватность». Проверка и перенос нужны только для реального запрета доступа к чужим данным.</p>
@@ -1122,7 +1048,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>}
               </div>
             </details>
-            {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-3">
+            {isHouseholdOwner && currentHouseholdPolicy?.policy==='family' && <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Записи без владельца</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">Нажмите проверку перехода выше, чтобы получить список. Назначайте только фактического владельца; суммы и история платежей не меняются.</p>
               {legacyRecords.length===0?<p className="text-sm text-gray-500">Нет записей в текущем списке. Повторите проверку.</p>:legacyRecords.map(record=>{
@@ -1143,21 +1069,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         );
 
-      case 'budget':
-        return (
-          <div className="space-y-5">
-          <section className="rounded-2xl border border-[var(--terra-border)] p-4 sm:p-6 space-y-4">
+      case 'budget': {
+        const personalFields = (<section key="personal" data-finance-scope="personal" className="terra-settings-group">
             <h3 className="text-base font-semibold">Личные финансовые параметры</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{householdPersonal?'Параметры текущего личного бюджета.':'Используются для личного отображения бюджета. Общие финансовые параметры не меняются.'}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="terra-settings-field-grid grid gap-3">
               {([
-                ['personalInitialBalance','Личный начальный остаток'],
+                ['personalInitialBalance','Начальный остаток, ₽'],
                 ['personalSavingsRate','Процент накоплений, %'],
-                ['personalMonthlyBudget','Личный месячный лимит'],
-                ['personalManualReservedAmount','Личный резерв']
+                ['personalMonthlyBudget','Месячный лимит, ₽'],
+                ['personalManualReservedAmount','Резерв, ₽']
               ] as const).map(([key,label])=><label key={key} className="block space-y-1 text-sm font-medium">
                 <span>{label}</span>
-                <input type="number" step="0.01" min={key==='personalInitialBalance'?undefined:0} max={key==='personalSavingsRate'?100:undefined}
+                <input type="number" inputMode="decimal" step="0.01" min={key==='personalInitialBalance'?undefined:0} max={key==='personalSavingsRate'?100:undefined}
                   value={settings[key]??''} onChange={e=>{
                     const n=e.target.value===''?0:e.target.valueAsNumber;
                     if(Number.isFinite(n)&& (key==='personalInitialBalance'||n>=0) && (key!=='personalSavingsRate'||n<=100))handleChange(key,Math.round(n*100)/100);
@@ -1168,8 +1092,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <input type="date" value={settings.personalInitialBalanceDate??''} onChange={e=>handleChange('personalInitialBalanceDate',e.target.value)} className="block w-full min-w-0 min-h-[44px] rounded-xl border border-gray-200 dark:border-white/10 bg-transparent px-3 text-sm"/>
               </label>
             </div>
-          </section>
-          <BudgetSettingsSection
+          </section>);
+        const commonFields = (
+          <div key="common-settings" data-finance-scope="common" className="terra-settings-stack">
+            <h3 className="text-sm font-semibold text-[var(--terra-muted)]">{householdPersonal?'Общие параметры учёта':'Общие параметры бюджета'}</h3>
+            <BudgetSettingsSection key="common"
             settings={settings}
             onUpdateSetting={handleChange}
             savingsRate={savingsRate}
@@ -1178,6 +1105,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           />
           </div>
         );
+        return <div className="terra-settings-stack">{householdPersonal?[personalFields,commonFields]:[commonFields,personalFields]}</div>;
+      }
 
       case 'data':
         return <BudgetSettingsSection settings={settings} onUpdateSetting={handleChange}
@@ -1204,20 +1133,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       case 'diagnostics':
         return (
           <div className="space-y-4 w-full min-w-0">
-            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-4">
-              <h3 className="text-base font-semibold">Подключение и данные</h3>
-              <dl className="divide-y divide-gray-200 dark:divide-white/10 text-sm">
+            <section className="terra-settings-group">
+              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Подключение и данные</h3><button type="button" disabled={isOfflineMode||!currentFamilyId||!networkOnline} onClick={()=>setSyncAttempt(n=>n+1)} className="min-h-[44px] px-3 rounded-xl border border-[var(--terra-border)] text-sm font-medium flex items-center gap-2"><RefreshCcw size={16}/> Проверить снова</button></div>
+              <dl data-testid="settings-sync-status" aria-live="polite" className="terra-settings-readout divide-y divide-[var(--terra-border)] text-sm">
                 {[
-                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?'Семейный аккаунт':'Без семейного аккаунта'],
+                  ['Режим приложения',isOfflineMode?'Демонстрационный':currentFamilyId?(householdPersonal?'Личный бюджет':'Семейный аккаунт'):'Без семейного аккаунта'],
                   ['Сеть устройства',networkOnline?'Доступна по данным браузера':'Нет подключения'],
-                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.fromCache?'Локальный кэш':confirmedSync.pending?'Ожидается подтверждение записи':'Получен с сервера')],
+                  ['Документ семьи',isOfflineMode?'Не проверяется':confirmedSync?.error??(!confirmedSync?'Ожидание ответа':confirmedSync.pending?'Ожидается подтверждение записи':confirmedSync.fromCache?'Локальный кэш':'Получен с сервера')],
                   ['Последний ответ сервера',confirmedSync?.confirmedAt?new Date(confirmedSync.confirmedAt).toLocaleString('ru-RU'):'Не подтверждён в этой сессии'],
                   ['Сохранение настроек',settingsWriteFailed?'Последняя попытка завершилась ошибкой':'Нет зарегистрированной ошибки в этом окне']
-                ].map(([label,value])=><div key={label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3"><dt className="text-gray-500 dark:text-gray-400">{label}</dt><dd className="font-medium break-words min-w-0">{value}</dd></div>)}
+                ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
               </dl>
               <p className="text-xs text-gray-500 dark:text-gray-400">Проверяется документ семейного пространства, а не доставка каждой финансовой операции. Ключи, токены и суммы не выводятся.</p>
             </section>
-            <section className="rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-3">
+            <section className="terra-settings-group">
               <h3 className="text-base font-semibold">Установка приложения</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">{standalone?'Приложение открыто в отдельном окне.':'Добавьте Terra на главный экран или установите через меню браузера.'}</p>
               {!standalone&&<button type="button" disabled={installBusy} onClick={()=>void handleInstall()} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-[#2D5A43] text-white px-4 text-sm font-semibold disabled:opacity-50">{installBusy?'Ожидание браузера…':installPrompt?'Установить приложение':'Как установить'}</button>}
@@ -1228,9 +1157,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       case 'integrations':
         return (
-          <div className="space-y-6 w-full max-w-full">
+          <div className="terra-settings-stack">
             {/* Telegram Bot Settings */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="terra-settings-group">
               <div className="flex items-center justify-between flex-wrap gap-2.5">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -1238,10 +1167,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-base font-bold text-gray-900 dark:text-white">Telegram</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Бот, семейный чат и уведомления</p>
+                    <p className="text-xs text-[var(--terra-muted)]">Бот, семейный чат и уведомления</p>
                   </div>
                 </div>
 
+
+              </div>
+
+              <p data-testid="telegram-config-status" role="status" className="text-sm text-[var(--terra-muted)]">{settings.telegramBotToken?.trim()&&settings.telegramChatId?.trim()?'Токен и ID чата заполнены':settings.telegramBotToken?.trim()?'Укажите ID чата':'Укажите токен бота'}</p>
+              <div className="terra-settings-field-grid grid gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота</label>
+                  <input 
+                    id="telegram-bot-token"
+                    disabled={isTestingTelegram || isTestingDelivery}
+                    type="password" 
+                    autoComplete="off"
+                    value={settings.telegramBotToken || ''} 
+                    onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
+                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
+                    placeholder="Токен от BotFather" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID семейного чата</label>
+                  <input 
+                    id="telegram-chat-id"
+                    disabled={isTestingTelegram || isTestingDelivery}
+                    type="text" 
+                    value={settings.telegramChatId || ''} 
+                    onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
+                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
+                    placeholder="ID чата" 
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-[var(--terra-muted)]">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
+              <div className="terra-settings-actions flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={handleTestTelegramConnection}
@@ -1251,46 +1214,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   {isTestingTelegram ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   <span>Проверить токен</span>
                 </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="telegram-bot-token" className="text-xs font-bold text-gray-700 dark:text-gray-300">Токен бота (Telegram Bot Token)</label>
-                  <input 
-                    id="telegram-bot-token"
-                    disabled={isTestingTelegram || isTestingDelivery}
-                    type="password" 
-                    autoComplete="off"
-                    value={settings.telegramBotToken || ''} 
-                    onChange={e => { setTelegramTestResult(null); setTelegramDeliveryResult(null); handleChange('telegramBotToken', cleanTelegramBotToken(e.target.value)); }} 
-                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
-                    placeholder="712345678:AAHk..." 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="telegram-chat-id" className="text-xs font-bold text-gray-700 dark:text-gray-300">ID общего чата (Chat ID)</label>
-                  <input 
-                    id="telegram-chat-id"
-                    disabled={isTestingTelegram || isTestingDelivery}
-                    type="text" 
-                    value={settings.telegramChatId || ''} 
-                    onChange={e => { setTelegramDeliveryResult(null); handleChange('telegramChatId', cleanTelegramChatId(e.target.value)); }} 
-                    className="w-full px-3.5 py-3 rounded-xl bg-[var(--terra-surface)] font-mono text-xs text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 outline-none focus:ring-2 focus:ring-[#2D5A43]" 
-                    placeholder="-1001928374650" 
-                  />
-                </div>
-              </div>
-
-              <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Проверка токена (getMe) подтверждает доступ к боту. getMe не проверяет доступ к семейному чату.</p>
-              <div className="flex flex-wrap items-center gap-3">
                 <button type="button" onClick={handleTestTelegramDelivery}
                   disabled={isTestingTelegram || isTestingDelivery || !settings.telegramBotToken?.trim() || !settings.telegramChatId?.trim()}
                   className="min-h-[44px] inline-flex items-center justify-center rounded-xl bg-[#4A7C59] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59]">
                   {isTestingDelivery ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Send size={16} className="mr-2" />}
                   Проверить доставку
                 </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Отправит одно проверочное сообщение в указанный чат</span>
               </div>
+              <p className="text-xs text-[var(--terra-muted)]">Проверка доставки отправит одно сообщение в указанный чат.</p>
               {telegramDeliveryResult && (
                 <p role="status" aria-live="polite" className={`rounded-xl border p-3 text-sm ${telegramDeliveryResult.ok ? 'border-emerald-200 text-emerald-700 dark:text-emerald-300' : 'border-red-200 text-red-700 dark:text-red-300'}`}>{telegramDeliveryResult.message}</p>
               )}
@@ -1307,20 +1238,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Live Telegram Bot Listener Panel */}
               <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
-                <div className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 flex-wrap gap-2">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <Play size={16} />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-blue-900 dark:text-blue-200">Приём сообщений от бота</h4>
-                      <p className="text-xs leading-relaxed text-blue-700 dark:text-blue-400">Работает только пока приложение открыто и слушатель запущен</p>
+                      <h4 className="text-sm font-semibold text-[var(--terra-ink)]">Приём сообщений от бота</h4>
+                      <p className="text-xs leading-relaxed text-[var(--terra-muted)]">Входящие команды работают только при открытом приложении. Это не переключатель фоновых напоминаний.</p>
+                      <p role="status" className="text-xs font-medium text-[var(--terra-muted)]">{householdPersonal?'Недоступно в личном режиме':!settingsReady?'Ожидание настроек':isBotActive?'Слушатель запущен':'Слушатель остановлен'}</p>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    disabled={householdPersonal||!settingsReady}
+                    disabled={householdPersonal||!settingsReady||(!isBotActive&&!settings.telegramBotToken?.trim())}
                     onClick={handleToggleBot}
                     aria-pressed={isBotActive}
                     className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer ${
@@ -1335,22 +1267,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Console Log Terminal */}
                 {isBotActive && (
-                  <div className="space-y-1.5 animate-in fade-in">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                      Логи работы Telegram-бота (Терминал):
-                    </span>
-                    <div className="p-3.5 bg-black text-xs font-mono text-emerald-400 rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-white/5 no-scrollbar">
+                  <details className="space-y-1.5"><summary className="terra-settings-summary">Журнал работы бота</summary>
+                    
+                    <div className="p-3 bg-[var(--terra-soft)] text-xs font-mono text-[var(--terra-ink)] rounded-xl max-h-[160px] overflow-y-auto space-y-1.5 border border-[var(--terra-border)]">
                       {botLogs.length === 0 ? (
-                        <div className="text-stone-500 text-[11px] animate-pulse">Ожидание входящих сообщений от Telegram API...</div>
+                        <div className="text-[var(--terra-muted)] text-xs">Ожидание входящих сообщений…</div>
                       ) : (
                         botLogs.map((log, lIdx) => (
                           <div key={lIdx} className="leading-relaxed flex items-start gap-1.5">
                             <span className="text-stone-500 font-semibold shrink-0">[{log.timestamp}]</span>
                             <span className={
-                              log.type === 'error' ? 'text-red-400 font-semibold' :
-                              log.type === 'success' ? 'text-emerald-300 font-bold' :
-                              log.type === 'incoming' ? 'text-sky-300 font-medium' :
-                              'text-emerald-500'
+                              log.type === 'error' ? 'text-[var(--terra-danger-text)] font-semibold' :
+                              log.type === 'success' ? 'text-[var(--terra-primary-text)] font-semibold' :
+                              'text-[var(--terra-ink)]'
                             }>
                               {log.text}
                             </span>
@@ -1358,21 +1287,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         ))
                       )}
                     </div>
-                  </div>
+                  </details>
                 )}
               </div>
             </section>
 
             {/* Gemini API Key */}
-            <section className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-5 sm:p-6 space-y-4">
+            <section className="terra-settings-group">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <Sparkles size={20} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">AI Ассистент (Google Gemini API)</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Персональный ключ для голосового чата и распознавания чеков</p>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Google Gemini</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Ключ API для функций ассистента</p>
                   </div>
                 </div>
 
@@ -1392,24 +1321,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={settings.geminiApiKey || ''} 
                     onChange={e => { setAiTestStatus('idle'); handleChange('geminiApiKey', e.target.value.trim()); }}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-[var(--terra-surface)] border border-gray-200 dark:border-white/10 font-mono text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2D5A43]" 
-                    placeholder="Вставьте ваш Google Gemini API key..." 
+                    placeholder="Ключ API" 
                   />
                   <button
                     type="button"
                     onClick={() => setShowGeminiKey(!showGeminiKey)}
                     aria-label={showGeminiKey ? 'Скрыть ключ Gemini' : 'Показать ключ Gemini'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-lg cursor-pointer"
                   >
                     {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
 
-                {apiKey && (
-                  <div className="flex items-center justify-end gap-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" data-testid="gemini-config-status" className="text-sm text-[var(--terra-muted)]">{!apiKey.trim()?'Ключ не задан':aiTestStatus==='loading'?'Проверка…':aiTestStatus==='success'?'Проверка успешна':aiTestStatus==='error'?'Проверка не прошла':'Ключ задан, не проверен в этом окне'}</p>
                     <button
                       type="button"
                       onClick={handleTestKey}
-                      disabled={aiTestStatus === 'loading'}
+                      disabled={aiTestStatus === 'loading'||!apiKey.trim()}
                       className="min-h-[44px] px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
                     >
                       {aiTestStatus === 'loading' ? (
@@ -1418,11 +1346,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         <BrainCircuit size={13} className="text-purple-500" />
                       )}
                       <span>
-                        {aiTestStatus === 'success' ? 'Подключение подтверждено' : aiTestStatus === 'error' ? 'Не удалось подключиться' : 'Проверить ключ ИИ'}
+                        Проверить ключ ИИ
                       </span>
                     </button>
                   </div>
-                )}
               </div>
             </section>
 
@@ -1492,7 +1419,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </header>
 
         {/* MOBILE Top Header Bar (< md) - view-stack routing aware */}
-        <header className="md:hidden h-14 px-4 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
+        <header className="md:hidden min-h-14 px-3 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 flex items-center justify-between shrink-0">
           {showMobileMenu ? (
             <div className="flex items-center gap-2">
               <h2 className="font-headline font-bold text-lg text-gray-900 dark:text-white">Настройки</h2>
@@ -1501,13 +1428,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <button 
                 type="button" 
-                onClick={() => {setSearchQuery('');setShowMobileMenu(true);}} 
-                className="min-h-[44px] flex items-center gap-1.5 px-2.5 py-1.5 -ml-1 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer text-xs font-semibold shrink-0"
+                aria-label="Назад" onClick={() => {setSearchQuery('');setShowMobileMenu(true);}} 
+                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-2 rounded-xl text-[var(--terra-primary-text)] hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors cursor-pointer text-xs font-semibold shrink-0"
               >
                 <ArrowLeft size={16} />
-                <span>Назад</span>
+                <span className="terra-settings-back-text">Назад</span>
               </button>
-              <h3 className="font-headline text-sm font-bold text-gray-900 dark:text-white truncate">
+              <h3 className="font-headline text-sm font-semibold text-[var(--terra-ink)] break-words leading-tight py-2">
                 {currentSection.label}
               </h3>
             </div>
@@ -1526,10 +1453,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </header>
 
         {/* 2-Column Core Layout / Mobile View */}
-        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+        <div className="terra-settings-workspace flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* MOBILE MENU HUB (Only on screens < md when showMobileMenu is true) */}
           {showMobileMenu && (
-            <div data-testid="settings-menu-scroll-container" className="md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 space-y-4 bg-gray-50/70 dark:bg-[#151618] pb-6">
+            <div data-testid="settings-menu-scroll-container" className="terra-settings-menu md:hidden flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-3 space-y-3 bg-[var(--terra-canvas)] pb-6">
               {/* Profile Card */}
               <button type="button"
                 onClick={()=>selectSection('account')}
@@ -1556,15 +1483,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
 
               {renderSettingsSearch()}
-              <nav aria-label="Разделы настроек" className="space-y-4">
+              <nav aria-label="Разделы настроек" className="space-y-3">
                 {SETTINGS_GROUPS.map(group=>{
                   const entries=filteredSections.filter(item=>item.group===group.id);
                   if(!entries.length)return null;
                   return <section key={group.id}>
                     <h3 className="px-1 pb-2 text-xs font-semibold text-[var(--terra-muted)]">{group.label}</h3>
-                    <div className="rounded-2xl bg-[var(--terra-surface)] border border-[var(--terra-border)] divide-y divide-[var(--terra-border)]">
-                      {entries.map(item=><button key={item.id} type="button" onClick={()=>selectSection(item.id)}
-                        className="w-full min-h-[44px] p-3 flex items-center gap-3 text-left hover:bg-[var(--terra-soft)] rounded-xl focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                    <div className="rounded-xl bg-[var(--terra-surface)] border border-[var(--terra-border)] divide-y divide-[var(--terra-border)]">
+                      {entries.map(item=><button key={item.id} type="button" data-settings-nav={item.id} onClick={()=>selectSection(item.id)}
+                        className="w-full min-h-[56px] px-3 py-2 flex items-center gap-3 text-left hover:bg-[var(--terra-soft)] rounded-xl focus-visible:ring-2 focus-visible:ring-primary transition-colors">
                         <span className="shrink-0 text-[var(--terra-primary)]">{item.icon}</span>
                         <span className="min-w-0 flex-1"><span className="block text-sm font-semibold break-words">{item.label}</span><span className="block text-xs text-[var(--terra-muted)] break-words">{item.subtitle}</span></span>
                         <ChevronRight size={16} className="shrink-0 text-[var(--terra-muted)]"/>
@@ -1591,9 +1518,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* DESKTOP Navigation Sidebar (always visible on md+) */}
-          <aside className="hidden md:flex w-[216px] lg:w-[240px] bg-[var(--terra-surface)] border-r border-[var(--terra-border)] p-3 flex-col shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex terra-settings-sidebar w-[208px] lg:w-[248px] bg-[var(--terra-surface)] border-r border-[var(--terra-border)] p-3 flex-col shrink-0 overflow-y-auto">
             {renderSettingsSearch()}
-            <nav aria-label="Разделы настроек" className="space-y-4 flex-1 pt-4">
+            <nav aria-label="Разделы настроек" className="space-y-3 flex-1 pt-3">
               {SETTINGS_GROUPS.map(group=>{
                 const entries=filteredSections.filter(section=>section.group===group.id);
                 if(!entries.length)return null;
@@ -1601,7 +1528,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <h3 className="px-2 text-xs font-semibold text-[var(--terra-muted)]">{group.label}</h3>
                   {entries.map(section=>{
                     const isActive=activeSection===section.id;
-                    return <button key={section.id} type="button" onClick={()=>selectSection(section.id)}
+                    return <button key={section.id} type="button" data-settings-nav={section.id} onClick={()=>selectSection(section.id)}
                       aria-current={isActive?'page':undefined}
                       className={`w-full min-h-[44px] flex items-center gap-2 px-2 py-2 rounded-xl text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary ${isActive?'terra-settings-active':'hover:bg-[var(--terra-soft)]'}`}>
                       <span className="shrink-0 text-[var(--terra-primary)]">{section.icon}</span>
@@ -1615,12 +1542,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </aside>
 
           {/* Right Main Content Panel (visible on md+, or on mobile when showMobileMenu is false) */}
-          <main className={`flex-1 min-h-0 bg-[var(--terra-surface)] flex-col min-w-0 overflow-hidden ${
+          <main className={`flex-1 min-h-0 bg-[var(--terra-canvas)] flex-col min-w-0 overflow-hidden ${
             showMobileMenu ? 'hidden md:flex' : 'flex'
           }`}>
             {/* Desktop Section Header (hidden on mobile) */}
             {currentSection.id !== 'categories' && (
-              <div className="hidden md:flex px-5 py-3 border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">
+              <div className="hidden md:flex px-5 py-3 bg-[var(--terra-surface)] border-b border-[var(--terra-border)] items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -1638,8 +1565,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Scrollable Section Content Canvas with prevent-clipping bottom padding */}
-            <div data-testid="settings-section-scroll-container" className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto overscroll-y-contain p-4 md:p-5 space-y-4 pb-6 terra-settings-content'}`}>
-              <div className={currentSection.id === "categories" ? "h-full min-h-0 flex flex-col" : "terra-settings-body"}>{renderSectionContent()}</div>
+            <div data-testid="settings-section-scroll-container" className={`flex-1 min-h-0 ${currentSection.id === 'categories' ? 'overflow-hidden p-0' : 'overflow-y-auto overscroll-y-contain p-3 md:p-5 pb-6 terra-settings-content'}`}>
+              <div data-settings-section={currentSection.id} className={currentSection.id === "categories" ? "h-full min-h-0 flex flex-col" : "terra-settings-body"}>{renderSectionContent()}</div>
             </div>
           </main>
         </div>

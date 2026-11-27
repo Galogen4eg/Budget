@@ -63,7 +63,7 @@ html.dark {
 .terra-overview-columns {grid-template-columns:minmax(0,1fr);}
 .terra-overview-balance {font-size:clamp(24px,3.2cqi,36px);line-height:1.2;}
 @container (max-width:519px) {.terra-overview-metrics {grid-template-columns:minmax(0,1fr);}}
-@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.55fr) repeat(3,minmax(0,1fr));}}
+@container (min-width:1120px) {.terra-overview-metrics {grid-template-columns:minmax(0,1.35fr) minmax(0,1.25fr) minmax(0,1fr);}.terra-overview-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);}}
 @container (min-width:1040px) {.terra-overview-columns {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}}
 
 /* Width belongs to the working area, not the browser viewport. */
@@ -97,3 +97,101 @@ html.dark {
  .terra-shell,[data-terra-dialog] {scroll-behavior:auto;}
  .terra-shell :is(.animate-ripple,.terra-menu),[data-terra-dialog] :is(.animate-ripple,.terra-menu){animation:none!important;}
 }
+
+/* UX composition: compact controls and aligned working columns. */
+.terra-mobile-title {flex:1 1 min-content;min-width:0;word-break:normal;overflow-wrap:normal;line-height:1.2;}
+.terra-mobile-actions {flex:0 0 auto;}
+.terra-shopping-tools {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.terra-shopping-tools>button {min-width:0;min-height:44px;height:auto;padding:6px;gap:4px;font-size:12px;line-height:1.2;white-space:normal;}
+.terra-shopping-library {border:1px solid var(--terra-border);border-radius:12px;padding:8px;background:var(--terra-surface);}
+@media(max-width:480px){.terra-shopping-tools>button svg,.terra-calendar-views>button svg{display:none;}.terra-calendar-views>button{min-width:0;white-space:nowrap;padding-inline:2px;}}
+.terra-plans-toolbar {padding:0 2px;}
+[id^="budget-"][id$="-mobile"] {scroll-margin-top:76px;}
+@container (min-width:920px){.terra-shopping-columns {grid-template-columns:minmax(0,7fr) minmax(0,5fr);}}
+
+/* Financial workspace: use content width, not viewport width. */
+.terra-budget-metrics {grid-template-columns:minmax(0,1fr);}
+@container (min-width:620px){.terra-budget-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@container (min-width:960px){.terra-budget-metrics {grid-template-columns:minmax(0,1.25fr) repeat(2,minmax(0,1fr));}}
+.terra-history-controls {container-type:inline-size;}
+.terra-history-toolbar {display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;}
+@container (min-width:560px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr);}.terra-history-filters{grid-column:1/-1;}}
+@container (min-width:780px){.terra-history-toolbar {grid-template-columns:minmax(0,auto) minmax(0,1fr) minmax(0,1fr);}.terra-history-filters{grid-column:auto;}}
+
+/* UX workspace geometry: actual available width determines layout. */
+.terra-service-grid{display:grid;grid-template-columns:minmax(0,1fr);background:var(--terra-surface);border:1px solid var(--terra-border);border-radius:12px;}
+.terra-service-row+.terra-service-row{border-top:1px solid var(--terra-border);}
+.terra-plans-desktop{grid-template-columns:minmax(0,1fr);gap:12px;padding:12px;}
+.terra-plans-desktop>main{padding:0;}
+.terra-wallet-grid,.terra-debt-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));}
+@media(min-width:1200px){.terra-plans-desktop{grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:16px;padding:20px;}}
+.terra-settings-body{max-width:900px;margin-inline:0;}
+.terra-settings-body input:not([type=checkbox]):not([type=radio]),.terra-settings-body select{min-height:44px;}
+
+/* Financial hierarchy: one daily comparison, aligned monthly totals. */
+.terra-daily-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.terra-daily-pair>div+div{border-left:1px solid var(--terra-border);padding-left:12px;}
+.terra-month-totals>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:baseline;padding:8px 0;}
+.terra-month-totals dt{font-size:13px;color:var(--terra-muted);}
+.terra-month-totals dd{margin:0;text-align:right;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+
+/* Archive has only month totals; current-day guidance is not an archive metric. */
+.terra-budget-metrics[data-current-period="false"]{grid-template-columns:minmax(0,1fr);}
+@container (min-width:620px){.terra-budget-metrics[data-current-period="false"] .terra-month-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div{display:block;border-top:0;border-bottom:0;padding:4px 8px;}.terra-budget-metrics[data-current-period="false"] .terra-month-totals>div+div{border-left:1px solid var(--terra-border);}.terra-budget-metrics[data-current-period="false"] .terra-month-totals dd{text-align:left;font-size:20px;margin-top:4px;}}
+@media(min-width:1024px){.terra-menu-settings-grid>section:nth-child(2){grid-column:auto;}}
+@media(max-width:359px){.terra-active-shopping-row{column-gap:4px;}.terra-active-shopping-row .terra-shopping-name{flex-basis:118px;}.terra-active-shopping-row .terra-shopping-stepper{max-width:100%;}.terra-active-shopping-row .terra-shopping-stepper>span{max-width:64px;}}
+
+/* Settings v3: actual workspace width, flat semantic groups and consistent field geometry. */
+.terra-settings-body {width:100%;max-width:900px;margin-inline:0;container-type:inline-size;min-width:0;}
+.terra-settings-stack{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.terra-settings-group{min-width:0;display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--terra-border);border-radius:16px;background:var(--terra-surface);color:var(--terra-ink);}
+details.terra-settings-group{display:block;}
+details.terra-settings-group>summary{min-height:44px;}
+.terra-settings-group :is(h2,h3){font-size:16px;line-height:1.35;font-weight:600;overflow-wrap:anywhere;}
+.terra-settings-group :is(input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]),select,textarea){min-width:0;max-width:100%;min-height:44px;border-color:var(--terra-control-border);font-size:14px;}
+.terra-settings-group :is(button):not([role=switch]){min-height:44px;}
+.terra-settings-group button:disabled{opacity:.5;cursor:not-allowed;}
+.terra-settings-group :is(button,a,input,select,textarea,summary):focus-visible,.terra-member-row:focus-visible{outline:2px solid var(--terra-focus);outline-offset:2px;}
+.terra-settings-row{padding-block:4px;}
+.terra-settings-readout>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:baseline;gap:8px;padding:10px 0;}
+.terra-settings-readout dt{font-size:13px;color:var(--terra-muted);overflow-wrap:anywhere;}
+.terra-settings-readout dd{margin:0;text-align:right;font-size:13px;font-weight:600;overflow-wrap:anywhere;}
+.terra-settings-field-grid,.terra-settings-password-grid,.terra-settings-two-up{grid-template-columns:minmax(0,1fr);gap:12px;}
+.terra-settings-two-up>section:nth-child(n){grid-column:auto;}
+.terra-settings-salary-grid{grid-template-columns:repeat(auto-fill,minmax(44px,1fr));}
+.terra-settings-switch-track{display:block;width:44px;height:24px;padding:4px;border-radius:20px;background:var(--terra-control-border);transition:background-color .15s;}
+.terra-settings-switch-track.is-on{background:var(--terra-primary-solid);}
+.terra-settings-switch-track>span{display:block;width:16px;height:16px;border-radius:50%;background:white;transition:transform .15s;}
+.terra-settings-switch-track.is-on>span{transform:translateX(20px);}
+.terra-members-workspace,.terra-categories-workspace{container-type:inline-size;min-width:0;}
+.terra-members-wide,.terra-categories-wide{display:none;}
+.terra-members-compact{display:block;}
+.terra-categories-compact{display:flex;}
+.terra-member-row{border:1px solid var(--terra-border);border-radius:12px;background:var(--terra-surface);}
+.terra-member-row[aria-pressed=true]{border-color:var(--terra-primary-solid);background:var(--terra-primary-soft);}
+@container(min-width:480px){.terra-settings-group{padding:16px;}.terra-settings-field-grid,.terra-settings-password-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.terra-settings-password-grid>div:first-child{grid-column:1/-1;}}
+@container(min-width:620px){.terra-settings-two-up{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;}}
+@container(min-width:720px){.terra-categories-wide{display:flex;}.terra-categories-compact{display:none;}}
+@container(min-width:800px){.terra-members-wide{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;}.terra-members-compact{display:none;}}
+@media(max-width:767px){.terra-settings-group :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px;}.terra-settings-theme button{font-size:12px;}}
+@media(max-width:359px){.terra-settings-back-text{display:none;}.terra-settings-readout>div{grid-template-columns:minmax(0,1fr);gap:3px;}.terra-settings-readout dd{text-align:left;}}
+@media(prefers-reduced-motion:reduce){.terra-settings-switch-track,.terra-settings-switch-track>span{transition:none!important;}}
+
+/* Settings nested editor boundaries: a footer belongs to its own dialog. */
+.terra-invite-dialog input:not([type=checkbox]){min-height:44px;font-size:16px;min-width:0;}
+.terra-invite-dialog button{min-height:44px;}
+.terra-settings-actions>button{flex:1 1 160px;min-width:0;justify-content:center;}
+.terra-settings-body[data-settings-section="account"] .terra-settings-group input{padding-right:48px;}
+.terra-settings-body[data-settings-section="account"] .terra-settings-group input[type="text"][id="settings-account-login"]{padding-right:12px;}
+.terra-settings-content{scrollbar-gutter:stable;}
+@media(max-width:767px){.terra-settings-content{scrollbar-gutter:auto;}}
+
+.terra-settings-switch-track{flex:none;}
+.terra-member-row .truncate{max-width:100%;}
+.terra-members-wide>div{min-width:0;}
+
+.terra-category-icon-grid{grid-template-columns:repeat(auto-fill,minmax(44px,1fr));}
+.terra-category-icon{background:var(--terra-soft);color:var(--terra-ink);}
+.terra-category-icon[aria-pressed=true]{background:var(--terra-primary-soft);color:var(--terra-primary-text);outline:2px solid var(--terra-primary-solid);}
+.terra-categories-workspace :is(button,input,select,summary):focus-visible{outline:2px solid var(--terra-focus);outline-offset:2px;}
+.terra-categories-workspace button:disabled{opacity:.5;cursor:not-allowed;}

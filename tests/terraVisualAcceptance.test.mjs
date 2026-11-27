@@ -17,3 +17,22 @@ test('chart semantics are separate from destructive actions and match their lege
  assert.match(chart,/bg-\[var\(--terra-income-chart\)\]/);
  assert.match(read('components/overview/OverviewExpenseChart.tsx'),/fill="var\(--terra-expense-chart\)"/);
 });
+
+test('overview theme canvas switches atomically and mobile navigation uses shared palette',()=>{
+ const overview=read('components/TerraOverview.tsx');
+ const canvas=overview.match(/data-testid="overview-scroll-container"[^>]+/)[0];
+ assert.match(canvas,/bg-\[var\(--terra-canvas\)\]/);
+ assert.doesNotMatch(canvas,/transition-colors|transition-all/);
+ const nav=read('App.tsx').split('data-terra-tabbar')[1].split('</nav>')[0];
+ assert.match(nav,/bg-\[var\(--terra-primary-soft\)\] text-\[var\(--terra-primary-text\)\]/);
+ assert.doesNotMatch(nav,/dark:text-green-400/);
+});
+test('category picker entrances do not scale or translate an entire viewport',()=>{
+ for(const name of ['Desktop','Mobile']){
+  const s=read('components/'+name+'CategoryPickerModal.tsx');
+  const panel=s.split('data-terra-picker-panel=')[1].split('className=')[0];
+  assert.match(panel,/initial=\{reduced\?false:/);
+  assert.match(panel,/terraTransition\(reduced/);
+  assert.doesNotMatch(panel,/scale:|100%|spring/);
+ }
+});

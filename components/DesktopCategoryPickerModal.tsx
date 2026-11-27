@@ -304,6 +304,7 @@ export const DesktopCategoryPickerModal: React.FC<DesktopCategoryPickerModalProp
           aria-modal="true" aria-label="Выбор категории"
         >
       <motion.div 
+        data-terra-picker-panel="desktop"
         initial={reduced?false:{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 6 }}

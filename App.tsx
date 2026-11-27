@@ -1269,7 +1269,7 @@ export default function App() {
                     navigateMenu(tab.id);
                   }} 
                   className={`relative flex flex-col items-center justify-center flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors terra-press ${
-                    isActive ? 'bg-[#E6EDE5] dark:bg-[#20362A] text-[#326243] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
+                    isActive ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-bold' : 'text-[var(--terra-muted)] hover:text-[var(--terra-ink)]'
                   }`}
                 >
                     <span className="relative z-10 flex items-center justify-center">
@@ -1277,7 +1277,7 @@ export default function App() {
                     </span>
                     <span className="w-full min-w-0 truncate text-center text-[10px] sm:text-[11px] mt-1 font-medium">{tab.label}</span>
                     {tab.id === 'shopping' && activeShoppingCount > 0 && (
-                      <span className="absolute top-1 right-[26%] w-2 h-2 rounded-full bg-[#4A7C59]" />
+                      <span className="absolute top-1 right-[26%] w-2 h-2 rounded-full bg-[var(--terra-primary-text)]" />
                     )}
                 </button>
              );

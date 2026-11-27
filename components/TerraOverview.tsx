@@ -708,7 +708,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   </button>);
 
   return (
-    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-[var(--terra-ink)]">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}

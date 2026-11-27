@@ -11,6 +11,13 @@ async function targetSize(locator,label){
 }
 async function capture(page,name){
  await page.evaluate(async()=>{await document.fonts.ready;});
+ // Playwright's animations:disabled completes CSS/Web Animations, not every
+ // requestAnimationFrame-driven Motion transition. Capture the settled picker.
+ await page.waitForFunction(()=>[...document.querySelectorAll('[data-terra-picker-panel]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]')).every(el=>{
+  const style=getComputedStyle(el),backdrop=getComputedStyle(el.parentElement);
+  const m=new DOMMatrixReadOnly(style.transform==='none'?undefined:style.transform);
+  return Number(style.opacity)>=.999&&Number(backdrop.opacity)>=.999&&Math.abs(m.m41)<.05&&Math.abs(m.m42)<.05&&Math.abs(m.a-1)<.001&&Math.abs(m.d-1)<.001;
+ }),null,{timeout:4000});
  await page.screenshot({path:out+'/'+name+'.png',animations:'disabled'});
 }
 async function noOverflow(locator,label){

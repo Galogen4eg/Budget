@@ -1,6 +1,7 @@
 import { useModalSurface } from '../hooks/useDialogFocus';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { terraTransition } from '../utils/uiMotion';
 import { 
   Search, X, Plus, ChevronDown, Check, ArrowRight, FolderOutput,
   FolderPlus, Wallet, Tag
@@ -39,6 +40,7 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
 }) => {
   useModalBackHandler(isOpen, onClose);
   const surface=useModalSurface(onClose,{enabled:isOpen,initialSelector:'[aria-label="Закрыть"]'});
+  const reduced=Boolean(useReducedMotion());
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const clearSearch = () => {
@@ -291,19 +293,20 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
     <AnimatePresence>
       {isOpen && (
         <motion.div 
-          initial={{ opacity: 0 }}
+          initial={reduced?false:{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={terraTransition(reduced,.18)}
           className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black/40 overflow-y-auto"
           {...surface} role="dialog"
           aria-modal="true" aria-label="Выбор категории"
         >
       <motion.div 
-        initial={{ y: '100%', opacity: 0 }}
+        data-terra-picker-panel="mobile"
+        initial={reduced?false:{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: '100%', opacity: 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+        exit={{ y: 8, opacity: 0 }}
+        transition={terraTransition(reduced,.20)}
         className="relative w-full h-[100dvh] sm:h-auto max-h-[100dvh] min-h-0 sm:max-w-2xl bg-[var(--terra-canvas)] sm:rounded-2xl border border-[var(--terra-border)] shadow-2xl overflow-hidden font-body text-[#2E3230] dark:text-stone-100 flex flex-col my-auto"
         onClick={(e) => e.stopPropagation()}
       >

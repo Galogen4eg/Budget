@@ -66,13 +66,13 @@ export function OverviewExpenseChart({
             <YAxis domain={[0, ceiling]} axisLine={false} tickLine={false} width={mobile ? 62 : 80}
               tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
             {limit > 0 && <ReferenceLine y={limit} stroke="var(--terra-offline-text)" strokeDasharray="4 4" />}
-            <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.55}}
+            <Tooltip isAnimationActive={false} cursor={false}
               content={({active,payload}) => {
                 if (!active || !payload?.length) return null;
                 const point = payload[0].payload as Point;
                 return <div className={CHART_TOOLTIP}><div>{point.fullLabel || point.label}</div><strong className="tabular-nums">{amount(point.amount)}</strong></div>;
               }} />
-            <Bar dataKey="amount" name="Расходы" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
+            <Bar dataKey="amount" name="Расходы" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} activeBar={{stroke:"var(--terra-ink)",strokeWidth:1}} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
           </BarChart>
         </ResponsiveContainer>}
     </div>

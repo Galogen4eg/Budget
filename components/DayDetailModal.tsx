@@ -21,7 +21,7 @@ interface DayDetailModalProps {
   members: FamilyMember[];
   onEditTransaction: (tx: Transaction) => void;
   onAddTransactionForDay: () => void;
-  dailySafeLimit: number;
+  dailySafeLimit?: number;
   privacyMode: boolean;
 }
 
@@ -92,7 +92,7 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
               <div className="col-span-2 sm:col-span-1 min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Баланс дня</dt><dd data-testid="day-detail-net" className={`text-lg font-semibold [overflow-wrap:anywhere] ${!privacyMode&&net<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatSignedBudgetMoney(net,privacyMode,true)}</dd></div>
               <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Доходы</dt><dd data-testid="day-detail-income" className="text-base font-semibold [overflow-wrap:anywhere] text-[var(--terra-primary-text)]">{formatSignedBudgetMoney(income,privacyMode,true)}</dd></div>
               <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Расходы</dt><dd data-testid="day-detail-expense" className="text-base font-semibold [overflow-wrap:anywhere]">{formatSignedBudgetMoney(-expense,privacyMode)}</dd></div>
-              <div className="col-span-full flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--terra-border)] pt-2 text-sm"><dt className="text-[var(--terra-muted)]">Дневной ориентир</dt><dd className="font-medium tabular-nums">{privacyMode?'•••':dailySafeLimit>0?formatBudgetMoney(dailySafeLimit)+' ₽/день':'Не задан'}</dd></div>
+              {dailySafeLimit!==undefined&&<div className="col-span-full flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--terra-border)] pt-2 text-sm"><dt className="text-[var(--terra-muted)]">Дневной ориентир</dt><dd className="font-medium tabular-nums">{privacyMode?'•••':dailySafeLimit>0?formatBudgetMoney(dailySafeLimit)+' ₽/день':'Не задан'}</dd></div>}
             </dl>
         {/* Transactions list */}
         <div className="space-y-2">

@@ -13,7 +13,8 @@ test('no invented financial transactions, obligations or category summaries are 
  assert.match(budget,/За этот месяц ещё нет расходов по категориям/);
 });
 test('manual bill check is not misrepresented as a real payment',()=>{
- assert.match(budget,/Отметить оплаченным/);
+ assert.match(budget,/Отметить платёж оплаченным вручную/);
+ assert.match(budget,/Отметить вручную/);
  assert.doesNotMatch(budget,/>\s*Оплатить\s*</);
 });
 test('monthly budget navigation uses safe date clamping for January 31 and March 31',()=>{
@@ -21,6 +22,6 @@ test('monthly budget navigation uses safe date clamping for January 31 and March
  assert.match(budget,/shiftCalendarMonth\(currentMonth, 1\)/);
 });
 test('budget mobile obligation action has keyboard access and enough touch space',()=>{
- assert.match(budget,/aria-label=\{\x60Редактировать обязательный платёж:/);
+ assert.match(budget,/aria-label=\{'Редактировать обязательный платёж: '\+title\}/);
  assert.match(budget,/min-h-\[44px\]/);
 });

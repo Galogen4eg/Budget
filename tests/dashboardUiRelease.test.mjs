@@ -138,14 +138,19 @@ test('budget metric cards simplify labels and hide derived money in privacy mode
  const budget=read('components/TerraBudget.tsx');
  const mobile=budget.split('{/* KPI & Family Overview Card */}')[1]?.split('{/* Family Member Filter Chips')[0];
  const desktop=budget.split('{/* 2. TOP KPI CARDS:')[1]?.split('{/* 3. MAIN WORKSPACE:')[0];
- assert.ok(mobile && desktop);
+ const shared=budget.split('const renderTodayMetrics=')[1]?.split('  return (')[0];
+ assert.ok(mobile && desktop && shared);
+ assert.match(mobile,/renderTodayMetrics\(true\)/);
+ assert.match(mobile,/renderMonthTotals\(true\)/);
+ assert.match(desktop,/renderTodayMetrics\(false\)/);
+ assert.match(desktop,/renderMonthTotals\(false\)/);
  assert.doesNotMatch(mobile,/Рассчитан|shadow-xs/);
  assert.doesNotMatch(desktop,/Ориентир рассчитан|>факт<|truncate block|uppercase tracking-wider/);
- assert.ok(desktop.includes("safeDailyLimit <= 0 || settings.privacyMode ? ''"));
- assert.ok(desktop.includes('!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit'));
+ assert.ok(shared.includes("safeDailyLimit <= 0 || settings.privacyMode ? ''"));
+ assert.ok(shared.includes('!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit'));
  for(const section of [mobile,desktop]){
   assert.ok(section.includes('formatBudgetMoney(safeDailyLimit)'));
-  assert.ok(section.includes('terra-progress'));
+  assert.ok(shared.includes('terra-progress'));
  }
 });
 
@@ -169,7 +174,10 @@ test('budget calendar, operations and category cards retain stable actions and p
  const sidebar=budget.split('{/* RIGHT: Analytics Sidebar')[1]?.split('{/* Modals */}')[0];
  assert.match(sidebar,/formatBudgetMoney\(cat.sum\)/);
  assert.doesNotMatch(sidebar,/Math.round\(cat.sum\)/);
- assert.match(sidebar,/onToggleMandatoryPaid\(expense.id\)/);
+ assert.match(sidebar,/renderMandatoryPayments\('desktop'\)/);
+ const payments=budget.split('const renderMandatoryPayments=')[1]?.split('const renderTodayMetrics=')[0];
+ assert.match(payments,/onToggleMandatoryPaid\(exp.id\)/);
+ assert.match(budget,/renderMandatoryPayments\('mobile'\)/);
  const history=budget.split('data-testid="budget-history-desktop"')[1]?.split('</section>')[0];
  assert.match(history,/historySearch=\{historySearch\}/);
  assert.match(history,/historyCategory=\{historyCategory\}/);
@@ -177,5 +185,5 @@ test('budget calendar, operations and category cards retain stable actions and p
 });
 
  test('monthly metrics use aligned rows and negative results have a distinct semantic color',()=>{
- const s=read('components/TerraBudget.tsx');assert.match(s,/terra-month-totals/);assert.match(s,/monthBalance<0\?'text-\[var\(--terra-danger-text\)\]'/);assert.match(s,/id="budget-payments-mobile"/);
+ const s=read('components/TerraBudget.tsx');assert.match(s,/terra-month-totals/);assert.match(s,/monthBalance<0\?'text-\[var\(--terra-danger-text\)\]'/);assert.match(s,/id=\{\x27budget-payments-\x27\+layout\}/);assert.match(s,/renderMandatoryPayments\(\x27mobile\x27\)/);
  });

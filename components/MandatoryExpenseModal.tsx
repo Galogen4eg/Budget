@@ -196,23 +196,23 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
         </div>
 
         {/* Форма редактирования */}
-        <form className="flex flex-col gap-4" onSubmit={handleSave}>
+        <form className="flex flex-col gap-3 min-w-0" onSubmit={handleSave}>
 
           {/* Выбор типа обязательства: Обычный или Долг */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-[var(--terra-muted)]">
               Тип платежа
             </span>
-            <div className="grid grid-cols-2 gap-2.5 p-1 bg-stone-200/60 dark:bg-stone-800/80 rounded-xl">
+            <div className="grid grid-cols-2 gap-1 p-1 bg-[var(--terra-soft)] rounded-xl">
               <button
                 type="button"
                 onClick={() => {
                   setExpenseType('regular');
                   setLinkedDebtId('');
                 }} aria-pressed={expenseType==='regular'}
-                className={`min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                className={`min-h-[44px] min-w-0 flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                   expenseType === 'regular'
-                    ? 'bg-[var(--terra-soft)] text-stone-900 dark:text-white shadow-xs'
+                    ? 'bg-[var(--terra-surface)] text-[var(--terra-primary-text)]'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
                 }`}
               >
@@ -223,9 +223,9 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
               <button
                 type="button"
                 onClick={() => setExpenseType('debt')} aria-pressed={expenseType==='debt'}
-                className={`min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                className={`min-h-[44px] min-w-0 flex items-center justify-center gap-1 py-2 px-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                   expenseType === 'debt'
-                    ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)] shadow-xs'
+                    ? 'bg-[var(--terra-surface)] text-[var(--terra-primary-text)]'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
                 }`}
               >
@@ -278,7 +278,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
           
           {/* Поле: НАЗВАНИЕ */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold text-stone-500 dark:text-gray-400 uppercase tracking-wider" htmlFor="paymentName">
+            <label className="text-xs font-semibold text-[var(--terra-muted)]" htmlFor="paymentName">
               Название
             </label>
             <div className="relative flex items-center">
@@ -289,7 +289,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 value={name} 
                 onChange={e => setName(e.target.value)}
                 placeholder={expenseType === 'debt' ? 'Ипотека, автокредит, кредитка...' : 'ЖКХ, интернет, аренда, связь...'} 
-                className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-semibold text-base px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-10"
+                className="w-full min-w-0 min-h-[44px] bg-[var(--terra-surface)] text-[var(--terra-ink)] font-medium text-sm px-3 py-2 rounded-xl border border-[var(--terra-border)]  focus:outline-none focus:ring-2 focus:ring-[var(--terra-focus)] transition-colors pr-10"
               />
               <span className="absolute right-3.5 text-stone-400">
                 <Edit3 size={18} />
@@ -298,10 +298,10 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
           </div>
 
           {/* Две колонки: СУММА & ДЕНЬ МЕСЯЦА */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-2 gap-2">
             {/* Колонка 1: СУММА */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-stone-500 dark:text-gray-400 uppercase tracking-wider" htmlFor="paymentAmount">
+              <label className="text-xs font-semibold text-[var(--terra-muted)]" htmlFor="paymentAmount">
                 Сумма
               </label>
               <div className="relative flex items-center">
@@ -312,7 +312,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   value={amount} 
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-8"
+                  className="w-full min-w-0 min-h-[44px] bg-[var(--terra-surface)] text-[var(--terra-ink)] tabular-nums font-semibold text-base px-3 py-2 rounded-xl border border-[var(--terra-border)]  focus:outline-none focus:ring-2 focus:ring-[var(--terra-focus)] transition-colors pr-8"
                 />
                 <span className="absolute right-3.5 font-headline font-bold text-sm text-stone-400">₽</span>
               </div>
@@ -320,7 +320,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
             {/* Колонка 2: ДЕНЬ МЕСЯЦА */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-stone-500 dark:text-gray-400 uppercase tracking-wider" htmlFor="paymentDay">
+              <label className="text-xs font-semibold text-[var(--terra-muted)]" htmlFor="paymentDay">
                 День месяца
               </label>
               <div className="relative flex items-center">
@@ -332,7 +332,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   max="31" 
                   value={day} 
                   onChange={e => setDay(e.target.value)}
-                  className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-headline font-bold text-lg px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] text-left focus:outline-none focus:ring-2 focus:ring-[var(--terra-focus)] transition-colors min-w-0"
+                  className="w-full min-w-0 min-h-[44px] bg-[var(--terra-surface)] text-[var(--terra-ink)] tabular-nums font-semibold text-base px-3 py-2 rounded-xl border border-[var(--terra-border)]  text-left focus:outline-none focus:ring-2 focus:ring-[var(--terra-focus)] transition-colors min-w-0"
                 />
               </div>
             </div>
@@ -340,43 +340,19 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
           {/* Секция: КТО ПЛАТИТ? */}
           <div className="flex flex-col gap-2 pt-1">
-            <span className="text-[11px] font-bold text-stone-500 dark:text-gray-400 uppercase tracking-wider">
-              Кто платит?
-            </span>
-            <div className={`grid ${members.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
+            <span className="text-xs font-semibold text-[var(--terra-muted)]">Кто платит?</span>
+            <div role="group" aria-label="Кто платит?" className="grid grid-cols-2 gap-2 min-w-0">
               {members.map(m => {
                 const isSelected = memberId === m.id;
                 const initial = m.name ? m.name.charAt(0).toUpperCase() : 'У';
-                
                 return (
-                  <label 
-                    key={m.id}
-                    onClick={() => setMemberId(m.id)}
-                    className={`relative flex items-center gap-3 p-2.5 rounded-xl bg-[var(--terra-soft)] cursor-pointer hover:bg-stone-50 dark:hover:bg-[#2A2A2D] transition-all shadow-[0_1px_4px_rgba(46,50,48,0.04)] border ${
-                      isSelected 
-                        ? 'border-[#4A7C59] ring-2 ring-[#4A7C59]/20' 
-                        : 'border-[var(--terra-border)]'
-                    }`}
-                  >
-                    <div 
-                      className={`w-8 h-8 rounded-full font-headline font-bold text-xs flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected 
-                          ? 'bg-[#4A7C59] text-white' 
-                          : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-gray-300'
-                      }`}
-                      style={!isSelected && m.color ? { backgroundColor: `${m.color}20`, color: m.color } : {}}
-                    >
-                      {initial}
-                    </div>
-                    <span className={`text-sm truncate ${isSelected ? 'font-bold text-stone-900 dark:text-white' : 'font-semibold text-stone-600 dark:text-gray-300'}`}>
-                      {m.name}
-                    </span>
-                    <div className={`ml-auto w-5 h-5 rounded-full flex items-center justify-center text-[#4A7C59] transition-opacity ${
-                      isSelected ? 'opacity-100' : 'opacity-0'
-                    }`}>
-                      <CheckCircle2 size={18} />
-                    </div>
-                  </label>
+                  <button type="button" key={m.id} disabled={isSaving}
+                    aria-pressed={isSelected} onClick={() => setMemberId(m.id)}
+                    className={`min-h-[44px] min-w-0 flex items-center gap-2 px-2 py-2 rounded-xl border text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${isSelected?'bg-[var(--terra-primary-soft)] border-[var(--terra-primary-text)] text-[var(--terra-primary-text)]':'bg-[var(--terra-surface)] border-[var(--terra-control-border)] text-[var(--terra-ink)]'}`}>
+                    <span aria-hidden="true" className="w-6 h-6 rounded-full bg-[var(--terra-soft)] text-[var(--terra-ink)] text-xs font-semibold shrink-0 flex items-center justify-center">{initial}</span>
+                    <span data-payment-member-name className="min-w-0 flex-1 text-sm font-semibold [overflow-wrap:anywhere]">{m.name}</span>
+                    {isSelected&&<CheckCircle2 size={14} className="shrink-0" aria-hidden="true"/>}
+                  </button>
                 );
               })}
             </div>
@@ -387,15 +363,15 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             type="button"
             aria-pressed={remind}
             onClick={() => setRemind(!remind)}
-            className="w-full text-left bg-[var(--terra-soft)] rounded-xl p-3.5 border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full min-h-[44px] text-left bg-[var(--terra-surface)] rounded-xl p-3 border border-[var(--terra-border)] flex items-center justify-between gap-2 cursor-pointer group hover:border-[var(--terra-control-border)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-[#4A7C59] group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 shrink-0 rounded-lg bg-[var(--terra-soft)] dark:bg-white/5 flex items-center justify-center text-[#4A7C59] group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
                 <Send size={18} />
               </div>
               <div>
                 <div className="text-sm font-semibold text-stone-900 dark:text-white">Напоминать в Telegram</div>
-                <div className="text-xs text-stone-400">За 1 день до оплаты</div>
+                <div className="text-xs text-[var(--terra-muted)]">За 1 день до оплаты</div>
               </div>
             </div>
             
@@ -414,15 +390,15 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
             aria-pressed={isPaidCurrentMonth}
             onClick={() => setIsPaidCurrentMonth(!isPaidCurrentMonth)}
             disabled={isSaving}
-            className="w-full text-left bg-[var(--terra-soft)] rounded-xl p-3.5 border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] flex items-center justify-between cursor-pointer group hover:border-[#4A7C59]/40 transition-colors"
+            className="w-full min-h-[44px] text-left bg-[var(--terra-surface)] rounded-xl p-3 border border-[var(--terra-border)] flex items-center justify-between gap-2 cursor-pointer group hover:border-[var(--terra-control-border)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#FAF8F5] dark:bg-white/5 flex items-center justify-center text-stone-500 group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 shrink-0 rounded-lg bg-[var(--terra-soft)] dark:bg-white/5 flex items-center justify-center text-stone-500 group-hover:bg-[#4A7C59] group-hover:text-white transition-colors">
                 <CheckSquare size={18} />
               </div>
               <div>
                 <div className="text-sm font-semibold text-stone-900 dark:text-white">Отметить оплаченным вручную</div>
-                <div className="text-xs text-stone-400 capitalize">{monthName}. Не создаёт расходную операцию</div>
+                <div className="text-xs text-[var(--terra-muted)]">{monthName}. Не создаёт расходную операцию</div>
               </div>
             </div>
 

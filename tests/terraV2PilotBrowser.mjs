@@ -102,6 +102,15 @@ async function budgetGeometryPilot(page,settingsRef){
      assert.ok(Math.abs(grid.children[0].top-grid.children[1].top)<=1,label+' workspace alignment');
     }
    }
+   if(!mobile){
+    const summary=g.grids.find(grid=>grid.id==='summary');
+    if(summary&&summary.columns===12&&summary.children.length===3){
+     const [a,b,c]=summary.children;
+     assert.ok(Math.max(a.top,b.top,c.top)-Math.min(a.top,b.top,c.top)<=1,label+' summary top axes');
+     assert.ok(Math.max(a.bottom,b.bottom,c.bottom)-Math.min(a.bottom,b.bottom,c.bottom)<=1,label+' summary bottom axes');
+     assert.ok(Math.abs(b.left-a.right-gap)<=1&&Math.abs(c.left-b.right-gap)<=1,label+' summary gap');
+    }
+   }
    const history=visible(budget.locator('[data-testid="budget-history-'+(mobile?'mobile':'desktop')+'"]'));
    await noOverflow(history,label+' history');
    for(const row of await history.locator('[data-history-row]').all()){
@@ -576,6 +585,49 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
       assert.ok(rect&&rail&&rect.x>=rail.x-1&&rect.x+rect.width<=rail.x+rail.width+1,label+' clipped budget shortcut');
      }
     }
+    for(const name of ['budget-month-totals','budget-today-metrics']){
+     const block=metrics.getByTestId(name);
+     await block.waitFor({state:'visible'});
+     await noOverflow(block,label+' '+name);
+    }
+    const calendar=budget.getByTestId(mobile?'budget-calendar-mobile':'budget-calendar-desktop');
+    if(mobile){
+     const view=calendar.getByRole('group',{name:'Масштаб календаря расходов'});
+     const month=button(view,'Месяц'),week=button(view,'Неделя');
+     await targetSize(week,label+' week toggle');
+     await week.click();assert.equal(await week.getAttribute('aria-pressed'),'true');
+     const dates=calendar.locator('[aria-label^="Выбрать "][aria-pressed]');
+     assert.ok(await dates.count()<=7 && await dates.count()>0,label+' wrong week size');
+     for(const day of await dates.all())await targetSize(day,label+' week date');
+     await capture(page,'budget-calendar-week-'+label);
+     await month.click();assert.equal(await month.getAttribute('aria-pressed'),'true');
+     assert.ok(await dates.count()>=28,label+' wrong month size');
+     for(const day of await dates.all())await targetSize(day,label+' month date');
+    }
+    await calendar.scrollIntoViewIfNeeded();await capture(page,'budget-calendar-month-'+label);
+    const dateChoice=calendar.locator('[aria-label^="Выбрать 1 "][aria-pressed]').first();
+    await dateChoice.click();
+    assert.equal(await dateChoice.getAttribute('aria-pressed'),'true');
+    await button(budget,mobile?'Операции за выбранный день':'Операции за день').click();
+    const budgetDay=page.getByTestId('terra-day-detail');
+    await budgetDay.waitFor({state:'visible'});
+    await capture(page,'budget-day-details-'+label);
+    await button(budgetDay,/Добавить операцию/,false).click();
+    const budgetEditor=page.getByRole('dialog',{name:'Новая операция',exact:true});
+    await budgetEditor.waitFor({state:'visible'});
+    const expectedBudgetDate=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
+    assert.equal(await budgetEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedBudgetDate,label+' wrong date from Budget day details');
+    await targetSize(budgetEditor.getByRole('textbox',{name:'Название в истории'}),label+' transaction name field');
+    const ruleSwitch=budgetEditor.getByRole('checkbox',{name:'Запомнить правило',exact:true});
+    await targetSize(ruleSwitch.locator('..'),label+' transaction rule switch');
+    await noOverflow(budgetEditor,label+' transaction editor');
+    await capture(page,'budget-day-editor-'+label);
+    await page.keyboard.press('Escape');
+    await budgetEditor.waitFor({state:'hidden'});
+    await budgetDay.waitFor({state:'visible'});
+    await page.keyboard.press('Escape');
+    await budgetDay.waitFor({state:'hidden'});
+
     await metrics.scrollIntoViewIfNeeded();await capture(page,'budget-summary-'+label);
     const budgetHistory=budget.getByTestId(mobile?'budget-history-mobile':'budget-history-desktop');
     const controls=budgetHistory.getByTestId('budget-history-controls');
@@ -586,6 +638,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const firstIds=await budgetRows.evaluateAll(nodes=>nodes.map(el=>el.dataset.historyRow));
     const totalText=await controls.getByRole('status').innerText();
     assert.ok(Number(totalText.split(' из ')[0])>=500,label+' month history dataset too small');
+    const rowsGeometry=await budgetRows.evaluateAll(rows=>rows.map(row=>{
+      const a=row.firstElementChild.getBoundingClientRect(),b=row.lastElementChild.getBoundingClientRect(),r=row.getBoundingClientRect();
+      return {titleRight:a.right,amountLeft:b.left,amountRight:b.right,rowRight:r.right};
+    }));
+    for(const row of rowsGeometry){
+     assert.ok(row.titleRight<=row.amountLeft+1,label+' history content overlaps sum');
+     assert.ok(Math.abs(row.rowRight-row.amountRight-(rowsGeometry[0].rowRight-rowsGeometry[0].amountRight))<=1,label+' history sum alignment');
+    }
     await controls.scrollIntoViewIfNeeded();await capture(page,'budget-month-history-'+label);
     const more=button(budgetHistory,/^Показать ещё /,false);
     await targetSize(more,label+' history next page');await more.click();
@@ -607,6 +667,44 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await page.keyboard.press('Escape');
     await budgetCategories.waitFor({state:'hidden'});
     assert.equal(await budgetAll.evaluate(el=>document.activeElement===el),true,label+' budget categories focus return');
+    const planning=visible(budget.getByTestId('budget-planning'));
+    const limitAdd=button(planning,'+ Лимит');
+    await targetSize(limitAdd,label+' add limit');await limitAdd.click();
+    const limitCategory=planning.getByRole('combobox',{name:'Категория',exact:true});
+    const limitOptions=await limitCategory.locator('option').evaluateAll(nodes=>nodes.map(el=>el.value).filter(Boolean));
+    assert.ok(limitOptions.length>0,label+' limit category options');
+    await limitCategory.selectOption(limitOptions[0]);
+    const limitInput=planning.getByRole('textbox',{name:/Лимит в месяц/});
+    await targetSize(limitInput,label+' limit amount');
+    await limitInput.fill('12.345');
+    await button(planning,'Сохранить лимит').click();
+    await planning.getByRole('alert').filter({hasText:'Укажите положительный лимит с точностью до копейки.'}).waitFor({state:'visible'});
+    await noOverflow(planning,label+' invalid limit form');
+    await capture(page,'budget-limit-invalid-'+label);
+    await button(planning,'Закрыть').click();
+    assert.equal(await limitInput.count(),0,label+' limit cancel did not close');
+    const paymentList=budget.getByTestId(mobile?'budget-payments-mobile':'budget-payments-desktop');
+    await paymentList.scrollIntoViewIfNeeded();
+    await noOverflow(paymentList,label+' payment list');
+    const paymentAmounts=await paymentList.locator('[data-payment-amount]').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().right));
+    assert.ok(paymentAmounts.every(x=>Math.abs(x-paymentAmounts[0])<=1),label+' payment amount axes');
+    await capture(page,'budget-payment-list-'+label);
+    const paymentAdd=button(budget,'Добавить обязательный платёж');
+    await paymentAdd.click();
+    const payment=page.getByTestId('terra-mandatory-dialog');
+    await payment.waitFor({state:'visible'});
+    await noOverflow(payment,label+' Budget payment editor');
+    const memberButtons=payment.getByRole('group',{name:'Кто платит?'}).getByRole('button');
+    assert.ok(await memberButtons.count()>=2,label+' payer choices');
+    for(const option of await memberButtons.all()){
+     await targetSize(option,label+' payer target');
+     const name=option.locator('[data-payment-member-name]');
+     assert.ok(await name.evaluate(el=>el.scrollWidth<=el.clientWidth+1),label+' payer name clipped');
+    }
+    await memberButtons.last().click();assert.equal(await memberButtons.last().getAttribute('aria-pressed'),'true');
+    await capture(page,'budget-payment-editor-'+label);
+    await page.keyboard.press('Escape');
+    await payment.waitFor({state:'hidden'});
     await button(page.locator('nav'),'Обзор').click();
     console.log('PASS TERRA BUDGET PILOT '+label+' summary, all shortcuts, month history 20/40, full categories, focus');
     await button(page.locator('nav'),'Планы').click();

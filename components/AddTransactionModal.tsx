@@ -562,7 +562,7 @@ export default function AddTransactionModal({
                         {renamedTitle ? renamedTitle.charAt(0).toUpperCase() : 'Т'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400 block">
+                        <label className="text-xs font-medium text-[var(--terra-muted)] block">
                           Название в истории
                         </label>
                         <input 
@@ -571,7 +571,7 @@ export default function AddTransactionModal({
                           value={renamedTitle}
                           onChange={(e) => setRenamedTitle(e.target.value)}
                           placeholder={selectedCategory.label || 'Магнит, Такси...'}
-                          className="w-full bg-transparent text-[#2E3230] dark:text-white font-bold text-sm focus:outline-none border-none p-0 focus:ring-0 placeholder-graphite-muted/40 dark:placeholder-white/40"
+                          className="w-full min-h-[44px] bg-transparent text-[var(--terra-ink)] font-semibold text-sm rounded-lg border-none p-0 focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] placeholder:text-[var(--terra-muted)]"
                         />
                       </div>
                     </div>
@@ -597,17 +597,17 @@ export default function AddTransactionModal({
                     {/* Запомнить правило */}
                     <div className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-[var(--terra-soft)] text-[var(--terra-muted)] flex items-center justify-center shrink-0">
                           <Sparkles size={16} />
                         </div>
                         <div>
                           <div className="text-xs font-bold text-[#2E3230] dark:text-white">Запомнить правило</div>
-                          <div className="text-[10px] text-graphite-muted dark:text-gray-400">Авто-категория для будущих операций</div>
+                          <div className="text-xs text-[var(--terra-muted)]">Категория для будущих операций</div>
                         </div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <label className="relative min-h-[44px] min-w-[44px] inline-flex items-center justify-center cursor-pointer shrink-0">
                         <input 
-                          type="checkbox"
+                          type="checkbox" aria-label="Запомнить правило"
                           checked={isLearningEnabled}
                           onChange={(e) => {
                             const checked = e.target.checked;
@@ -619,7 +619,7 @@ export default function AddTransactionModal({
                           }}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 bg-[#EAE6DE] dark:bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
+                        <div className="w-10 h-5 bg-[#EAE6DE] dark:bg-white/20 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--terra-focus)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-transform motion-reduce:after:transition-none peer-checked:bg-primary" />
                       </label>
                     </div>
 
@@ -795,7 +795,7 @@ export default function AddTransactionModal({
                     {/* Compact Card: Заметка и банковский оригинал */}
                     <div className="bg-[var(--terra-surface)] rounded-2xl p-3.5 border border-surface-border dark:border-white/10 shadow-sm space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-graphite-muted dark:text-gray-400">
+                        <span className="text-xs font-medium text-[var(--terra-muted)]">
                           Заметка / Банковский оригинал
                         </span>
                         {initialTransaction?.rawNote && (

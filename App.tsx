@@ -1160,7 +1160,8 @@ export default function App() {
                     currentMonth={currentMonth}
                     onMonthChange={setCurrentMonth}
                     onEditTransaction={handleEditTransaction}
-                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenAddModal={()=>{setNewTransactionDate(null);setSelectedTx(null);setIsAddModalOpen(true);}}
+                    onOpenAddModalForDate={date=>{setNewTransactionDate(date);setSelectedTx(null);setIsAddModalOpen(true);}}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onOpenTrainModal={() => setDrillDownState({ categoryId: 'other' })}
                     onImportClick={() => {if(!importingRef.current)document.getElementById('import-input')?.click();}}

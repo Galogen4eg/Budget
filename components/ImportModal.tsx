@@ -437,7 +437,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   };
 
   // Переключение запоминания правила
-  const handleToggleRemember = (tempId: string, e: React.MouseEvent) => {
+  const handleToggleRemember = (tempId: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     const item = items.find(i => i.tempId === tempId);
     if (!item) return;
@@ -602,78 +602,26 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         aria-modal="true" aria-busy={isConfirmingImport}
         onClickCapture={e=>{if(importPending.current){e.preventDefault();e.stopPropagation();}}}
         aria-labelledby="modal-headline"
-        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[var(--terra-canvas)] rounded-none sm:rounded-2xl shadow-xl border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92dvh] overflow-hidden text-stone-900 dark:text-white cursor-default pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-[96vw] lg:max-w-[94vw] xl:max-w-[1440px] 2xl:max-w-[1560px] bg-[var(--terra-canvas)] rounded-none sm:rounded-2xl shadow-xl border-0 sm:border border-[var(--terra-border)] flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92dvh] overflow-hidden text-stone-900 dark:text-white cursor-default pb-[env(safe-area-inset-bottom,0px)]"
       >
         
-        {/* Кнопка закрытия в верхнем правом углу */}
-        <button 
-          type="button"
-          onClick={requestClose}
-          disabled={isConfirmingImport}
-          aria-label="Закрыть модальное окно"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 z-20 w-11 h-11 rounded-full bg-stone-200/60 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-600 dark:text-gray-300 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#4A7C59] cursor-pointer"
-        >
-          <X size={20} />
-        </button>
-
-        {/* ШАПКА МОДАЛЬНОГО ОКНА */}
-        <div className="px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:pt-4 pb-3 border-b border-[var(--terra-border)] bg-[var(--terra-surface)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
-            {/* Заголовок и иконка */}
-            <div className="flex min-w-0 items-center gap-3 pr-12">
-              <div className="w-10 h-10 rounded-xl bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center shrink-0">
-                <FileText size={22} strokeWidth={2.2} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 id="modal-headline" className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white tracking-tight font-headline">
-                    {reviewMode?'Операции на разбор':'Проверка выписки'}
-                  </h2>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#E5ECE9] dark:bg-primary/30 text-[#2A4C34] dark:text-green-300 text-xs font-bold">
-                    {items.length} {items.length === 1 ? 'операция' : 'операций'}
-                  </span>
-                  <span className="text-xs text-stone-400 dark:text-gray-400 font-medium">
-                    • {dateRangeString}
-                  </span>
-                </div>
-              </div>
+        <div data-testid="import-header" className="shrink-0 min-w-0 px-3 sm:px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pt-4 pb-2 border-b border-[var(--terra-border)] bg-[var(--terra-surface)] space-y-2">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex-1">
+              <h2 id="modal-headline" className="text-lg font-semibold font-headline text-[var(--terra-ink)]">{reviewMode?'Операции на разбор':'Проверка выписки'}</h2>
+              <p className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{items.length} {items.length===1?'операция':'операций'} · {dateRangeString}</p>
             </div>
-
-            {report&&<p role="status" className="text-xs text-[var(--terra-muted)]">Строк операций: {report.operationRows} · Категория назначена: {items.length-unassignedCount} · Нужна категория: {unassignedCount} · Дубликаты: {report.duplicates} · Ошибки: {report.errors.length}</p>}
-            {/* Сводка и селектор авторов */}
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              
-              {/* Bank statement ownership is fixed by the authenticated family profile. */}
-              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-soft)] px-3 py-2 text-sm">
-                <User size={16} className="shrink-0 text-[#4A7C59]" />
-                <span className="text-stone-500 dark:text-gray-400">Владелец выписки:</span>
-                <strong className="min-w-0 truncate text-stone-800 dark:text-white">
-                  {members.find(m => m.id === globalMemberId)?.name || 'Не указан'}
-                </strong>
-              </div>
-
-              {/* Объединенный бейдж доходов и расходов в одной строке */}
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-[var(--terra-soft)] min-w-0 max-w-full">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] dark:text-green-400">
-                  <span className="w-2 h-2 rounded-full bg-[#2E7D32]" />
-                  <span className="text-[var(--terra-muted)] font-medium text-xs">Доходы:</span>
-                  <span className="tabular-nums font-bold">{settings.privacyMode?'•••':'+'+formatBudgetMoney(totalIncome)+' ₽'}</span>
-                </div>
-                <div className="h-3.5 w-px bg-stone-200 dark:bg-white/10" />
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#D95D39] dark:text-red-400">
-                  <span className="w-2 h-2 rounded-full bg-[#D95D39]" />
-                  <span className="text-[var(--terra-muted)] font-medium text-xs">Расходы:</span>
-                  <span className="tabular-nums font-bold">{settings.privacyMode?'•••':'−'+formatBudgetMoney(totalExpense)+' ₽'}</span>
-                </div>
-              </div>
-
-            </div>
-
+            <button type="button" onClick={requestClose} disabled={isConfirmingImport} aria-label="Закрыть модальное окно"
+              className="w-11 h-11 shrink-0 rounded-xl bg-[var(--terra-soft)] text-[var(--terra-ink)] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"><X size={20}/></button>
           </div>
-
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs min-w-0 text-[var(--terra-muted)]">
+            <span className="min-w-0 [overflow-wrap:anywhere]">Владелец выписки: <strong className="text-[var(--terra-ink)]">{members.find(m=>m.id===globalMemberId)?.name||'Не указан'}</strong></span>
+            <span className="min-w-0 tabular-nums [overflow-wrap:anywhere]">Доходы: <strong className="text-[var(--terra-primary-text)]">{settings.privacyMode?'•••':'+'+formatBudgetMoney(totalIncome)+' ₽'}</strong></span>
+            <span className="min-w-0 tabular-nums [overflow-wrap:anywhere]">Расходы: <strong className="text-[var(--terra-ink)]">{settings.privacyMode?'•••':'−'+formatBudgetMoney(totalExpense)+' ₽'}</strong></span>
+          </div>
+          {report&&<p role="status" className="text-xs text-[var(--terra-muted)]">Строк операций: {report.operationRows} · Категория назначена: {items.length-unassignedCount} · Нужна категория: {unassignedCount} · Дубликаты: {report.duplicates} · Ошибки: {report.errors.length}</p>}
           {/* Тулбар фильтрации и поиска */}
-          <div className="mt-4 pt-3 border-t border-[#ECE6DE]/80 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 min-w-0">
             
             <div role="group" aria-label="Фильтр операций выписки" className={FILTER_RAIL}>
               {(['all','unrecognized','income','expense'] as const).map(tab=>{
@@ -687,7 +635,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             </div>
 
             {/* Поиск */}
-            <div className="flex items-center gap-2.5 flex-1 md:w-64">
+            <div className="flex items-center gap-2 flex-1 min-w-0 md:w-64">
               <div className="relative w-full">
                 <Search size={14} className="text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input 
@@ -705,7 +653,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* СПИСОК ОПЕРАЦИЙ */}
-        <div className="overflow-y-auto overscroll-y-contain min-h-0 px-3 sm:px-5 py-3 space-y-2.5 flex-1 bg-[var(--terra-canvas)]">
+        <div data-testid="import-scroll" className="overflow-y-auto overscroll-y-contain min-h-0 px-3 sm:px-4 py-3 space-y-2 flex-1 bg-[var(--terra-canvas)]">
           {unassignedCount > 0 && (
             <div className="bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -733,6 +681,34 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </button>
             </div>
           )}
+
+            {/* Кнопка "Назначить выбранным" */}
+            {unassignedCount > 0 && (
+              <div className="min-w-0">
+                <button 
+                  type="button"
+                  disabled={isConfirmingImport} aria-expanded={isBatchCategoryOpen} onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-[var(--terra-soft)] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Tag size={14} className="text-[#4A7C59]" />
+                  <span>Назначить всем без категории</span>
+                </button>
+
+                {isBatchCategoryOpen && (
+                  <div ref={batchDropdownRef} className="mt-2 w-full max-w-[390px] rounded-xl border border-[var(--terra-border)]">
+                    <p className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 text-xs rounded-t-xl">
+                      Категория будет назначена только подходящим операциям из {unassignedCount} требующих разбора.
+                    </p>
+                    <CategoryPickerAccordion
+                      categories={categories}
+                      onAddCategory={onAddCategory}
+                      maxHeightClass="max-h-[240px]"
+                      onSelectCategory={handleBatchAssignCategory}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
           {items.some(isSavingsTransfer)&&(
             <fieldset className="min-w-0 rounded-2xl border border-[#EBE4DC] dark:border-white/10 bg-[var(--terra-surface)] p-3 sm:p-4 space-y-3">
@@ -786,9 +762,9 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   }`}
                 >
                   {/* Левая часть: Иконка, Заголовок, МСС, Описание, Дата и Правило */}
-                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                      isExpense ? 'bg-[#FDF2EE] dark:bg-red-950/40 text-[#D95D39]' : 'bg-[#EAF2EC] dark:bg-emerald-950/40 text-[#2E7D32]'
+                      isExpense ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
                     }`}>
                       {isExpense ? <ArrowDownRight size={20} strokeWidth={2.4} /> : <ArrowUpRight size={20} strokeWidth={2.4} />}
                     </div>
@@ -844,13 +820,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         {item.accountMask && <><span>•</span><span>Счёт: {item.accountMask}</span></>}
                         <span>•</span>
                         <label 
-                          onClick={(e) => handleToggleRemember(item.tempId, e)}
+                          
                           className="min-h-[44px] inline-flex items-center gap-1.5 text-stone-500 dark:text-gray-300 cursor-pointer hover:text-stone-800 dark:hover:text-white text-[11px]"
                         >
                           <input 
                             type="checkbox" disabled={isConfirmingImport}
                             checked={!!item.rememberRule}
-                            onChange={() => {}}
+                            onChange={(e) => handleToggleRemember(item.tempId, e)}
                             className="rounded border-stone-300 text-[#4A7C59] focus:ring-[#4A7C59] h-3.5 w-3.5 cursor-pointer"
                           />
                           <span>Запомнить правило для будущих выписок</span>
@@ -860,7 +836,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   </div>
 
                   {/* Правая часть: Категория, Выбор автора, Сумма, Кнопки подтверждения/удаления */}
-                  <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 min-w-0 pt-2 md:pt-0 border-t md:border-t-0 border-amber-100/80 dark:border-white/10">
+                  <div className="flex flex-wrap items-center justify-between lg:justify-end gap-2 min-w-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-[var(--terra-border)]">
                     
                     {/* Выпадающее меню категорий */}
                     <div className={isDropdownOpen?'relative w-full min-w-0 max-w-full lg:w-auto':'relative min-w-0 max-w-full'}>
@@ -875,7 +851,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                         className={`inline-flex min-h-[44px] items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] ${
                           isUnrecognized 
                             ? 'bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)]' 
-                            : 'bg-[#EAF2EC] dark:bg-primary/20 text-[#2A4C34] dark:text-green-300 hover:bg-[#d8f0de]'
+                            : 'bg-[var(--terra-soft)] text-[var(--terra-ink)] hover:bg-[var(--terra-primary-soft)]'
                         }`}
                       >
                         <Tag size={14} />
@@ -900,16 +876,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </div>
 
                     {/* Сумма операции */}
-                    <div className="text-right min-w-[90px] max-w-full [overflow-wrap:anywhere]">
+                    <div className="text-right min-w-0 max-w-full [overflow-wrap:anywhere] ml-auto">
                       <span className={`text-base font-semibold tabular-nums ${
-                        isExpense ? 'text-stone-900 dark:text-white' : 'text-[#2E7D32] dark:text-green-400'
+                        isExpense ? 'text-stone-900 dark:text-white' : 'text-[var(--terra-primary-text)]'
                       }`}>
                         {settings.privacyMode?'•••':(isExpense?'−':'+')+formatBudgetMoney(item.amount)+' ₽'}
                       </span>
                     </div>
 
                     {/* Доступные действия для клавиатуры и смартфона */}
-                    <div className="flex items-center gap-1 pl-2 border-l border-amber-200/60 dark:border-white/10">
+                    <div className="flex items-center gap-1 ml-auto">
                       <button type="button"
                         disabled={isConfirmingImport} aria-label={`Редактировать операцию ${item.note || item.rawNote || 'без названия'}`}
                         onClick={e => { e.stopPropagation(); handleOpenEditModal(item); }}
@@ -950,7 +926,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* ФУТЕР С ДЕЙСТВИЯМИ */}
-        <footer className="px-3 sm:px-8 py-3 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <footer data-testid="import-footer" className="px-3 sm:px-4 py-2 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] flex flex-wrap items-center justify-between gap-2 shrink-0">
           {importError&&<p role="alert" className="w-full text-sm text-[var(--terra-danger-text)]">{importError}</p>}
           
           {/* Индикатор статуса */}
@@ -969,34 +945,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           {/* Кнопки футера */}
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             
-            {/* Кнопка "Назначить выбранным" */}
-            {unassignedCount > 0 && (
-              <div className="relative">
-                <button 
-                  type="button"
-                  disabled={isConfirmingImport} aria-expanded={isBatchCategoryOpen} onClick={() => setIsBatchCategoryOpen(!isBatchCategoryOpen)}
-                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 hover:border-stone-300 bg-[var(--terra-soft)] hover:bg-stone-50 dark:hover:bg-white/5 text-stone-700 dark:text-gray-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Tag size={14} className="text-[#4A7C59]" />
-                  <span>Назначить всем без категории</span>
-                </button>
-
-                {isBatchCategoryOpen && (
-                  <div ref={batchDropdownRef} className="absolute right-0 bottom-full mb-2 w-[min(90vw,390px)] z-50 rounded-2xl shadow-xl">
-                    <p className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 text-xs rounded-t-xl">
-                      Категория будет назначена только подходящим операциям из {unassignedCount} требующих разбора.
-                    </p>
-                    <CategoryPickerAccordion
-                      categories={categories}
-                      onAddCategory={onAddCategory}
-                      maxHeightClass="max-h-[240px]"
-                      onSelectCategory={handleBatchAssignCategory}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Кнопка "Отмена" */}
             <button 
               type="button"

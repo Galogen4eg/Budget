@@ -102,6 +102,15 @@ async function budgetGeometryPilot(page,settingsRef){
      assert.ok(Math.abs(grid.children[0].top-grid.children[1].top)<=1,label+' workspace alignment');
     }
    }
+   if(!mobile){
+    const summary=g.grids.find(grid=>grid.id==='summary');
+    if(summary&&summary.columns===12&&summary.children.length===3){
+     const [a,b,c]=summary.children;
+     assert.ok(Math.max(a.top,b.top,c.top)-Math.min(a.top,b.top,c.top)<=1,label+' summary top axes');
+     assert.ok(Math.max(a.bottom,b.bottom,c.bottom)-Math.min(a.bottom,b.bottom,c.bottom)<=1,label+' summary bottom axes');
+     assert.ok(Math.abs(b.left-a.right-gap)<=1&&Math.abs(c.left-b.right-gap)<=1,label+' summary gap');
+    }
+   }
    const history=visible(budget.locator('[data-testid="budget-history-'+(mobile?'mobile':'desktop')+'"]'));
    await noOverflow(history,label+' history');
    for(const row of await history.locator('[data-history-row]').all()){
@@ -625,6 +634,14 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const firstIds=await budgetRows.evaluateAll(nodes=>nodes.map(el=>el.dataset.historyRow));
     const totalText=await controls.getByRole('status').innerText();
     assert.ok(Number(totalText.split(' из ')[0])>=500,label+' month history dataset too small');
+    const rowsGeometry=await budgetRows.evaluateAll(rows=>rows.map(row=>{
+      const a=row.firstElementChild.getBoundingClientRect(),b=row.lastElementChild.getBoundingClientRect(),r=row.getBoundingClientRect();
+      return {titleRight:a.right,amountLeft:b.left,amountRight:b.right,rowRight:r.right};
+    }));
+    for(const row of rowsGeometry){
+     assert.ok(row.titleRight<=row.amountLeft+1,label+' history content overlaps sum');
+     assert.ok(Math.abs(row.rowRight-row.amountRight-(rowsGeometry[0].rowRight-rowsGeometry[0].amountRight))<=1,label+' history sum alignment');
+    }
     await controls.scrollIntoViewIfNeeded();await capture(page,'budget-month-history-'+label);
     const more=button(budgetHistory,/^Показать ещё /,false);
     await targetSize(more,label+' history next page');await more.click();
@@ -646,6 +663,22 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await page.keyboard.press('Escape');
     await budgetCategories.waitFor({state:'hidden'});
     assert.equal(await budgetAll.evaluate(el=>document.activeElement===el),true,label+' budget categories focus return');
+    const paymentAdd=button(budget,'Добавить обязательный платёж');
+    await paymentAdd.click();
+    const payment=page.getByTestId('terra-mandatory-dialog');
+    await payment.waitFor({state:'visible'});
+    await noOverflow(payment,label+' Budget payment editor');
+    const memberButtons=payment.getByRole('group',{name:'Кто платит?'}).getByRole('button');
+    assert.ok(await memberButtons.count()>=2,label+' payer choices');
+    for(const option of await memberButtons.all()){
+     await targetSize(option,label+' payer target');
+     const name=option.locator('[data-payment-member-name]');
+     assert.ok(await name.evaluate(el=>el.scrollWidth<=el.clientWidth+1),label+' payer name clipped');
+    }
+    await memberButtons.last().click();assert.equal(await memberButtons.last().getAttribute('aria-pressed'),'true');
+    await capture(page,'budget-payment-editor-'+label);
+    await page.keyboard.press('Escape');
+    await payment.waitFor({state:'hidden'});
     await button(page.locator('nav'),'Обзор').click();
     console.log('PASS TERRA BUDGET PILOT '+label+' summary, all shortcuts, month history 20/40, full categories, focus');
     await button(page.locator('nav'),'Планы').click();

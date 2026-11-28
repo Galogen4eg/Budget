@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {groupBudgetTransactions, filterBudgetPeriod, clampBudgetDay, visibleBudgetTransactions} from '../utils/budgetUi.ts';
+import {groupBudgetTransactions, filterBudgetPeriod, clampBudgetDay, visibleBudgetTransactions, formatBudgetMonthLabel, formatBudgetCalendarMagnitude} from '../utils/budgetUi.ts';
 
 const transactions=[
   {id:'a',date:'2026-11-20T09:00:00',amount:0.1,type:'expense'},
@@ -44,4 +44,16 @@ test('mobile default list is limited, filters show matches, and view all is reve
   assert.equal(visibleBudgetTransactions(rows,false,true,false).length,21);
   assert.equal(visibleBudgetTransactions(rows,false,false,true).length,21);
   assert.equal(visibleBudgetTransactions(rows,true,false,false).length,21);
+});
+
+test('all Russian budget month labels keep their complete name and omit the year suffix',()=>{
+  const months=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+  months.forEach((month,index)=>assert.equal(formatBudgetMonthLabel(new Date(2026,index,1)),month+' 2026'));
+});
+test('calendar amounts share Russian compact formatting without integer-thousand rounding',()=>{
+  assert.equal(formatBudgetCalendarMagnitude(1500),'1,5к');
+  assert.equal(formatBudgetCalendarMagnitude(-1500),'1,5к');
+  assert.equal(formatBudgetCalendarMagnitude(0.15),'0,15');
+  assert.equal(formatBudgetCalendarMagnitude(1250000),'1,3м');
+  assert.equal(formatBudgetCalendarMagnitude(999950),'1м');
 });

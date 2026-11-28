@@ -399,6 +399,71 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const selectedDayDateFormatted = rawDayDate.charAt(0).toUpperCase() + rawDayDate.slice(1);
   const isSelectedDayToday = isCurrentMonthView && selectedDay === today.getDate();
 
+  const renderTodayMetrics=(embedded:boolean)=><>{isCurrentMonthView && (
+        <div data-testid="budget-today-metrics" className={embedded?'flex min-w-0 flex-col gap-2 pt-2 border-t border-[var(--terra-border)]':SURFACE_CARD+' terra-layout-surface flex min-w-0 flex-col justify-start gap-2'}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
+              {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
+            </span>
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+              (settings.privacyMode || safeDailyLimit <= 0) ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
+                ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]' 
+                : 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]'
+            }`}>
+              {settings.privacyMode ? 'Суммы скрыты' : safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap justify-between items-baseline gap-2">
+              <div className="text-2xl font-semibold font-headline text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">
+                {settings.privacyMode ? '•••' : `${formatBudgetMoney(todaySpent)} ₽`}
+              </div>
+              <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-danger-text)]'}`}>
+                {safeDailyLimit <= 0 || settings.privacyMode ? '' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
+              </div>
+            </div>
+
+            {!settings.privacyMode&&safeDailyLimit>0&&<div className="w-full bg-[var(--terra-soft)] h-1.5 rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full terra-progress ${todayReserve >= 0 ? 'bg-[var(--terra-income-chart)]' : 'bg-[var(--terra-danger-solid)]'}`}
+                style={{ width: `${!settings.privacyMode && safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
+              />
+            </div>}
+          </div>
+
+          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-graphite-muted dark:text-gray-400">
+            <span>{personalOnly?'Вчера (личные)':'Вчера (семья)'}: {settings.privacyMode?'•••':formatBudgetMoney(yesterdaySpent)+' ₽'}</span>
+            <span className="text-[var(--terra-primary-text)] font-semibold">
+              {!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
+            </span>
+          </div>
+        </div>
+        )}</>;
+  const renderMonthTotals=(embedded:boolean)=>(<div data-testid="budget-month-totals" className={embedded?'flex min-w-0 flex-col gap-2 pt-2 border-t border-[var(--terra-border)]':SURFACE_CARD+' terra-layout-surface flex min-w-0 flex-col justify-start gap-2'}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
+              {isCurrentMonthView?'Итоги месяца':'Итоги выбранного месяца'}
+            </span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[var(--terra-soft)] dark:bg-white/5 text-graphite dark:text-white">
+              {isCurrentMonthView?`${currentDayNum} из ${totalDaysInMonth} дней`:'Архив'}
+            </span>
+          </div>
+
+          <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
+            <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}</dd></div>
+            <div><dt>Расходы</dt><dd className="text-[var(--terra-ink)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</dd></div>
+            <div><dt title="Доходы − расходы" aria-label="Результат месяца: доходы минус расходы">Результат месяца</dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
+          </dl>
+
+          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>
+            <span className="font-bold text-graphite dark:text-white">
+              {settings.privacyMode ? "•••" : monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
+            </span>
+          </div>
+        </div>);
+
   return (
     <div className="flex flex-col min-h-0 min-w-0 w-full h-full flex-1 overflow-hidden">
       {/* ========================================================= */}
@@ -491,34 +556,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               )}
             </div>}
 
-            {/* Monthly Budget Progress Bar & Breakdown */}
-            <div className={`flex flex-col gap-1.5 ${isCurrentMonthView?'pt-2 border-t border-[var(--terra-border)]':''}`}>
-              {!isCurrentMonthView&&<h2 className="text-sm font-semibold">Итоги выбранного месяца</h2>}
-              <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs font-medium">
-                <span className="text-[var(--terra-muted)] dark:text-gray-400">
-                  {settings.privacyMode ? "Расходы к доходам: •••" : monthIncome > 0 ? `Расходы: ${Math.round((monthExpense / monthIncome) * 100)}% доходов` : "За месяц пока нет доходов"}
-                </span>
-                <span className={`font-semibold tabular-nums ${monthBalance < 0 ? "text-[#B83230] dark:text-red-400" : "text-[var(--terra-primary)] dark:text-green-400"}`}>
-                  Результат месяца: {settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}
-                </span>
-              </div>
-              <div className="w-full bg-[var(--terra-soft)] dark:bg-[var(--terra-soft)] h-2.5 rounded-full overflow-hidden flex">
-                <div 
-                  className={`${monthIncome > 0 && monthExpense > monthIncome ? "bg-[#B83230]" : "bg-[#4A7C59]"} h-full rounded-full terra-progress`}
-                  style={{ width: `${!settings.privacyMode && monthIncome > 0 ? Math.min(100, Math.round((monthExpense / monthIncome) * 100)) : 0}%` }}
-                />
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1 text-xs text-[var(--terra-muted)] dark:text-gray-400">
-                <span className="flex items-center gap-1 font-semibold text-[var(--terra-primary)] dark:text-green-400">
-                  <ArrowDown size={13} />
-                  Доходы: {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}
-                </span>
-                <span className="flex items-center gap-1 font-semibold text-[#B83230] dark:text-red-400">
-                  <ArrowUp size={13} />
-                  Расходы: {settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}
-                </span>
-              </div>
-            </div>
+            {renderTodayMetrics(true)}
+            {renderMonthTotals(true)}
 
             {/* Family Member Filter Chips with safe horizontal scrolling */}
             <div role="group" aria-label="Участник бюджета" className={FILTER_RAIL}>
@@ -567,7 +606,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
               historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
               historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
-              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
+              selectedDay={selectedDay} selectedDateLabel={activeSelectedDate.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
             {/* Transactions List */}
             <div className="divide-y divide-[var(--terra-border)] pt-1">
               {visibleHistory.length===0 && (
@@ -651,6 +690,12 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </button>
             </div>
 
+            <div role="group" aria-label="Масштаб календаря расходов" className={FILTER_RAIL}>
+              {(['month','week'] as const).map(scale=><button type="button" key={scale} aria-pressed={calendarScale===scale}
+                onClick={()=>setCalendarScale(scale)} className={FILTER_CHIP+' '+(calendarScale===scale?FILTER_CHIP_ACTIVE:FILTER_CHIP_IDLE)}>{scale==='month'?'Месяц':'Неделя'}</button>)}
+            </div>
+            <div className="min-w-0 overflow-x-auto overscroll-x-contain" data-testid="budget-calendar-grid-scroll">
+              <div className="min-w-[332px]">
             {/* Weekday Labels */}
             <div className="grid grid-cols-7 text-center text-xs font-medium text-[var(--terra-muted)] dark:text-gray-400 uppercase tracking-wider py-1">
               <span>Пн</span>
@@ -691,7 +736,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       title={settings.privacyMode ? undefined : `Доходы: ${formatBudgetMoney(stat.income)} ₽, расходы: ${formatBudgetMoney(stat.expense)} ₽, итог: ${formatBudgetMoney(stat.net)} ₽`}
                       onKeyDown={(e) => { if (e.key==='Enter'||e.key===' ') {e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-12 rounded-lg p-1 flex flex-col justify-between relative cursor-pointer transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isSelected ? 'ring-2 ring-[var(--terra-focus)] z-10' : ''
+                        isSelected ? 'ring-2 ring-inset ring-[var(--terra-focus)]' : ''
                       } ${
                         isToday 
                           ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-text)]' 
@@ -700,7 +745,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <span className={`text-xs ${
-                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
+                          isToday ? 'font-bold text-[var(--terra-primary-text)]' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
                         }`}>
                           {dayNum}
                         </span>
@@ -749,7 +794,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       aria-label={inMonth?`Выбрать ${dayNum} ${mobileMonthName}`:undefined}
                       onKeyDown={(e) => { if(inMonth&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedDay(dayNum);} }}
                       className={`h-14 rounded-lg p-1.5 flex flex-col justify-between relative cursor-pointer transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isSelected ? 'ring-2 ring-[var(--terra-focus)] z-10' : ''
+                        isSelected ? 'ring-2 ring-inset ring-[var(--terra-focus)]' : ''
                       } ${
                         !inMonth ? 'bg-[#EAE6DE]/30 dark:bg-white/5 opacity-40' :
                         isToday ? 'bg-[var(--terra-primary-soft)] border border-[var(--terra-primary-text)]' : 'bg-white dark:bg-[var(--terra-soft)]'
@@ -757,7 +802,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <span className={`text-xs ${
-                          isToday ? 'font-black text-[var(--terra-primary)] dark:text-green-400' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
+                          isToday ? 'font-bold text-[var(--terra-primary-text)]' : isWeekend ? 'font-semibold text-[var(--terra-offline-text)]' : 'font-bold text-[var(--terra-ink)] dark:text-white'
                         }`}>
                           {dayNum}
                         </span>
@@ -766,7 +811,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                         )}
                       </div>
                       <span className={`text-[9px] font-bold rounded px-0.5 text-center leading-tight truncate ${
-                        stat.net < 0 ? 'text-[#B83230] bg-[#FFDAD8]/50' : stat.net > 0 ? 'text-[var(--terra-primary)] bg-[#C8E8D0]/60' : 'text-[var(--terra-muted)]'
+                        stat.net < 0 ? 'text-[var(--terra-danger-text)] bg-[var(--terra-danger-soft)]' : stat.net > 0 ? 'text-[var(--terra-primary-text)] bg-[var(--terra-primary-soft)]' : 'text-[var(--terra-muted)]'
                       }`}>
                         {settings.privacyMode ? '•••' : badgeText}
                       </span>
@@ -776,6 +821,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               </div>
             )}
 
+              </div>
+            </div>
             {/* Calendar Legend */}
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1.5 text-xs text-[var(--terra-muted)] dark:text-gray-400">
               <div className="flex items-center gap-1.5">
@@ -1073,7 +1120,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             onClick={()=>openCategory('all')}
             className="inline-flex min-h-[44px] items-center gap-1.5 px-3 py-2 text-sm font-semibold text-graphite dark:text-white bg-white dark:bg-[var(--terra-surface)] hover:bg-[#F3EFE7] dark:hover:bg-[var(--terra-soft)] border border-surface-border dark:border-white/10 rounded-xl transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             type="button"
-            title="Открыть список всех операций за текущий месяц"
+            title="Открыть список всех операций за выбранный месяц"
           >
             <List size={15} className="text-[var(--terra-primary)]" />
             <span>Все операции ({monthTransactions.length})</span>
@@ -1108,7 +1155,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         {isCurrentMonthView&&<div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center">
-              <span className="text-sm font-semibold text-primary-dark dark:text-green-400">
+              <span className="text-sm font-semibold text-[var(--terra-muted)]">
                 {personalOnly?'Личный ориентир в день':'Семейный ориентир в день'}
               </span>
             </div>
@@ -1119,7 +1166,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
 
           <div className="py-1">
             <div className="flex flex-wrap items-baseline gap-1.5">
-              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-semibold font-headline text-primary-dark dark:text-green-400 tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0">
+              <span data-testid="family-daily-limit-desktop" className="text-2xl lg:text-3xl font-semibold font-headline text-[var(--terra-ink)] tracking-tight tabular-nums [overflow-wrap:anywhere] min-w-0">
                 {!isCurrentMonthView||!personalOpeningKnown?'—':settings.privacyMode ? '•••' : `${formatBudgetMoney(safeDailyLimit)} ₽`}
               </span>
               <span className="text-xs font-semibold text-graphite-muted dark:text-gray-400">/ день</span>
@@ -1136,73 +1183,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           )}
         </div>}
 
-        {/* Current-day metrics do not apply to historical months. */}
-        {isCurrentMonthView && (
-        <div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
-              {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
-            </span>
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
-              (settings.privacyMode || safeDailyLimit <= 0) ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
-                ? 'bg-emerald-50 text-emerald-800 dark:bg-green-950/40 dark:text-green-400 border border-emerald-200 dark:border-green-800/40' 
-                : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400 border border-red-200'
-            }`}>
-              {settings.privacyMode ? 'Суммы скрыты' : safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
-            </span>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap justify-between items-baseline gap-2">
-              <div className="text-lg font-bold font-headline text-graphite dark:text-white">
-                {settings.privacyMode ? '•••' : `${formatBudgetMoney(todaySpent)} ₽`}
-              </div>
-              <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-primary dark:text-green-400' : 'text-red-500'}`}>
-                {safeDailyLimit <= 0 || settings.privacyMode ? '' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
-              </div>
-            </div>
-
-            <div className="w-full bg-[var(--terra-soft)] dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full terra-progress ${todayReserve >= 0 ? 'bg-primary' : 'bg-red-500'}`}
-                style={{ width: `${!settings.privacyMode && safeDailyLimit > 0 ? Math.min(100, (todaySpent / safeDailyLimit) * 100) : 0}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-graphite-muted dark:text-gray-400">
-            <span>{personalOnly?'Вчера (личные)':'Вчера (семья)'}: {settings.privacyMode?'•••':formatBudgetMoney(yesterdaySpent)+' ₽'}</span>
-            <span className="text-emerald-700 dark:text-green-400 font-semibold">
-              {!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
-            </span>
-          </div>
-        </div>
-        )}
-
-                {/* Card 3: Итоги месяца */}
-        <div className={`${SURFACE_CARD} terra-layout-surface flex min-w-0 flex-col justify-start gap-1.5`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
-              {isCurrentMonthView?'Итоги месяца':'Итоги выбранного месяца'}
-            </span>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-[var(--terra-soft)] dark:bg-white/5 text-graphite dark:text-white">
-              {isCurrentMonthView?`${currentDayNum} из ${totalDaysInMonth} дней`:'Архив'}
-            </span>
-          </div>
-
-          <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
-            <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthIncome)} ₽`}</dd></div>
-            <div><dt>Расходы</dt><dd className="text-[var(--terra-ink)]">{settings.privacyMode ? '•••' : `${formatBudgetMoney(monthExpense)} ₽`}</dd></div>
-            <div><dt title="Доходы − расходы" aria-label="Результат месяца: доходы минус расходы">Результат месяца</dt><dd className={!settings.privacyMode&&monthBalance<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}>{settings.privacyMode ? '•••' : `${monthBalance > 0 ? '+' : ''}${formatBudgetMoney(monthBalance)} ₽`}</dd></div>
-          </dl>
-
-          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-            <span className="text-graphite-muted dark:text-gray-400">Расходы к доходам:</span>
-            <span className="font-bold text-graphite dark:text-white">
-              {settings.privacyMode ? "•••" : monthIncome > 0 ? `${Math.round((monthExpense / monthIncome) * 100)}%` : '—'}
-            </span>
-          </div>
-        </div>
+        {renderTodayMetrics(false)}
+        {renderMonthTotals(false)}
       </section>
 
       {/* 3. MAIN WORKSPACE: 7-col Interactive Calendar + 5-col Analytics Sidebar */}
@@ -1215,7 +1197,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <BudgetHistoryControls historyScope={historyScope} setHistoryScope={setHistoryScope}
               historyType={historyType} setHistoryType={setHistoryType} historySearch={historySearch} setHistorySearch={setHistorySearch}
               historyCategory={historyCategory} setHistoryCategory={setHistoryCategory} categoryOptions={historyCategoryOptions}
-              selectedDay={selectedDay} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
+              selectedDay={selectedDay} selectedDateLabel={activeSelectedDate.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})} count={visibleHistory.length} total={historyScope==='day'?selectedDayTransactions.length:monthTransactions.length}/>
             <div className="divide-y divide-[var(--terra-border)] max-h-[420px] overflow-y-auto overscroll-contain">
               {visibleHistory.length===0 && (
                 <p className="rounded-xl border border-dashed border-surface-border p-4 text-xs text-graphite-muted dark:text-gray-400">

@@ -207,7 +207,7 @@ async function checkBarHighlight(page,plot,label){
   await plot.scrollIntoViewIfNeeded();
   const bars=plot.locator('.recharts-bar-rectangle path');
   await bars.first().waitFor({state:'attached'});
-  const index=await bars.evaluateAll(nodes=>nodes.findIndex(el=>{const b=el.getBoundingClientRect();return b.width>2&&b.height>2;}));
+  const index=await bars.evaluateAll(nodes=>nodes.reduce((best,el,i)=>{const b=el.getBoundingClientRect();const area=b.width*b.height;return b.width>2&&b.height>2&&area>best.area?{index:i,area}:best;},{index:-1,area:0}).index);
   assert.ok(index>=0,label+' populated bar missing');
   const bar=bars.nth(index);
   await bar.scrollIntoViewIfNeeded();
@@ -550,7 +550,12 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     }
     await noOverflow(dialog.getByTestId('drilldown-chart'),label+' shared chart');
     await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    // At 390px, daily paired bars can be narrower than 2 CSS px.
+    // Verify highlight on a genuinely hit-testable populated weekly bar;
+    // daily axes and filters above remain covered independently.
+    if(mobile)await button(grouping,'По неделям').click();
     await checkBarHighlight(page,dialog.getByTestId('drilldown-chart'),'analytics-'+label);
+    if(mobile)await button(grouping,'По дням').click();
     const analyticsValues=dialog.locator('summary').filter({hasText:'Значения графика'});await analyticsValues.click();
     await dialog.getByTestId('analytics-values').waitFor({state:'visible'});
     await analyticsValues.click();

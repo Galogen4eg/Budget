@@ -617,6 +617,10 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     await budgetEditor.waitFor({state:'visible'});
     const expectedBudgetDate=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
     assert.equal(await budgetEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedBudgetDate,label+' wrong date from Budget day details');
+    await targetSize(budgetEditor.getByRole('textbox',{name:'Название в истории'}),label+' transaction name field');
+    const ruleSwitch=budgetEditor.getByRole('checkbox',{name:'Запомнить правило',exact:true});
+    await targetSize(ruleSwitch.locator('..'),label+' transaction rule switch');
+    await noOverflow(budgetEditor,label+' transaction editor');
     await capture(page,'budget-day-editor-'+label);
     await page.keyboard.press('Escape');
     await budgetEditor.waitFor({state:'hidden'});

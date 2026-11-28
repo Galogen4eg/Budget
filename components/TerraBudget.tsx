@@ -19,7 +19,7 @@ import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { clampBudgetDay, formatBudgetMonthLabel, formatBudgetCalendarMagnitude } from '../utils/budgetUi';
+import { clampBudgetDay, formatBudgetMonthLabel, formatBudgetCalendarMagnitude, budgetSpendForDay } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
@@ -39,6 +39,7 @@ interface TerraBudgetProps {
   onMonthChange: (date: Date) => void;
   onEditTransaction: (tx: Transaction) => void;
   onOpenAddModal: () => void;
+  onOpenAddModalForDate?: (date:Date) => void;
   onOpenCategoriesModal?: () => void;
   onOpenTrainModal?: () => void;
   onImportClick?: () => void;
@@ -65,6 +66,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   onMonthChange,
   onEditTransaction,
   onOpenAddModal,
+  onOpenAddModalForDate,
   onOpenCategoriesModal,
   onOpenTrainModal,
   onImportClick,
@@ -186,14 +188,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
     }).map(t => t.amount));
   }, [familyMonthTransactions, currentDayNum]);
 
-  // Yesterday's spend
-  const yesterdaySpent = useMemo(() => {
-    if (currentDayNum <= 1) return 0;
-    return sumMoney(familyMonthTransactions.filter(t => {
-      const d = new Date(t.date);
-      return d.getDate() === (currentDayNum - 1) && t.type === 'expense';
-    }).map(t => t.amount));
-  }, [familyMonthTransactions, currentDayNum]);
+  // Use the entire displayed ledger so yesterday remains correct on the first day of a month.
+  const yesterdaySpent = useMemo(() => isCurrentMonthView ? budgetSpendForDay(transactions,new Date(currentMonth.getFullYear(),currentMonth.getMonth(),currentDayNum),-1) : 0,
+    [transactions,currentMonth,currentDayNum,isCurrentMonthView]);
 
   const todayReserve = safeDailyLimit - todaySpent;
 
@@ -1762,8 +1759,8 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
         categories={categories}
         members={members}
         onEditTransaction={onEditTransaction}
-        onAddTransactionForDay={onOpenAddModal}
-        dailySafeLimit={safeDailyLimit}
+        onAddTransactionForDay={()=>{if(onOpenAddModalForDate)onOpenAddModalForDate(activeSelectedDate);else{setIsDayModalOpen(false);onOpenAddModal();}}}
+        dailySafeLimit={selectedMember==='all'&&isCurrentMonthView&&personalOpeningKnown?safeDailyLimit:undefined}
         privacyMode={settings.privacyMode}
       />
     </div>

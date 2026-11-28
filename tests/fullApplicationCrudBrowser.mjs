@@ -5,6 +5,7 @@ import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
+import {mkdir} from 'node:fs/promises';
 import * as XLSX from 'xlsx';
 import {chromium} from 'playwright';
 import {initializeApp,deleteApp} from 'firebase-admin/app';
@@ -321,6 +322,7 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  const dialog=a.getByRole('dialog',{name:'Операции на разбор',exact:true});await dialog.waitFor({state:'visible'});
  phase='review geometry and keyboard controls';
  const originalViewport=a.viewportSize();
+ await mkdir('artifacts/terra-v2-pilot',{recursive:true});
  for(const [width,height] of [[320,568],[390,844],[1440,900]]){
   await a.setViewportSize({width,height});
   const header=dialog.getByTestId('import-header'),list=dialog.getByTestId('import-scroll'),footer=dialog.getByTestId('import-footer');
@@ -335,6 +337,7 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
   const remember=dialog.getByRole('checkbox',{name:'Запомнить правило для будущих выписок'});
   await remember.focus();await a.keyboard.press('Space');assert.equal(await remember.isChecked(),true,'keyboard remember rule');
   await a.keyboard.press('Space');assert.equal(await remember.isChecked(),false,'keyboard undo remember rule');
+  await dialog.screenshot({path:'artifacts/terra-v2-pilot/budget-import-review-'+width+'.png',animations:'disabled'});
  }
  if(originalViewport)await a.setViewportSize(originalViewport);
  phase='review filters and consistent counts';

@@ -436,13 +436,13 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             <span className="text-sm font-semibold text-graphite-muted dark:text-gray-400">
               {personalOnly?'Личные траты':'Траты семьи'} сегодня ({currentDayNum} {currentMonth.toLocaleDateString('ru-RU', { month: 'short' })})
             </span>
-            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+            {(!embedded||(!settings.privacyMode&&safeDailyLimit>0))&&<span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
               (settings.privacyMode || safeDailyLimit <= 0) ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)]' : todayReserve >= 0 
                 ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]' 
                 : 'bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)]'
             }`}>
               {settings.privacyMode ? 'Суммы скрыты' : safeDailyLimit <= 0 ? 'Ориентир не задан' : todayReserve >= 0 ? 'Ниже ориентира' : 'Выше ориентира'}
-            </span>
+            </span>}
           </div>
 
           <div className="space-y-1.5">
@@ -450,9 +450,9 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
               <div className="text-2xl font-semibold font-headline text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">
                 {settings.privacyMode ? '•••' : `${formatBudgetMoney(todaySpent)} ₽`}
               </div>
-              <div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-danger-text)]'}`}>
+              {!settings.privacyMode&&safeDailyLimit>0&&<div className={`text-xs font-bold ${todayReserve >= 0 ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-danger-text)]'}`}>
                 {safeDailyLimit <= 0 || settings.privacyMode ? '' : todayReserve >= 0 ? `До ориентира: ${formatBudgetMoney(todayReserve)} ₽` : `Выше ориентира на ${formatBudgetMoney(Math.abs(todayReserve))} ₽`}
-              </div>
+              </div>}
             </div>
 
             {!settings.privacyMode&&safeDailyLimit>0&&<div className="w-full bg-[var(--terra-soft)] h-1.5 rounded-full overflow-hidden">
@@ -463,11 +463,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             </div>}
           </div>
 
-          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-graphite-muted dark:text-gray-400">
+          <div className="pt-1.5 border-t border-surface-border/70 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--terra-muted)]">
             <span>{personalOnly?'Вчера (личные)':'Вчера (семья)'}: {settings.privacyMode?'•••':formatBudgetMoney(yesterdaySpent)+' ₽'}</span>
-            <span className="text-[var(--terra-primary-text)] font-semibold">
+            {!settings.privacyMode&&safeDailyLimit>0&&yesterdaySpent<safeDailyLimit&&<span className="text-[var(--terra-primary-text)] font-semibold">
               {!settings.privacyMode && safeDailyLimit > 0 && yesterdaySpent < safeDailyLimit ? `Ниже ориентира на ${formatBudgetMoney(safeDailyLimit - yesterdaySpent)} ₽` : ''}
-            </span>
+            </span>}
           </div>
         </div>
         )}</>;

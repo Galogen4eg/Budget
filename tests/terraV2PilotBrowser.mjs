@@ -258,6 +258,23 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.equal(await tab.getAttribute('aria-pressed'),'true');
      assert.ok(Math.abs((await plot.boundingBox()).height-beforeHeight)<=1,label+' chart height changed');
     }
+    // Reproduce the reported monthly-chart selection after scrolling the actual page.
+    await button(periods,'Месяц').click();
+    const monthBar=await checkBarHighlight(page,plot,'overview-month-'+label);
+    const activeMonthText=(await plot.locator('.recharts-tooltip-wrapper').innerText()).trim();
+    const monthMatch=activeMonthText.match(/(Янв|Фев|Мар|Апр|Май|Июн|Июл|Авг|Сен|Окт|Ноя|Дек)\s+(\d{4})/i);
+    assert.ok(monthMatch,label+' missing monthly tooltip date '+activeMonthText);
+    const monthIndex=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'].indexOf(monthMatch[1].toLowerCase());
+    const monthWord=new Date(Number(monthMatch[2]),monthIndex,1).toLocaleDateString('ru-RU',{month:'long'});
+    await page.mouse.click(monthBar.x+monthBar.width/2,monthBar.y+monthBar.height/2);
+    await page.waitForFunction(({month,year})=>[...document.querySelectorAll('button[aria-label^="Выбрать месяц"]')].some(el=>el.getClientRects().length&&el.getAttribute('aria-label').toLowerCase().includes(month)&&el.getAttribute('aria-label').includes(year)),{month:monthWord.toLowerCase(),year:monthMatch[2]});
+    await capture(page,'overview-month-click-'+label);
+    // Reset navigation/selected month before the original current-day scenarios.
+    await page.reload({waitUntil:'domcontentloaded'});
+    await button(page.locator('nav'),'Обзор').waitFor({state:'visible',timeout:60000});
+    await button(page.locator('nav'),'Обзор').click();
+    await chart.waitFor({state:'visible',timeout:30000});
+    await button(periods,'День').click();
     await axisFits(plot,label+' overview');
     const selectedBar=await checkBarHighlight(page,plot,'overview-'+label);
     await page.mouse.click(selectedBar.x+selectedBar.width/2,selectedBar.y+selectedBar.height/2);

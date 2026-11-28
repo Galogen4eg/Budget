@@ -78,3 +78,18 @@ export function visibleBudgetTransactions<T>(
   if(isDesktop||showAll||hasActiveFilters)return [...rows];
   return rows.slice(0,15);
 }
+
+/** Use the actual month/year parts rather than removing Cyrillic letters from the label. */
+export function formatBudgetMonthLabel(date:Date):string{
+  const parts=new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).formatToParts(date);
+  return [parts.find(part=>part.type==='month')?.value,parts.find(part=>part.type==='year')?.value].filter(Boolean).join(' ');
+}
+
+/** Compact cell-only representation; exact money remains in the selected-day detail. */
+export function formatBudgetCalendarMagnitude(value:number):string{
+  const amount=Math.abs(value);
+  const number=(n:number,digits:number)=>new Intl.NumberFormat('ru-RU',{useGrouping:false,maximumFractionDigits:digits}).format(n);
+  if(amount>=999950)return number(amount/1000000,1)+'м';
+  if(amount>=1000)return number(amount/1000,1)+'к';
+  return number(amount,2);
+}

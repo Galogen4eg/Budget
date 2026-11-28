@@ -19,7 +19,7 @@ import { FILTER_RAIL, FILTER_CHIP, FILTER_CHIP_ACTIVE, FILTER_CHIP_IDLE, SURFACE
 import BudgetPlanningPanel from './BudgetPlanningPanel';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { clampBudgetDay } from '../utils/budgetUi';
+import { clampBudgetDay, formatBudgetMonthLabel, formatBudgetCalendarMagnitude } from '../utils/budgetUi';
 import { shiftCalendarMonth } from '../utils/calendarMonthNavigation';
 import { buildBudgetCategoryBreakdown } from '../utils/budgetCategoryBreakdown';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
@@ -231,6 +231,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   },[monthTransactions,categories,historyCategory]);
   const hasHistoryFilters=Boolean(historySearch.trim()||historyType!=='all'||historyCategory!==null);
   const historyEmptyText=hasHistoryFilters?'По заданным фильтрам операций нет.':
+    monthTransactions.length===0?'В этом месяце операций нет.':
     historyScope==='day'?'В выбранный день операций нет. Переключитесь на «Весь месяц».':'В этом месяце операций нет.';
 
   const selectedDayNet = useMemo(() => {
@@ -296,7 +297,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const daysArray = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
 
   // Month label
-  const monthTitle = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '').toUpperCase();
+  const monthTitle = formatBudgetMonthLabel(currentMonth).toUpperCase();
 
   // Day statistics map for the calendar
   const dayStatsMap = useMemo(() => {
@@ -379,15 +380,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const formatCalendarNetBadge = (net: number, count: number) => {
     if (count === 0 && net === 0) return '—';
     if (net === 0) return '0 ₽';
-    const abs = Math.abs(net);
-    let formatted = '';
-    if (abs >= 1000) {
-      const k = abs / 1000;
-      formatted = `${k >= 10 ? Math.round(k) : (k % 1 === 0 ? k : k.toFixed(1).replace('.0', ''))}к`;
-    } else {
-      formatted = `${abs}`;
-    }
-    return net > 0 ? `+${formatted}` : `-${formatted}`;
+    return `${net > 0 ? '+' : '-'}${formatBudgetCalendarMagnitude(net)}`;
   };
 
   // Helper for mandatory payment icon
@@ -400,7 +393,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   };
 
   // Mobile formatted labels
-  const rawMobileMonth = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+  const rawMobileMonth = formatBudgetMonthLabel(currentMonth);
   const mobileMonthName = rawMobileMonth.charAt(0).toUpperCase() + rawMobileMonth.slice(1);
   const rawDayDate = activeSelectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
   const selectedDayDateFormatted = rawDayDate.charAt(0).toUpperCase() + rawDayDate.slice(1);
@@ -1316,17 +1309,6 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                 const isSelected = selectedDay === dayNum;
                 const isCurrentToday = isCurrentMonthView && today.getDate() === dayNum;
 
-                // Format number with compact integer suffix (strictly no kopecks or decimal fractions)
-                const formatDayAmount = (val: number) => {
-                  const absVal = Math.round(Math.abs(val));
-                  if (absVal >= 1000000) {
-                    return `${Math.round(absVal / 1000000)}M`;
-                  }
-                  if (absVal >= 1000) {
-                    return `${Math.round(absVal / 1000)}k`;
-                  }
-                  return `${absVal}`;
-                };
 
                 // Calculate dynamic heatmap styling based on budget performance (Task 2.2)
                 let dayBgClass = '';
@@ -1386,11 +1368,11 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                     {hasTransactions ? (
                       dayNet > 0 ? (
                         <div className="hidden sm:block bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-headline text-xs tabular-nums font-extrabold px-1 py-0.5 rounded border border-primary/30 truncate text-right">
-                          {settings.privacyMode ? '•••' : `+${formatDayAmount(dayNet)} ₽`}
+                          {settings.privacyMode ? '•••' : `+${formatBudgetCalendarMagnitude(dayNet)} ₽`}
                         </div>
                       ) : dayNet < 0 ? (
                         <div className="hidden sm:block bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)] font-headline text-xs tabular-nums font-bold px-1 py-0.5 rounded border border-red-200 dark:border-red-900/30 truncate text-right">
-                          {settings.privacyMode ? '•••' : `-${formatDayAmount(dayNet)} ₽`}
+                          {settings.privacyMode ? '•••' : `-${formatBudgetCalendarMagnitude(dayNet)} ₽`}
                         </div>
                       ) : (
                         <div className="hidden sm:block bg-[var(--terra-soft)] text-[var(--terra-muted)] font-headline text-xs tabular-nums font-semibold px-1 py-0.5 rounded border border-surface-border/60 dark:border-white/10 truncate text-right">
@@ -1399,7 +1381,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
                       )
                     ) : paidMandatory ? (
                       <div className="hidden sm:block bg-[var(--terra-offline-soft)] text-[var(--terra-offline-text)] font-headline text-xs tabular-nums font-bold px-1 py-0.5 rounded border border-amber-200 truncate text-right">
-                        {settings.privacyMode ? '•••' : `${formatDayAmount(paidMandatory.amount)} ₽`}
+                        {settings.privacyMode ? '•••' : `${formatBudgetCalendarMagnitude(paidMandatory.amount)} ₽`}
                       </div>
                     ) : null}
                   </div>

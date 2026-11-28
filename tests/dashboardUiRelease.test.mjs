@@ -174,7 +174,10 @@ test('budget calendar, operations and category cards retain stable actions and p
  const sidebar=budget.split('{/* RIGHT: Analytics Sidebar')[1]?.split('{/* Modals */}')[0];
  assert.match(sidebar,/formatBudgetMoney\(cat.sum\)/);
  assert.doesNotMatch(sidebar,/Math.round\(cat.sum\)/);
- assert.match(sidebar,/onToggleMandatoryPaid\(expense.id\)/);
+ assert.match(sidebar,/renderMandatoryPayments\('desktop'\)/);
+ const payments=budget.split('const renderMandatoryPayments=')[1]?.split('const renderTodayMetrics=')[0];
+ assert.match(payments,/onToggleMandatoryPaid\(exp.id\)/);
+ assert.match(budget,/renderMandatoryPayments\('mobile'\)/);
  const history=budget.split('data-testid="budget-history-desktop"')[1]?.split('</section>')[0];
  assert.match(history,/historySearch=\{historySearch\}/);
  assert.match(history,/historyCategory=\{historyCategory\}/);
@@ -182,5 +185,5 @@ test('budget calendar, operations and category cards retain stable actions and p
 });
 
  test('monthly metrics use aligned rows and negative results have a distinct semantic color',()=>{
- const s=read('components/TerraBudget.tsx');assert.match(s,/terra-month-totals/);assert.match(s,/monthBalance<0\?'text-\[var\(--terra-danger-text\)\]'/);assert.match(s,/id="budget-payments-mobile"/);
+ const s=read('components/TerraBudget.tsx');assert.match(s,/terra-month-totals/);assert.match(s,/monthBalance<0\?'text-\[var\(--terra-danger-text\)\]'/);assert.match(s,/id=\{\x27budget-payments-\x27\+layout\}/);assert.match(s,/renderMandatoryPayments\(\x27mobile\x27\)/);
  });

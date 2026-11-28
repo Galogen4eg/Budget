@@ -1,3 +1,4 @@
+import { overviewCategoryShare, overviewChartGuide } from '../utils/overviewPresentation';
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   AlertTriangle, TrendingUp, TrendingDown, ArrowDownRight, Lock, 
@@ -345,7 +346,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [filteredTransactions, displayMonthSpent, activeMonth]);
 
   // A family budget target must not be reported as a personal spending target.
-  const chartDailyLimit = budgetMode === 'family' || personalOnly ? dailyLimit : 0;
+  const guideApplicable = budgetMode === 'family' || personalOnly;
+  const chartDailyLimit = overviewChartGuide('day', settings.targetMonthlyBudget, dailyLimit, guideApplicable).value;
+  const totalMonthlyLimit = overviewChartGuide('month', settings.targetMonthlyBudget, dailyLimit, guideApplicable).value;
 
   // Chart data: dynamics by day, week, or month
   const dynamicsData = useMemo(() => {
@@ -397,7 +400,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: budgetMode === 'family' ? 'Семейные расходы и дневной ориентир' : personalOnly?'Личные расходы и дневной ориентир':'Личные расходы без семейного лимита',
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Лимит на день соблюдён в ${complianceRate}% дней` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `По текущему ориентиру: ${compliantDays} из ${currentDay} дней` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -470,7 +473,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         limitLabel: chartDailyLimit > 0 ? `Лимит ${chartDailyLimit.toLocaleString('ru-RU')} ₽` : '',
         subtitle: `Расходы по дням недели (${weekStartLabel} – ${weekEndLabel})`,
         complianceRate,
-        complianceText: chartDailyLimit > 0 ? `Дневной лимит соблюдён в ${complianceRate}% дней недели` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
+        complianceText: chartDailyLimit > 0 ? `По текущему ориентиру: ${compliantDays} из ${passedDaysCount} дней недели` : budgetMode === 'personal' && !personalOnly ? 'Семейный лимит не применяется к личному графику' : 'Лимит на день не задан'
       };
     }
 
@@ -488,7 +491,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       }
     });
 
-    const monthlyLimit = budgetMode === 'family' || personalOnly ? (settings.targetMonthlyBudget || (chartDailyLimit > 0 ? chartDailyLimit * 30 : 0)) : 0;
+    const monthlyLimit = totalMonthlyLimit;
     let sum = 0;
     let max = 0;
     const currentM = activeMonth.getFullYear() === realToday.getFullYear() ? realToday.getMonth() : (activeMonth.getFullYear() < realToday.getFullYear() ? 11 : -1);
@@ -525,9 +528,9 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
       limitLabel: monthlyLimit > 0 ? `План ${monthlyLimit.toLocaleString('ru-RU')} ₽` : '',
       subtitle: `Расходы по месяцам ${year} года`,
       complianceRate,
-      complianceText: monthlyLimit > 0 ? `Месячный бюджет выдержан в ${complianceRate}% месяцев` : budgetMode === 'personal' && !personalOnly ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
+      complianceText: monthlyLimit > 0 ? `По текущему лимиту: ${compliantMonths} из ${passedMonthsCount} месяцев` : budgetMode === 'personal' && !personalOnly ? 'Семейный план не применяется к личному графику' : 'Месячный лимит не задан'
     };
-  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, personalOnly, realToday, isCurrentCalendarMonth]);
+  }, [activeMonth, currentDay, currentMonthTransactions, filteredTransactions, chartDailyLimit, totalMonthlyLimit, chartScale, settings.targetMonthlyBudget, budgetMode, personalOnly, realToday, isCurrentCalendarMonth]);
 
   // One common kopeck-accurate root-category allocation for Budget and Overview.
   const categoryBreakdown = useMemo(() => {
@@ -540,7 +543,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         id: category.id,
         name: category.label,
         amount: category.sum,
-        percent: total > 0 ? Math.round((category.sum / total) * 100) : 0,
+        ...overviewCategoryShare(category.sum,total),
         color,
         icon: original?.icon,
         style: { color, barBg: color }
@@ -582,7 +585,6 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     return formatBudgetMoney(num);
   };
 
-  const totalMonthlyLimit = budgetMode==='personal'&&!personalOnly?0:(settings.targetMonthlyBudget ?? (dailyLimit > 0 ? dailyLimit * 30 : 0));
 
   // Never substitute invented financial records for an empty account.
   const displayShoppingItems = activeShoppingItems;
@@ -682,7 +684,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const isExpense=tx.type==='expense';
     return <button type="button" key={tx.id||idx} onClick={()=>onEditTransaction(tx)} aria-label={`Редактировать операцию: ${title}`}
       data-overview-history-row className="terra-overview-history-row min-h-[56px] w-full text-left px-1 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-      <BrandIcon name={title} brandKey={getMerchantBrandKey(title)} category={cat} size="sm" className="w-9 h-9 rounded-xl"/>
+      <BrandIcon name={title} brandKey={getMerchantBrandKey(title)} category={cat} quiet size="sm" className="w-9 h-9 rounded-xl"/>
       <span className="min-w-0 flex flex-col gap-1">
         <span data-overview-history-title className="text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere] leading-snug">{title}</span>
         <span data-overview-history-meta className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{date}{!personalOnly&&budgetMode==='family'?' · '+member:''}</span>
@@ -697,14 +699,14 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     aria-label={`Аналитика категории: ${cat.name}`} data-overview-category-row
     className="min-h-[56px] w-full text-left px-1 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] space-y-1.5">
     <span className="terra-overview-category-row">
-      <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{backgroundColor:cat.bg,color:cat.color}} aria-hidden="true">{cat.icon}</span>
+      <span className="terra-category-color w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{'--terra-category-tint':/^#[\da-f]{3}([\da-f]{3})?$/i.test(cat.color)?cat.color:'#858078'} as React.CSSProperties} aria-hidden="true">{cat.icon}</span>
       <span data-overview-category-title className="text-sm font-medium text-[var(--terra-ink)] min-w-0 [overflow-wrap:anywhere]">{cat.name}</span>
       <span className="min-w-0 text-right flex flex-col gap-0.5">
         <span data-overview-category-amount className="text-sm font-semibold text-[var(--terra-ink)] tabular-nums [overflow-wrap:anywhere]">{formatAmount(cat.amount)} ₽</span>
-        <span data-overview-category-percent className="text-xs text-[var(--terra-muted)] tabular-nums">{settings.privacyMode?'•••':cat.percent+'%'}</span>
+        <span data-overview-category-percent className="text-xs text-[var(--terra-muted)] tabular-nums">{settings.privacyMode?'•••':cat.label}</span>
       </span>
     </span>
-    {!settings.privacyMode&&<span className="block h-1.5 rounded-full bg-[var(--terra-soft)] overflow-hidden"><span className="block h-full rounded-full terra-progress" style={{width:Math.min(100,cat.percent)+'%',backgroundColor:cat.barColor}}/></span>}
+    {!settings.privacyMode&&<span className="block h-1.5 rounded-full bg-[var(--terra-soft)] overflow-hidden"><span data-overview-category-fill className="terra-category-fill block h-full rounded-full terra-progress" style={{width:cat.percent+'%','--terra-category-tint':/^#[\da-f]{3}([\da-f]{3})?$/i.test(cat.barColor)?cat.barColor:'#858078'} as React.CSSProperties}/></span>}
   </button>);
 
   return (
@@ -860,7 +862,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
             <div data-overview-section-head className="terra-overview-section-head terra-overview-category-header flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className={SECTION_HEADING}>
-                  Категории расходов
+                  Категории
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
                   Всего: {formatAmount(categoryBreakdown.total)} ₽
@@ -923,7 +925,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               <div data-overview-section-head className="terra-overview-section-head terra-overview-event-head flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className={SECTION_HEADING}>
-                    События на этой неделе
+                    События недели
                   </h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1138,7 +1140,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               desktop
             />}
 
-            {/* Виджет «События на этой неделе» (ПК, скрыт если нет событий) */}
+            {/* Виджет «События недели» (ПК, скрыт если нет событий) */}
             {showWeekEvents && upcomingWeekEvents.length > 0 && (
               <div data-testid="overview-events-desktop" className={DASHBOARD_CARD+" terra-layout-surface space-y-2"}>
                 <div data-overview-section-head className="terra-overview-section-head terra-overview-event-head flex flex-wrap items-center justify-between gap-2">
@@ -1146,7 +1148,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                     
                     <div className="flex items-center gap-2">
                       <h3 className={SECTION_HEADING}>
-                        События на этой неделе
+                        События недели
                       </h3>
                       <span className="w-5 h-5 rounded-md bg-[var(--terra-soft)] text-[var(--terra-muted)] text-xs font-semibold flex items-center justify-center">
                         {upcomingWeekEvents.length}

@@ -1,5 +1,6 @@
 import {meetsTouchTarget} from './touchTargetGeometry.mjs';
 import {runTerraV2Pilot} from './terraV2PilotBrowser.mjs';
+import {runVisualDataProfiles} from './visualDataProfilesBrowser.mjs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
 import assert from 'node:assert/strict';
@@ -212,6 +213,7 @@ if(process.argv.includes('--navigation')){
  await b.waitForFunction(()=>document.documentElement.classList.contains('dark'));
  const dark=await runNavigationAudit(b,{captureScreens:true,includeInventoryDetails:true,inventoryOnly:true,extraViewports:[[360,800],[375,812],[390,844],[768,1024],[1024,768],[1280,800],[1920,1080]]});
  if(dark.failures.length)process.exitCode=1;
+ if(populated)await runVisualDataProfiles(b,{db,family,settingsRef:family.collection('members').doc(users[1].uid).collection('config').doc('settings'),members:users.map((u,i)=>({id:i?'b':'a',userId:u.uid})),now:new Date(date),sections:['overview']});
 }else{
 const failures=[];
 let phase='';

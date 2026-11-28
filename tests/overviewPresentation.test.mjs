@@ -4,7 +4,10 @@ import { overviewCategoryShare, overviewChartGuide } from '../utils/overviewPres
 test('category bars retain exact fractions and do not claim tiny expenses are zero',()=>{
  assert.deepEqual(overviewCategoryShare(0,100),{percent:0,label:'0%'});
  assert.deepEqual(overviewCategoryShare(.01,100),{percent:.01,label:'<1%'});
- assert.deepEqual(overviewCategoryShare(2.49,100),{percent:2.49,label:'2,5%'});
+ const fractional=overviewCategoryShare(2.49,100);
+ assert.ok(Math.abs(fractional.percent-2.49)<1e-10);
+ assert.equal(fractional.label,'2,5%');
+ assert.equal(overviewCategoryShare(99.99,100).label,'>99%');
  assert.deepEqual(overviewCategoryShare(100,100),{percent:100,label:'100%'});
  assert.deepEqual(overviewCategoryShare(1,0),{percent:0,label:'0%'});
 });

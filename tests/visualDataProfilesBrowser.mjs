@@ -36,7 +36,9 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Visual profile test requires both isolated emulators');
  if(!family.id.startsWith('crud-'))throw new Error('Expected disposable test family');
  const rows=family.collection('transactions'),categories=family.collection('categories');
- const originalRows=(await rows.get()).docs.map(doc=>({id:doc.id,data:doc.data()}));
+ const shopping=family.collection('shopping'),events=family.collection('events');
+ const snapshots=await Promise.all([rows,shopping,events].map(async collection=>(await collection.get()).docs.map(doc=>({id:doc.id,data:doc.data()}))));
+ const [originalRows,originalShopping,originalEvents]=snapshots;
  const originalSettings=(await settingsRef.get()).data();
  const profiles=makeVisualDataProfiles({now,members});
  const profileCategories=profiles.flatMap(p=>p.categories);
@@ -47,6 +49,8 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
   for(const cat of profileCategories)await categories.doc(cat.id).set(cat);
   for(const profile of profiles){
    await replace(db,rows,profile.transactions.map(data=>({id:data.id,data})));
+   await replace(db,shopping,profile.shopping.map(data=>({id:data.id,data})));
+   await replace(db,events,profile.events.map(data=>({id:data.id,data})));
    await page.reload({waitUntil:'domcontentloaded'});
    const nav=page.locator('nav');
    await visible(nav.getByRole('button',{name:'Обзор',exact:true})).waitFor({state:'visible',timeout:60000});
@@ -85,6 +89,27 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
      if(profile.id==='empty'||profile.id==='income-only')assert.equal(await chart.locator('.recharts-bar-rectangle path').count(),0,label+' chart must not invent expenses');
      if(profile.id==='kopeck')assert.ok(await chart.locator('.recharts-bar-rectangle path').count()>0,label+' one kopeck must have a graph');
      await visible(chart.getByRole('button',{name:'День',exact:true})).click();
+     const shop=visible(overview.getByTestId('overview-shopping-card'));
+     await shop.scrollIntoViewIfNeeded();
+     const expectedShop=Math.min(4,profile.shopping.length);
+     await page.waitForFunction(({count})=>[...document.querySelectorAll('[data-testid="overview-shopping-card"]')].some(el=>el.getClientRects().length&&el.querySelectorAll('button[aria-label^="Отметить покупку"]').length===count),{count:expectedShop});
+     await inspect(page,shop,label+'-shopping');
+     const eventCard=overview.getByTestId('overview-events-'+suffix);
+     if(profile.events.length){
+      await eventCard.waitFor({state:'visible'});await eventCard.scrollIntoViewIfNeeded();
+      assert.equal(await eventCard.getByRole('button',{name:/^Открыть событие:/}).count(),Math.min(3,profile.events.length),label+' event preview count');
+      await inspect(page,eventCard,label+'-events');
+     }else await eventCard.waitFor({state:'hidden'});
+     if(profile.id==='large-and-long'&&width===390){
+      const history=overview.getByTestId('overview-history-'+suffix);
+      const edit=history.getByRole('button',{name:/^Редактировать операцию: Очень длинное синтетическое/});
+      await edit.click();
+      const editor=page.getByRole('dialog',{name:'Редактирование операции',exact:true});
+      await editor.waitFor({state:'visible'});await inspect(page,editor,label+'-long-operation-editor');
+      await visible(editor.getByRole('button',{name:'Закрыть модальное окно',exact:true})).click();
+      await editor.waitFor({state:'hidden'});
+      assert.equal(await edit.evaluate(el=>document.activeElement===el),true,label+' editor focus return');
+     }
      if(sections.includes('budget')){
      await visible(nav.getByRole('button',{name:'Бюджет',exact:true})).click();
      const budget=page.locator('[data-tab-panel="budget"]');
@@ -99,6 +124,8 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
   }
  }finally{
   await replace(db,rows,originalRows);
+  await replace(db,shopping,originalShopping);
+  await replace(db,events,originalEvents);
   for(const [id,data] of beforeCategory){const ref=categories.doc(id);if(data)await ref.set(data);else await ref.delete();}
   if(originalSettings)await settingsRef.set(originalSettings);
   await page.setViewportSize({width:1440,height:900});

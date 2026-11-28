@@ -18,5 +18,13 @@ export function makeVisualDataProfiles({now=new Date(),members}){
   {id:'large-and-long',transactions:[row('large-and-long',0,98765432109,'expense','food','Очень длинное синтетическое название организации получателя с дополнительным описанием и уточнением назначения платежа без сокращений'),row('large-and-long',1,123456789,'income','salary','Учебный доход'),row('large-and-long',2,100,'expense','qa-visual-missing-category','Категория удалена')],categories:[],expected:{incomeCents:123456789,expenseCents:98765432209}},
   {id:'month-boundary',transactions:[row('month-boundary',0,10000000,'expense','food','Предыдущий месяц',previous),row('month-boundary',1,101,'expense','food','Текущий месяц')],categories:[],expected:{incomeCents:0,expenseCents:101}}
  ];
+ const today=now.toISOString().slice(0,10);
+ const shoppingTitle=['Молоко','Яблоки','Средство для ухода за деликатными тканями и домашним текстилем в большой упаковке','Крупа','Чай','Овощи'];
+ for(const profile of profiles){
+  const count=profile.id==='empty'||profile.id==='income-only'?0:profile.id==='large-and-long'?6:1;
+  profile.shopping=Array.from({length:count},(_,i)=>({id:'qa-visual-shop-'+profile.id+'-'+i,title:profile.id==='large-and-long'?shoppingTitle[(i+2)%shoppingTitle.length]:shoppingTitle[i],amount:i===0?'0.75':String(i+1),unit:i===0?'л':'шт',category:'food',priority:'medium',completed:false,memberId:members[i%2].id,userId:members[i%2].userId}));
+  const eventCount=profile.id==='empty'||profile.id==='income-only'?0:profile.id==='large-and-long'?4:1;
+  profile.events=Array.from({length:eventCount},(_,i)=>({id:'qa-visual-event-'+profile.id+'-'+i,title:profile.id==='large-and-long'&&i===0?'Длинное название семейного события с дополнительным уточнением места и времени встречи':'Учебное событие '+(i+1),description:'Синтетическое событие',date:today,time:'18:'+String(i*10).padStart(2,'0'),duration:1,memberIds:i===0?members.map(m=>m.id):[members[i%2].id],userId:members[i%2].userId,kind:'event',completed:false,recurrence:'none',checklist:[],reminders:[]}));
+ }
  return profiles;
 }

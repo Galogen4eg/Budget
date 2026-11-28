@@ -210,11 +210,19 @@ async function checkBarHighlight(page,plot,label){
   const index=await bars.evaluateAll(nodes=>nodes.findIndex(el=>{const b=el.getBoundingClientRect();return b.width>2&&b.height>2;}));
   assert.ok(index>=0,label+' populated bar missing');
   const bar=bars.nth(index);
+  await bar.scrollIntoViewIfNeeded();
   const box=await bar.boundingBox();
   assert.ok(box,label+' bar bounds missing');
-  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
-  const active=plot.locator('.recharts-bar-rectangle path[stroke="var(--terra-ink)"]');
-  await active.first().waitFor({state:'visible'});
+  // Use Playwright's hit-tested hover rather than stale page coordinates.
+  await bar.hover();
+  await capture(page,'chart-hover-probe-'+label);
+  // Recharts may move the active shape into a separate SVG layer.
+  const active=plot.locator('path[stroke="var(--terra-ink)"]');
+  try{await active.first().waitFor({state:'visible',timeout:5000});}
+  catch(error){
+    console.error('CHART HIGHLIGHT '+label+' '+JSON.stringify(await plot.evaluate(el=>({hovered:[...el.querySelectorAll(':hover')].map(n=>n.getAttribute('class')),paths:[...el.querySelectorAll('path')].slice(0,40).map(n=>({class:n.getAttribute('class'),stroke:n.getAttribute('stroke'),fill:n.getAttribute('fill')}))}))));
+    throw error;
+  }
   assert.equal(await plot.locator('.recharts-tooltip-cursor').count(),0,label+' full-height hover band');
   const activeBoxes=await active.evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
   assert.ok(activeBoxes.some(b=>Math.abs(b.x-box.x)<=1&&Math.abs(b.y-box.y)<=1&&Math.abs(b.width-box.width)<=1&&Math.abs(b.height-box.height)<=1),label+' highlight changes bar geometry');

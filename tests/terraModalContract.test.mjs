@@ -32,3 +32,9 @@ test('manual reserve has explicit save and no implicit blur commit',()=>{
  assert.match(s,/onClick=\{saveManualDraft\}/);
  assert.match(s,/useMobileViewport\(/);
 });
+
+test('mandatory payment dialog has one focus owner so the opener is captured before input focus',()=>{
+ const s=read('components/MandatoryExpenseModal.tsx');
+ assert.match(s,/useModalSurface\(requestClose,\{initialSelector:/);
+ assert.doesNotMatch(s,/<input\b[^>]*\bautoFocus\b/s);
+});

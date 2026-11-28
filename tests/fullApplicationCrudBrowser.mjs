@@ -703,6 +703,7 @@ await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
  await editPayment.click();
  const paymentEditor=b.getByRole('dialog',{name:'Редактирование платежа',exact:true});
  await paymentEditor.waitFor({state:'visible'});
+ await b.waitForFunction(()=>document.activeElement?.closest('[data-testid="terra-mandatory-dialog"]')?.contains(document.activeElement)&&document.activeElement?.getAttribute('aria-label')==='Закрыть',null,{timeout:3000});
  await b.keyboard.press('Escape');
  await paymentEditor.waitFor({state:'hidden'});
  await dialog.waitFor({state:'visible'});

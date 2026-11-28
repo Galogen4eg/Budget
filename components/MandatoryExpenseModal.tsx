@@ -45,6 +45,8 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   const [formError, setFormError] = useState('');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const requestClose=()=>{if(!isSaving)onClose();};
+  // The modal surface must capture the opener before focusing this dialog.
+  // Native/React autoFocus on an input would replace that opener during mount.
   const surface=useModalSurface(requestClose,{initialSelector:'[aria-label="Закрыть"]'});
   useBodyScrollLock();
   useModalBackHandler(true,requestClose);
@@ -287,7 +289,6 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 value={name} 
                 onChange={e => setName(e.target.value)}
                 placeholder={expenseType === 'debt' ? 'Ипотека, автокредит, кредитка...' : 'ЖКХ, интернет, аренда, связь...'} 
-                autoFocus
                 className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-semibold text-base px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-10"
               />
               <span className="absolute right-3.5 text-stone-400">

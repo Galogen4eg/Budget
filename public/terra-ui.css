@@ -281,3 +281,10 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-reserve-content{container-type:inline-size;}
 @container(min-width:400px){.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(85px,auto) auto;}.terra-reserve-bill-actions{grid-column:auto;}}
 .terra-overview-scope button[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--terra-primary-text);}
+
+
+/* Budget summary: align the cards within each actual grid row; keep workspace stacks independent. */
+.terra-layout-grid.terra-budget-metrics{align-items:stretch;}
+.terra-budget-metrics .terra-month-totals>div{padding-block:3px;}
+.terra-budget-metrics .terra-month-totals>div:first-child{padding-top:0;}
+.terra-budget-metrics .terra-month-totals>div:last-child{padding-bottom:0;}

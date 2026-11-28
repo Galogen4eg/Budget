@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {groupBudgetTransactions, filterBudgetPeriod, clampBudgetDay, visibleBudgetTransactions, formatBudgetMonthLabel, formatBudgetCalendarMagnitude} from '../utils/budgetUi.ts';
+import {groupBudgetTransactions, filterBudgetPeriod, clampBudgetDay, visibleBudgetTransactions, formatBudgetMonthLabel, formatBudgetCalendarMagnitude, budgetSpendForDay} from '../utils/budgetUi.ts';
 
 const transactions=[
   {id:'a',date:'2026-11-20T09:00:00',amount:0.1,type:'expense'},
@@ -56,4 +56,17 @@ test('calendar amounts share Russian compact formatting without integer-thousand
   assert.equal(formatBudgetCalendarMagnitude(0.15),'0,15');
   assert.equal(formatBudgetCalendarMagnitude(1250000),'1,3м');
   assert.equal(formatBudgetCalendarMagnitude(999950),'1м');
+});
+
+test('yesterday is a local calendar day even at month and year boundaries',()=>{
+ const rows=[
+  {id:'a',date:'2026-12-31T23:59:00',type:'expense',amount:1500.15},
+  {id:'b',date:'2026-12-31T12:00:00',type:'expense',amount:0.1},
+  {id:'c',date:'2026-12-31T12:00:00',type:'income',amount:2000},
+  {id:'d',date:'2027-01-01T00:00:00',type:'expense',amount:900},
+  {id:'e',date:'2026-11-30T12:00:00',type:'expense',amount:100},
+ ];
+ assert.equal(budgetSpendForDay(rows,new Date(2027,0,1),-1),1500.25);
+ assert.equal(budgetSpendForDay(rows,new Date(2027,0,1),0),900);
+ assert.equal(budgetSpendForDay(rows,new Date(2026,11,1),-1),100);
 });

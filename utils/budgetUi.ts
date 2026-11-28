@@ -1,4 +1,4 @@
-import { monthlyMoneyTotals } from './budgetFinancialMath.ts';
+import { monthlyMoneyTotals, sumMoney } from './budgetFinancialMath.ts';
 
 type DatedTransaction = {id:string;date:string;amount:number;type:string};
 
@@ -92,4 +92,11 @@ export function formatBudgetCalendarMagnitude(value:number):string{
   if(amount>=999950)return number(amount/1000000,1)+'м';
   if(amount>=1000)return number(amount/1000,1)+'к';
   return number(amount,2);
+}
+
+/** Exact expense total on a local calendar day, including across month/year boundaries. */
+export function budgetSpendForDay(rows:readonly {date:string;type:string;amount:number}[],reference:Date,offset=0):number{
+ const start=new Date(reference.getFullYear(),reference.getMonth(),reference.getDate()+offset);
+ const end=new Date(start.getFullYear(),start.getMonth(),start.getDate()+1);
+ return sumMoney(rows.filter(row=>{const time=new Date(row.date).getTime();return row.type==='expense'&&time>=start.getTime()&&time<end.getTime();}).map(row=>row.amount));
 }

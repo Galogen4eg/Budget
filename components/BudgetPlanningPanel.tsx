@@ -6,6 +6,7 @@ import type { AppSettings, Category, Transaction } from '../types';
 import { useData } from '../contexts/DataContext';
 import { buildCategoryBudgetRows, forecastUntilSalary, parseCategoryBudgetInput } from '../utils/budgetPlanning';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { formatBudgetMonthLabel } from '../utils/budgetUi';
 import { buildMonthlyBudgetReport } from '../utils/budgetMonthlyReport';
 
 interface Props {
@@ -62,7 +63,7 @@ export default function BudgetPlanningPanel({
  };
  return (
   <section data-testid="budget-planning" className={SURFACE_CARD+" terra-layout-surface space-y-4 min-w-0"}>
-   <div className="flex justify-between items-start gap-2">
+   <div className="flex flex-wrap justify-between items-start gap-2">
      <div>
        <h3 className={SECTION_HEADING}>Лимиты по категориям</h3>
        <p className="text-xs text-graphite-muted dark:text-gray-400">{personalOnly?'Личные лимиты на календарный месяц':'Общие семейные лимиты на календарный месяц'}</p>
@@ -105,7 +106,7 @@ export default function BudgetPlanningPanel({
         {currency(row.spent)} / {currency(row.limit)}
        </span>
       </div>
-      {!settings.privacyMode&&<div data-testid="category-limit-progress" role="progressbar" aria-label={"Использование лимита: "+row.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.percentage} className="h-2 w-full bg-[var(--terra-soft)] rounded-full overflow-hidden">
+      {!settings.privacyMode&&<div data-testid="category-limit-progress" role="progressbar" aria-label={"Использование лимита: "+row.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.percentage} aria-valuetext={row.overLimit?`Лимит превышен на ${formatBudgetMoney(row.spent-row.limit)} ₽`:`Использовано ${row.percentage}%`} className="h-2 w-full bg-[var(--terra-soft)] rounded-full overflow-hidden">
        <div className={"h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none "+(row.overLimit?'bg-[var(--terra-danger-text)]':'bg-[var(--terra-primary-solid)]')}
         style={{width:row.percentage+'%'}}/>
       </div>}
@@ -118,22 +119,13 @@ export default function BudgetPlanningPanel({
    <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-2" aria-label="Месячный отчёт бюджета">
      <h3 className="text-sm font-bold text-graphite dark:text-white">План и факт за месяц</h3>
      <p className="text-xs text-graphite-muted dark:text-gray-400">
-       {currentMonth.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · фактические операции из бюджета, без событий календаря
+       {formatBudgetMonthLabel(currentMonth)} · {personalOnly?'Личный бюджет':'Вся семья, независимо от фильтра участника'}
      </p>
-     <div className="grid grid-cols-2 gap-2">
-       <div className="rounded-xl bg-[var(--terra-soft)] p-3">
-         <p className="text-xs text-[var(--terra-muted)]">Доходы</p>
-         <p className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{currency(monthlyReport.income)}</p>
-       </div>
-       <div className="rounded-xl bg-[var(--terra-soft)] p-3">
-         <p className="text-xs text-[var(--terra-muted)]">Расходы</p>
-         <p className="text-base font-semibold tabular-nums [overflow-wrap:anywhere]">{currency(monthlyReport.expense)}</p>
-       </div>
-     </div>
-     <div className="flex justify-between gap-2 text-sm">
-       <span className="text-graphite-muted dark:text-gray-400">Итог месяца</span>
-       <strong className="tabular-nums">{currency(monthlyReport.net)}</strong>
-     </div>
+     <dl className="terra-month-totals divide-y divide-[var(--terra-border)]">
+       <div><dt>Доходы</dt><dd className="text-[var(--terra-primary-text)]">{currency(monthlyReport.income)}</dd></div>
+       <div><dt>Расходы</dt><dd>{currency(monthlyReport.expense)}</dd></div>
+       <div><dt>Итог месяца</dt><dd>{currency(monthlyReport.net)}</dd></div>
+     </dl>
      {monthlyReport.planned > 0 ? (<>
        <div className="flex justify-between gap-2 text-sm">
          <span>План по категориям</span>
@@ -148,7 +140,7 @@ export default function BudgetPlanningPanel({
          <span>{currency(monthlyReport.plannedRemaining)}</span>
        </div>
        {!settings.privacyMode&&monthlyReport.overBudget > 0 && (
-         <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+         <p className="text-xs font-semibold text-[var(--terra-danger-text)]">
            Превышение отдельных лимитов: {currency(monthlyReport.overBudget)}
          </p>
        )}

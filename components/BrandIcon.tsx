@@ -13,6 +13,7 @@ interface BrandIconProps {
   category?: Category;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  quiet?: boolean;
 }
 
 // Domain map for fetching real high-res brand logos
@@ -105,7 +106,7 @@ const BRAND_COLORS: Record<string, string> = {
   'gazprom': '#007CC3',
 };
 
-export const BrandIcon: React.FC<BrandIconProps> = ({ brandKey, name, category, size = 'md', className = '' }) => {
+export const BrandIcon: React.FC<BrandIconProps> = ({ brandKey, name, category, size = 'md', className = '', quiet = false }) => {
   const [imgError, setImgError] = useState(false);
 
   // Dimensions
@@ -164,6 +165,8 @@ export const BrandIcon: React.FC<BrandIconProps> = ({ brandKey, name, category, 
   const bgColor = category?.color || '#8E8E93';
   const icon = category ? getIconById(category.icon, size === 'sm' ? 16 : 24) : null;
   const showInitial = !category || category.id === 'other' || category.id === 'transfer';
+
+  if(quiet) return <div aria-hidden="true" className={`${sizes[size]} terra-category-color flex items-center justify-center shrink-0 ${className}`} style={{'--terra-category-tint':/^#[\da-f]{3}([\da-f]{3})?$/i.test(bgColor)?bgColor:'#858078'} as React.CSSProperties}>{showInitial?<span className="font-semibold">{firstLetter||'О'}</span>:icon}</div>;
 
   return (
     <div 

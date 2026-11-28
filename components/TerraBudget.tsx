@@ -396,6 +396,40 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
   const selectedDayDateFormatted = rawDayDate.charAt(0).toUpperCase() + rawDayDate.slice(1);
   const isSelectedDayToday = isCurrentMonthView && selectedDay === today.getDate();
 
+  const renderMandatoryPayments=(layout:'mobile'|'desktop')=><section id={'budget-payments-'+layout} tabIndex={-1} data-testid={'budget-payments-'+layout} className={SURFACE_CARD+' terra-layout-surface min-w-0 space-y-3'}>
+    <header className="flex flex-wrap items-center justify-between gap-2">
+      <div className="min-w-0">
+        <h3 className="font-headline text-base font-semibold text-[var(--terra-ink)]">Обязательные платежи</h3>
+        <p className="text-xs text-[var(--terra-muted)]">{mobileMonthName} · {personalOnly?'Личный бюджет':'Общие платежи семьи'}</p>
+      </div>
+      {onAddMandatoryExpense&&<button type="button" onClick={onAddMandatoryExpense} aria-label="Добавить обязательный платёж" className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">Добавить</button>}
+    </header>
+    <div className="divide-y divide-[var(--terra-border)]">
+      {displayMandatoryExpenses.length===0&&<p className="py-2 text-sm text-[var(--terra-muted)]">Обязательных платежей пока нет.</p>}
+      {displayMandatoryExpenses.map(exp=>{
+        const title=exp.name||(exp as any).title||'Обязательный платёж';
+        const day=exp.day??(exp as any).dayOfMonth??1;
+        const state=monthlyPaymentStates.find(item=>item.id===exp.id);
+        const paid=state?.isPaid??false;
+        const debt=exp.expenseType==='debt'||Boolean(exp.linkedDebtId);
+        return <div key={exp.id} data-budget-payment-row={exp.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-start gap-x-3 gap-y-1 py-2">
+          <button type="button" disabled={!onEditMandatoryExpense} onClick={()=>onEditMandatoryExpense?.(exp)} aria-label={'Редактировать обязательный платёж: '+title} className="min-h-[44px] min-w-0 flex items-start gap-2 text-left rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
+            <span className="shrink-0 w-8 h-8 rounded-lg bg-[var(--terra-soft)] text-[var(--terra-muted)] flex items-center justify-center" aria-hidden="true">{getMandatoryIcon(title)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{title}</span>
+              <span className="block text-xs text-[var(--terra-muted)]">До {day}-го числа{debt?' · Кредит':''}{exp.remind?' · Напоминание':''}</span>
+            </span>
+          </button>
+          <div className="min-w-0 text-right">
+            <span className="block text-sm font-semibold tabular-nums [overflow-wrap:anywhere]" data-payment-amount>{settings.privacyMode?'•••':formatBudgetMoney(exp.amount)+' ₽'}</span>
+            {!paid&&state&&state.paidAmount>0&&<span className="block text-xs text-[var(--terra-muted)]">{settings.privacyMode?'Частичная оплата':'Осталось '+formatBudgetMoney(state.amountNeeded)+' ₽'}</span>}
+          </div>
+          {paid&&!state?.isManuallyPaid?<span className="col-span-2 text-right text-xs font-medium text-[var(--terra-primary-text)]">Оплачено операцией</span>:onToggleMandatoryPaid&&<button type="button" onClick={()=>void onToggleMandatoryPaid(exp.id)} aria-label={state?.isManuallyPaid?'Снять ручную отметку оплаты':'Отметить платёж оплаченным вручную'} className="col-span-2 justify-self-end min-h-[44px] px-3 rounded-lg border border-[var(--terra-control-border)] text-sm font-medium text-[var(--terra-primary-text)] hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors motion-reduce:transition-none">{state?.isManuallyPaid?'Снять отметку':'Отметить вручную'}</button>}
+        </div>;
+      })}
+    </div>
+  </section>;
+
   const renderTodayMetrics=(embedded:boolean)=><>{isCurrentMonthView && (
         <div data-testid="budget-today-metrics" className={embedded?'flex min-w-0 flex-col gap-2 pt-2 border-t border-[var(--terra-border)]':SURFACE_CARD+' terra-layout-surface flex min-w-0 flex-col justify-start gap-2'}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -870,81 +904,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
           </section>
 
           {/* Scheduled Monthly Mandatory Payments */}
-          <section id="budget-payments-mobile" tabIndex={-1} className={`${SURFACE_CARD} terra-layout-surface flex flex-col gap-3`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Repeat size={18} className="text-[#705C30] dark:text-[#C4A66A] shrink-0" />
-                <span className="text-sm font-headline font-bold text-[var(--terra-ink)] dark:text-white">Обязательные платежи</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-[var(--terra-muted)] dark:text-gray-400">
-                  {displayMandatoryExpenses.length} {displayMandatoryExpenses.length === 1 ? 'платёж' : displayMandatoryExpenses.length < 5 ? 'платежа' : 'платежей'}
-                </span>
-                {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
-                  aria-label="Добавить обязательный платёж"
-                  className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-                  Добавить
-                </button>}
-              </div>
-            </div>
-
-            <div className="divide-y divide-[var(--terra-border)]">
-              {displayMandatoryExpenses.length === 0 && (
-                <p className="rounded-xl border border-[var(--terra-border)] dark:border-white/10 px-3 py-4 text-sm text-[var(--terra-muted)] dark:text-gray-400">Обязательных платежей пока нет.</p>
-              )}
-              {displayMandatoryExpenses.map(exp => {
-                const title = exp.name || (exp as any).title || 'Обязательный платёж';
-                const dayNum = exp.day ?? (exp as any).dayOfMonth ?? 1;
-                const paymentState = monthlyPaymentStates.find(state => state.id === exp.id);
-                const isPaid = paymentState?.isPaid ?? false;
-
-                return (
-                  <div 
-                    key={exp.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-1 py-2.5"
-                  >
-                    <button type="button" onClick={() => onEditMandatoryExpense?.(exp)} aria-label={`Редактировать обязательный платёж: ${title}`}
-                      className="min-h-[44px] flex min-w-0 flex-1 items-center gap-3 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-                      <div className="w-8 h-8 rounded-lg bg-[#C4A66A]/20 text-[#705C30] dark:text-[#C4A66A] flex items-center justify-center shrink-0">
-                        {getMandatoryIcon(title)}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-[var(--terra-ink)] dark:text-white break-words">{title}</span>
-                        <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">До {dayNum}-го числа</span>
-                      </div>
-                    </button>
-                    <div className="flex min-w-0 flex-col items-end gap-1">
-                      <span className="text-sm font-semibold tabular-nums [overflow-wrap:anywhere] text-[var(--terra-ink)] dark:text-white">
-                        {settings.privacyMode ? '•••' : `${formatBudgetMoney(exp.amount)} ₽`}
-                      </span>
-                      {!isPaid && paymentState && paymentState.paidAmount > 0 && (
-                        <span className="text-xs text-[var(--terra-muted)] dark:text-gray-400">
-                          {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
-                        </span>
-                      )}
-                      {isPaid && !paymentState?.isManuallyPaid ? (
-                        <span className="text-xs font-bold text-[var(--terra-primary)] dark:text-green-400 flex items-center gap-1">
-                          <CheckCircle2 size={14} />
-                          Оплачено операцией
-                        </span>
-                      ) : onToggleMandatoryPaid ? (
-                        <button
-                          type="button"
-                          onClick={() => void onToggleMandatoryPaid(exp.id)}
-                          aria-label={paymentState?.isManuallyPaid ? 'Снять ручную отметку оплаты' : 'Отметить платёж оплаченным вручную'}
-                          className={`min-h-[44px] px-3 py-2 text-xs font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${paymentState?.isManuallyPaid
-                            ? 'text-emerald-800 bg-emerald-100 dark:bg-green-950/40 dark:text-green-400'
-                            : 'text-white bg-primary hover:bg-primary-dark'}`}
-                        >
-                          {paymentState?.isManuallyPaid ? 'Снять отметку' : 'Отметить вручную'}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          {renderMandatoryPayments('mobile')}
 
           {/* Top Spending Categories Section */}
           <section className={`${SURFACE_CARD} terra-layout-surface flex flex-col min-w-0 gap-3`}>
@@ -1626,113 +1586,7 @@ const TerraBudget: React.FC<TerraBudgetProps> = ({
             totalBalance={ledger} reservedAmount={reservedAmount} daysToSalary={remainingDays}/>
           
                     {/* 2. Mandatory Payments Card */}
-          <div className={`${SURFACE_CARD} terra-layout-surface min-w-0`}>
-            <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-surface-border/70 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-accent-gold/20 text-[#C4A66A] flex items-center justify-center font-bold">
-                  <DollarSign size={16} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold font-headline text-graphite dark:text-white">
-                    Обязательные платежи
-                  </h3>
-                  <p className="text-xs text-graphite-muted dark:text-gray-400">
-                    {mandatoryExpenses.length} счетов к контролю
-                  </p>
-                </div>
-              </div>
-
-              {onAddMandatoryExpense && <button type="button" onClick={onAddMandatoryExpense}
-                aria-label="Добавить обязательный платёж"
-                className="min-h-[44px] px-3 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-xs font-semibold focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]">
-                Добавить
-              </button>}
-            </div>
-
-            <div className="space-y-2">
-              {mandatoryExpenses.length === 0 ? (
-                <div className="text-center py-3 text-xs text-graphite-muted dark:text-gray-500 italic">
-                  Обязательные платежи не добавлены
-                </div>
-              ) : (
-                mandatoryExpenses.map(expense => {
-                  const paymentState = monthlyPaymentStates.find(state => state.id === expense.id);
-                  const isPaid = paymentState?.isPaid ?? false;
-                  const isDebt = expense.expenseType === 'debt' || Boolean(expense.linkedDebtId);
-
-                  return (
-                    <div 
-                      key={expense.id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-1 py-2.5 group"
-                    >
-                      <button type="button"
-                        onClick={() => onEditMandatoryExpense?.(expense)}
-                        aria-label={`Редактировать обязательный платёж: ${expense.name}`}
-                        className="min-h-[44px] flex min-w-0 flex-1 items-center gap-2.5 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                        <div className={`w-8 h-8 rounded-lg border font-bold text-xs flex items-center justify-center shrink-0 ${
-                          isDebt 
-                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400' 
-                            : 'bg-white dark:bg-[var(--terra-surface)] border-surface-border dark:border-white/10 text-graphite-muted dark:text-gray-400'
-                        }`}>
-                          {expense.day}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-graphite dark:text-white flex items-center gap-1">
-                              {isDebt ? <CreditCard size={11} className="text-amber-600 dark:text-amber-400" /> : <Home size={11} className="text-stone-400" />}
-                              <span>{expense.name}</span>
-                            </span>
-                            <span className={`text-[9px] font-bold px-1 rounded ${
-                              isPaid ? 'text-emerald-800 bg-emerald-50 dark:bg-green-950/40 dark:text-green-400' : 'text-[#D95C48] bg-red-50 dark:bg-red-950/40'
-                            }`}>
-                              {isPaid ? 'Оплачено ✓' : `до ${expense.day} числа`}
-                            </span>
-                            <span className={`text-[9px] font-semibold px-1 rounded border ${
-                              isDebt 
-                                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200/60 dark:border-amber-900/40' 
-                                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-white/5'
-                            }`}>
-                              {isDebt ? 'Кредит' : 'Бытовой'}
-                            </span>
-                          </div>
-                          <span className="text-xs text-graphite-muted dark:text-gray-400">
-                            {expense.remind ? 'С напоминанием' : 'Ежемесячно'}
-                          </span>
-                        </div>
-                      </button>
-
-                      <div className="flex flex-wrap items-center justify-end gap-2.5">
-                        <span className="text-xs font-bold font-headline text-graphite dark:text-white tabular-nums">
-                          {settings.privacyMode ? '•••' : `${formatBudgetMoney(expense.amount)} ₽`}
-                        </span>
-                        {!isPaid && paymentState && paymentState.paidAmount > 0 && (
-                          <span className="text-[10px] text-[var(--terra-muted)] dark:text-gray-400">
-                            {settings.privacyMode ? 'Частичная оплата' : `Осталось ${formatBudgetMoney(paymentState.amountNeeded)} ₽`}
-                          </span>
-                        )}
-                        {isPaid && !paymentState?.isManuallyPaid ? (
-                          <span className="text-xs font-semibold text-[var(--terra-primary)] dark:text-green-400">
-                            Оплачено операцией
-                          </span>
-                        ) : onToggleMandatoryPaid ? (
-                          <button type="button"
-                            onClick={() => void onToggleMandatoryPaid(expense.id)}
-                            aria-label={paymentState?.isManuallyPaid ? 'Снять ручную отметку оплаты' : 'Отметить платёж оплаченным вручную'}
-                            className={`min-h-[44px] px-3 text-xs font-semibold rounded-xl transition-colors ${
-                              paymentState?.isManuallyPaid
-                                ? 'text-emerald-800 bg-emerald-100 dark:bg-green-950/40'
-                                : 'text-white bg-primary hover:bg-primary-dark'
-                            }`}>
-                            {paymentState?.isManuallyPaid ? 'Снять отметку' : 'Отметить оплаченным'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
+          {renderMandatoryPayments('desktop')}
 
 
         </div>

@@ -319,6 +319,24 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  assert.equal(await b.getByTestId('alfa-review-open').count(),0);
  await action.click();
  const dialog=a.getByRole('dialog',{name:'Операции на разбор',exact:true});await dialog.waitFor({state:'visible'});
+ phase='review geometry and keyboard controls';
+ const originalViewport=a.viewportSize();
+ for(const [width,height] of [[320,568],[390,844],[1440,900]]){
+  await a.setViewportSize({width,height});
+  const header=dialog.getByTestId('import-header'),list=dialog.getByTestId('import-scroll'),footer=dialog.getByTestId('import-footer');
+  for(const area of [header,list,footer]){
+   const geometry=await area.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,height:el.clientHeight}));
+   assert.ok(geometry.scrollWidth<=geometry.width+2,'Import '+width+' horizontal overflow');
+  }
+  assert.ok((await list.boundingBox()).height>=100,'Import '+width+' list squeezed by chrome');
+  const axes=await Promise.all([header,list,footer].map(area=>area.evaluate(el=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return [r.left+parseFloat(s.paddingLeft),r.right-parseFloat(s.paddingRight)];})));
+  assert.ok(axes.every(x=>Math.abs(x[0]-axes[0][0])<=1&&Math.abs(x[1]-axes[0][1])<=1),'Import '+width+' inconsistent inset');
+  const close=dialog.getByRole('button',{name:'Закрыть модальное окно',exact:true});assert.ok(meetsTouchTarget(await close.boundingBox()));
+  const remember=dialog.getByRole('checkbox',{name:'Запомнить правило для будущих выписок'});
+  await remember.focus();await a.keyboard.press('Space');assert.equal(await remember.isChecked(),true,'keyboard remember rule');
+  await a.keyboard.press('Space');assert.equal(await remember.isChecked(),false,'keyboard undo remember rule');
+ }
+ if(originalViewport)await a.setViewportSize(originalViewport);
  phase='review filters and consistent counts';
  const filters=dialog.getByRole('group',{name:'Фильтр операций выписки'});
  const without=filters.getByRole('button',{name:'Без категории 1',exact:true});

@@ -354,10 +354,11 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
           <AnimatePresence initial={false}>
             {isCreatePanelOpen && (
               <motion.div 
-                initial={{ height: 0, opacity: 0 }}
+                data-terra-create-panel
+              initial={reduced?false:{height:0,opacity:0}}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                transition={terraTransition(reduced,.18)}
                 className="overflow-hidden px-4 mb-2"
               >
                 <div className="bg-[var(--terra-surface)] rounded-2xl p-4 shadow-xs border border-[var(--terra-border)] space-y-3">
@@ -372,8 +373,8 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                     </div>
                     <button 
                       type="button"
-                      onClick={() => setIsCreatePanelOpen(false)}
-                      className="w-7 h-7 rounded-full bg-[#F5F1EA] dark:bg-white/10 flex items-center justify-center text-stone-500 hover:text-stone-800 dark:hover:text-white active:scale-90 transition-transform cursor-pointer"
+                      onClick={() => setIsCreatePanelOpen(false)} aria-label="Скрыть форму"
+                      className="w-11 h-11 shrink-0 rounded-lg bg-[#F5F1EA] dark:bg-white/10 flex items-center justify-center text-stone-500 hover:text-stone-800 dark:hover:text-white active:scale-90 transition-transform cursor-pointer"
                     >
                       <X size={15} />
                     </button>
@@ -384,15 +385,15 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                       <label className="block text-[11px] font-semibold text-stone-500 dark:text-[var(--terra-muted)] mb-1 uppercase tracking-wider font-label">
                         Название категории
                       </label>
-                      <div className="flex items-center bg-[#F5F1EA] dark:bg-[#252528] rounded-xl px-3 py-2">
+                      <div className="flex min-w-0 items-center bg-[var(--terra-soft)] rounded-xl px-3 border border-[var(--terra-border)]">
                         <Tag size={16} className="text-[var(--terra-muted)] mr-2 shrink-0" />
                         <input 
-                          ref={newCatNameInputRef}
+                          ref={newCatNameInputRef} aria-label="Название категории"
                           type="text"
                           value={newCategoryName}
                           onChange={(e) => setNewCategoryName(e.target.value)}
                           placeholder="Например: Домашние питомцы"
-                          className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-[var(--terra-muted)] focus:outline-none font-medium"
+                          className="w-full min-w-0 min-h-[44px] bg-transparent border-0 text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-md font-medium"
                         />
                       </div>
                     </div>
@@ -402,9 +403,9 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                         Подкатегории
                       </label>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex-1 flex items-center bg-[#F5F1EA] dark:bg-[#252528] rounded-xl px-3 py-1.5">
+                        <div className="flex-1 min-w-0 flex items-center bg-[var(--terra-soft)] rounded-xl px-3 border border-[var(--terra-border)]">
                           <input 
-                            ref={newSubcatInputRef}
+                            ref={newSubcatInputRef} aria-label="Название подкатегории"
                             type="text"
                             value={newSubcategoryInput}
                             onChange={(e) => setNewSubcategoryInput(e.target.value)}
@@ -415,13 +416,13 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                               }
                             }}
                             placeholder="Добавить пункт..."
-                            className="w-full bg-transparent border-0 text-xs text-[#2E3230] dark:text-white placeholder:text-[var(--terra-muted)] focus:outline-none"
+                            className="w-full min-w-0 min-h-[44px] bg-transparent border-0 text-base text-[var(--terra-ink)] placeholder:text-[var(--terra-muted)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-md"
                           />
                         </div>
                         <button 
                           type="button"
-                          onClick={handleAddSubcategoryTag}
-                          className="w-9 h-9 rounded-xl bg-[#EAE6DE] dark:bg-white/10 text-[#2E3230] dark:text-white flex items-center justify-center active:scale-95 transition-transform cursor-pointer shrink-0"
+                          onClick={handleAddSubcategoryTag} aria-label="Добавить подкатегорию"
+                          className="w-11 h-11 rounded-xl bg-[var(--terra-soft)] text-[var(--terra-primary-text)] flex items-center justify-center active:scale-95 transition-transform cursor-pointer shrink-0"
                         >
                           <Plus size={18} />
                         </button>
@@ -430,12 +431,12 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
                       {/* Tag Chips */}
                       <div className="flex flex-wrap gap-1.5">
                         {subcategoryTags.map((tag, idx) => (
-                          <div key={`${tag}-${idx}`} className="tag-chip inline-flex items-center gap-1.5 bg-[#F0E8DB] dark:bg-[#2A2A2E] text-[#4A4538] dark:text-stone-200 px-3 py-1 rounded-full text-xs font-medium">
+                          <div key={`${tag}-${idx}`} className="inline-flex max-w-full items-center gap-1 bg-[var(--terra-soft)] text-[var(--terra-ink)] pl-2 rounded-lg text-sm font-medium [overflow-wrap:anywhere]">
                             <span>{tag}</span>
                             <button 
                               type="button"
                               onClick={() => handleRemoveTag(idx)}
-                              className="w-4 h-4 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center text-stone-600 dark:text-stone-300 hover:text-rose-600 transition-colors cursor-pointer"
+                              aria-label={`Удалить подкатегорию: ${tag}`} className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-[var(--terra-muted)] hover:text-[var(--terra-danger-text)] transition-colors cursor-pointer"
                             >
                               <X size={10} />
                             </button>
@@ -446,8 +447,8 @@ export const MobileCategoryPickerModal: React.FC<MobileCategoryPickerModalProps>
 
                     <button 
                       type="button"
-                      onClick={handleSaveCategoryBundle}
-                      className="w-full mt-2 h-10 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] rounded-xl font-label font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-xs hover:bg-[#3D684A] cursor-pointer"
+                      onClick={handleSaveCategoryBundle} disabled={isConfirming||!onAddCategory}
+                      className="w-full mt-2 min-h-[44px] bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors hover:bg-[var(--terra-primary-hover)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] disabled:opacity-60 cursor-pointer"
                     >
                       <Check size={16} />
                       <span>Сохранить категорию</span>

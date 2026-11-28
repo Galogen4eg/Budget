@@ -10,15 +10,15 @@ async function replace(db,collection,records){
  for(let i=0;i<old.docs.length;i+=400){const batch=db.batch();for(const doc of old.docs.slice(i,i+400))batch.delete(doc.ref);await batch.commit();}
  for(let i=0;i<records.length;i+=400){const batch=db.batch();for(const doc of records.slice(i,i+400))batch.set(collection.doc(doc.id),doc.data);await batch.commit();}
 }
-async function assertMoney(page,values,expected,label){
- await values.first().waitFor({state:'visible',timeout:20000});
- // Wait for the Firestore subscription and for the selected ledger to render.
- const handles=await values.all();
- assert.ok(handles.length>=expected.length,label+' missing totals');
- for(let i=0;i<expected.length;i++){
-  const handle=await handles[i].elementHandle();
-  await page.waitForFunction(({el,want})=>el?.textContent?.replace(/[\s\u00a0\u202f]+/g,' ').trim()===want,{el:handle,want:norm(money(expected[i]))},{timeout:20000});
- }
+async function assertMoney(page,selector,expected,label,positiveNet=false){
+ const wants=expected.map((value,i)=>norm((positiveNet&&i===2&&value>0?'+':'')+money(value)));
+ try{
+  await page.waitForFunction(({selector,wants})=>{
+   const root=[...document.querySelectorAll(selector)].find(el=>el.getClientRects().length&&!el.closest('[hidden],[inert]'));
+   const actual=root?[...root.querySelectorAll('dd')].map(el=>el.textContent.replace(/[\s\u00a0\u202f]+/g,' ').trim()):[];
+   return wants.every((want,i)=>actual[i]===want);
+  },{selector,wants},{timeout:20000});
+ }catch(error){console.error('VISUAL PROFILE TOTALS '+label+' '+JSON.stringify({wants,actual:await page.locator(selector).filter({visible:true}).first().locator('dd').allTextContents()}));throw error;}
 }
 async function inspect(page,root,label){
  const geometry=await root.evaluate(el=>{
@@ -58,7 +58,7 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
      const suffix=width<768?'mobile':'desktop';
      await visible(nav.getByRole('button',{name:'Обзор',exact:true})).click();
      const overview=page.locator('[data-tab-panel="overview"]');
-     await assertMoney(page,visible(overview.locator('[data-overview-month-money]')).locator('dd'),[profile.expected.incomeCents,profile.expected.expenseCents],profile.id+' overview');
+     await assertMoney(page,'[data-tab-panel="overview"] [data-overview-month-money]',[profile.expected.incomeCents,profile.expected.expenseCents],profile.id+' overview');
      const label=profile.id+'-'+theme+'-'+width;
      await overview.getByTestId('overview-scroll-container').evaluate(el=>el.scrollTop=0);
      await inspect(page,visible(overview.locator('[data-terra-layout="'+suffix+'"]')),label+'-overview');
@@ -67,8 +67,7 @@ export async function runVisualDataProfiles(page,{db,family,settingsRef,members,
      await page.screenshot({path:out+'/profile-'+label+'-categories.png',animations:'disabled'});
      await visible(nav.getByRole('button',{name:'Бюджет',exact:true})).click();
      const budget=page.locator('[data-tab-panel="budget"]');
-     const totals=visible(budget.getByTestId('budget-month-totals'));
-     await assertMoney(page,totals.locator('dd'),[profile.expected.incomeCents,profile.expected.expenseCents,profile.expected.incomeCents-profile.expected.expenseCents],profile.id+' budget');
+     await assertMoney(page,'[data-tab-panel="budget"] [data-testid="budget-month-totals"]',[profile.expected.incomeCents,profile.expected.expenseCents,profile.expected.incomeCents-profile.expected.expenseCents],profile.id+' budget',true);
      const layout=visible(budget.locator('[data-terra-layout="'+suffix+'"]'));
      await layout.evaluate(el=>el.scrollTop=0);
      await inspect(page,layout,label+'-budget');

@@ -203,6 +203,33 @@ async function overviewGeometryPilot(page,settingsRef){
  await page.setViewportSize({width:1440,height:900});
 }
 
+async function checkBarHighlight(page,plot,label){
+  await plot.scrollIntoViewIfNeeded();
+  const bars=plot.locator('.recharts-bar-rectangle path');
+  await bars.first().waitFor({state:'attached'});
+  const index=await bars.evaluateAll(nodes=>nodes.reduce((best,el,i)=>{const b=el.getBoundingClientRect();const area=b.width*b.height;return b.width>2&&b.height>2&&area>best.area?{index:i,area}:best;},{index:-1,area:0}).index);
+  assert.ok(index>=0,label+' populated bar missing');
+  const bar=bars.nth(index);
+  await bar.scrollIntoViewIfNeeded();
+  const box=await bar.boundingBox();
+  assert.ok(box,label+' bar bounds missing');
+  // Use Playwright's hit-tested hover rather than stale page coordinates.
+  await bar.hover();
+  await capture(page,'chart-hover-probe-'+label);
+  // Recharts may move the active shape into a separate SVG layer.
+  const active=plot.locator('path[stroke="var(--terra-ink)"]');
+  try{await active.first().waitFor({state:'visible',timeout:5000});}
+  catch(error){
+    console.error('CHART HIGHLIGHT '+label+' '+JSON.stringify(await plot.evaluate(el=>({hovered:[...el.querySelectorAll(':hover')].map(n=>n.getAttribute('class')),paths:[...el.querySelectorAll('path')].slice(0,40).map(n=>({class:n.getAttribute('class'),stroke:n.getAttribute('stroke'),fill:n.getAttribute('fill')}))}))));
+    throw error;
+  }
+  assert.equal(await plot.locator('.recharts-tooltip-cursor').count(),0,label+' full-height hover band');
+  const activeBoxes=await active.evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().toJSON()));
+  assert.ok(activeBoxes.some(b=>Math.abs(b.x-box.x)<=1&&Math.abs(b.y-box.y)<=1&&Math.abs(b.width-box.width)<=1&&Math.abs(b.height-box.height)<=1),label+' highlight changes bar geometry');
+  await capture(page,'chart-active-'+label);
+  return box;
+}
+
 export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
  if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8080'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9099')throw new Error('Pilot requires isolated emulator');
  await mkdir(out,{recursive:true});
@@ -232,6 +259,12 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      assert.ok(Math.abs((await plot.boundingBox()).height-beforeHeight)<=1,label+' chart height changed');
     }
     await axisFits(plot,label+' overview');
+    const selectedBar=await checkBarHighlight(page,plot,'overview-'+label);
+    await page.mouse.click(selectedBar.x+selectedBar.width/2,selectedBar.y+selectedBar.height/2);
+    const clickedDay=page.getByTestId('terra-day-detail');
+    await clickedDay.waitFor({state:'visible'});
+    await page.keyboard.press('Escape');
+    await clickedDay.waitFor({state:'hidden'});
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await button(periods,'День').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
     await page.emulateMedia({reducedMotion:'no-preference'});
@@ -517,6 +550,12 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     }
     await noOverflow(dialog.getByTestId('drilldown-chart'),label+' shared chart');
     await axisFits(dialog.getByTestId('drilldown-chart'),label+' analytics');
+    // At 390px, daily paired bars can be narrower than 2 CSS px.
+    // Verify highlight on a genuinely hit-testable populated weekly bar;
+    // daily axes and filters above remain covered independently.
+    if(mobile)await button(grouping,'По неделям').click();
+    await checkBarHighlight(page,dialog.getByTestId('drilldown-chart'),'analytics-'+label);
+    if(mobile)await button(grouping,'По дням').click();
     const analyticsValues=dialog.locator('summary').filter({hasText:'Значения графика'});await analyticsValues.click();
     await dialog.getByTestId('analytics-values').waitFor({state:'visible'});
     await analyticsValues.click();

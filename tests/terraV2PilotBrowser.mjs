@@ -596,6 +596,25 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      for(const day of await dates.all())await targetSize(day,label+' month date');
     }
     await calendar.scrollIntoViewIfNeeded();await capture(page,'budget-calendar-month-'+label);
+    const dateChoice=calendar.locator('[aria-label^="Выбрать 1 "][aria-pressed]').first();
+    await dateChoice.click();
+    assert.equal(await dateChoice.getAttribute('aria-pressed'),'true');
+    await button(budget,mobile?'Операции за выбранный день':'Операции за день').click();
+    const budgetDay=page.getByTestId('terra-day-detail');
+    await budgetDay.waitFor({state:'visible'});
+    await capture(page,'budget-day-details-'+label);
+    await button(budgetDay,/Добавить операцию/,false).click();
+    const budgetEditor=page.getByRole('dialog',{name:'Новая операция',exact:true});
+    await budgetEditor.waitFor({state:'visible'});
+    const expectedBudgetDate=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
+    assert.equal(await budgetEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedBudgetDate,label+' wrong date from Budget day details');
+    await capture(page,'budget-day-editor-'+label);
+    await page.keyboard.press('Escape');
+    await budgetEditor.waitFor({state:'hidden'});
+    await budgetDay.waitFor({state:'visible'});
+    await page.keyboard.press('Escape');
+    await budgetDay.waitFor({state:'hidden'});
+
     await metrics.scrollIntoViewIfNeeded();await capture(page,'budget-summary-'+label);
     const budgetHistory=budget.getByTestId(mobile?'budget-history-mobile':'budget-history-desktop');
     const controls=budgetHistory.getByTestId('budget-history-controls');

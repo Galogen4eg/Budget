@@ -4,7 +4,7 @@ import { cents, money } from './budgetFinancialMath.ts';
 export function overviewCategoryShare(amount:number,total:number):{percent:number;label:string}{
  const denominator=cents(total);
  const percent=denominator>0?Math.max(0,Math.min(100,cents(amount)/denominator*100)):0;
- return {percent,label:percent>0&&percent<1?'<1%':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(percent)+'%'};
+ return {percent,label:percent>0&&percent<1?'<1%':percent>99&&percent<100?'>99%':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(percent)+'%'};
 }
 
 /** A daily forecast is not a configured monthly spending limit. */

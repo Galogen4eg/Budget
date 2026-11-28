@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../components/TerraBudget.tsx',import.meta.url),'utf8');
-const desktop=source.slice(source.indexOf('TOP KPI CARDS'),source.indexOf('MAIN WORKSPACE'));
+const desktopLayout=source.slice(source.indexOf('TOP KPI CARDS'),source.indexOf('MAIN WORKSPACE'));
+const sharedMetrics=source.slice(source.indexOf('const renderTodayMetrics='),source.indexOf('  return (\n    <div className="flex flex-col min-h-0'));
+const desktop=desktopLayout+sharedMetrics;
 test('desktop daily cards use calm shared Terra surfaces, not a decorative AI gradient',()=>{
  assert.doesNotMatch(desktop,/bg-gradient-to-br|border-2 border-primary\/30/);
  assert.match(desktop,/SURFACE_CARD/);
@@ -28,6 +30,8 @@ test('budget mobile section shortcuts fit without an overflowing rail and deskto
  assert.match(shortcuts,/grid-cols-4/);
  assert.doesNotMatch(shortcuts,/FILTER_RAIL/);
  assert.match(desktop,/Итоги месяца/);
+ assert.match(desktopLayout,/renderTodayMetrics\(false\)/);
+ assert.match(desktopLayout,/renderMonthTotals\(false\)/);
  assert.equal((desktop.match(/terra-layout-surface/g)||[]).length,3);
  assert.doesNotMatch(desktop,/!p-/);
  assert.match(source,/data-terra-grid="workspace"/);

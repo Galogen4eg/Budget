@@ -576,6 +576,26 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
       assert.ok(rect&&rail&&rect.x>=rail.x-1&&rect.x+rect.width<=rail.x+rail.width+1,label+' clipped budget shortcut');
      }
     }
+    for(const name of ['budget-month-totals','budget-today-metrics']){
+     const block=metrics.getByTestId(name);
+     await block.waitFor({state:'visible'});
+     await noOverflow(block,label+' '+name);
+    }
+    const calendar=budget.getByTestId(mobile?'budget-calendar-mobile':'budget-calendar-desktop');
+    if(mobile){
+     const view=calendar.getByRole('group',{name:'Масштаб календаря расходов'});
+     const month=button(view,'Месяц'),week=button(view,'Неделя');
+     await targetSize(week,label+' week toggle');
+     await week.click();assert.equal(await week.getAttribute('aria-pressed'),'true');
+     const dates=calendar.locator('[aria-label^="Выбрать "][aria-pressed]');
+     assert.ok(await dates.count()<=7 && await dates.count()>0,label+' wrong week size');
+     for(const day of await dates.all())await targetSize(day,label+' week date');
+     await capture(page,'budget-calendar-week-'+label);
+     await month.click();assert.equal(await month.getAttribute('aria-pressed'),'true');
+     assert.ok(await dates.count()>=28,label+' wrong month size');
+     for(const day of await dates.all())await targetSize(day,label+' month date');
+    }
+    await calendar.scrollIntoViewIfNeeded();await capture(page,'budget-calendar-month-'+label);
     await metrics.scrollIntoViewIfNeeded();await capture(page,'budget-summary-'+label);
     const budgetHistory=budget.getByTestId(mobile?'budget-history-mobile':'budget-history-desktop');
     const controls=budgetHistory.getByTestId('budget-history-controls');

@@ -35,9 +35,9 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           <h3 className={SECTION_HEADING}>
             Список покупок
           </h3>
-          <span className="bg-[var(--terra-soft)] text-[var(--terra-muted)] text-xs font-semibold px-2 py-0.5 rounded-full">
+          {activeShoppingItems.length>0&&<span className="bg-[var(--terra-soft)] text-[var(--terra-muted)] text-xs font-semibold px-2 py-0.5 rounded-full">
             {activeShoppingItems.length}
-          </span>
+          </span>}
         </div>
         <button
           type="button"
@@ -52,7 +52,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
 
       <div className="divide-y divide-[var(--terra-border)]">
         {displayShoppingItems.length === 0 && (
-          <p className="text-sm text-graphite-muted dark:text-gray-400 py-2">Список покупок пуст</p>
+          <p className="text-sm text-[var(--terra-muted)]">Список пуст</p>
         )}
         {displayShoppingItems.slice(0, 4).map((item, idx) => (
           <div 

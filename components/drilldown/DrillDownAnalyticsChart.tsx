@@ -67,13 +67,13 @@ export const DrillDownAnalyticsChart:React.FC<DrillDownAnalyticsChartProps>=({
             <CartesianGrid vertical={false} stroke="var(--terra-border)" strokeDasharray="3 3"/>
             <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={mobile?16:12} tickFormatter={value=>String(value).split(" ")[0]} tick={{fontSize:12,fill:'var(--terra-muted)'}}/>
             <YAxis domain={[0,chartMax]} width={mobile?62:80} axisLine={false} tickLine={false} tick={({x,y,payload})=><text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={12} fill="var(--terra-muted)" data-terra-money-tick="true">{axisAmount(Number(payload.value))}</text>} />
-            <Tooltip isAnimationActive={false} cursor={{fill:'var(--terra-soft)',opacity:.5}} content={({active,payload})=>{
+            <Tooltip isAnimationActive={false} cursor={false} content={({active,payload})=>{
               if(!active||!payload?.length)return null;
               const item=payload[0].payload as {label:string;expense:number;income:number};
               return <div className={CHART_TOOLTIP}><div>{item.label}</div>{showExpense&&<div>Расходы: −{formatBudgetMoney(item.expense)} ₽</div>}{showIncome&&<div>Доходы: +{formatBudgetMoney(item.income)} ₽</div>}</div>;
             }}/>
-            {showExpense&&<Bar dataKey="expense" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
-            {showIncome&&<Bar dataKey="income" fill="var(--terra-income-chart)" radius={[3,3,0,0]} maxBarSize={34} isAnimationActive={false}/>}
+            {showExpense&&<Bar dataKey="expense" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} activeBar={{stroke:"var(--terra-ink)",strokeWidth:1}} maxBarSize={34} isAnimationActive={false}/>}
+            {showIncome&&<Bar dataKey="income" fill="var(--terra-income-chart)" radius={[3,3,0,0]} activeBar={{stroke:"var(--terra-ink)",strokeWidth:1}} maxBarSize={34} isAnimationActive={false}/>}
           </BarChart>
         </ResponsiveContainer>:<p role="status" className="h-full flex items-center justify-center text-sm text-[var(--terra-muted)]">За выбранный период операций этого типа нет</p>}
       </div>

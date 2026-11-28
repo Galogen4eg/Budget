@@ -6,6 +6,7 @@ import type { AppSettings, Category, Transaction } from '../types';
 import { useData } from '../contexts/DataContext';
 import { buildCategoryBudgetRows, forecastUntilSalary, parseCategoryBudgetInput } from '../utils/budgetPlanning';
 import { formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { overviewLimitState } from '../utils/overviewLimitState';
 import { formatBudgetMonthLabel } from '../utils/budgetUi';
 import { buildMonthlyBudgetReport } from '../utils/budgetMonthlyReport';
 
@@ -99,21 +100,28 @@ export default function BudgetPlanningPanel({
    )}
    {rows.length===0?<p className="text-sm text-graphite-muted dark:text-gray-400">Лимитов пока нет. Добавьте первый, чтобы отслеживать расходы.</p>:
     <div className="space-y-3">
-     {rows.map(row=><div key={row.categoryId} className="space-y-1.5">
-      <div className="flex flex-wrap justify-between items-center gap-2 text-sm">
-       <button type="button" disabled={saving} onClick={()=>openLimit(row.categoryId)} data-limit-category={row.categoryId} aria-label={"Изменить лимит: "+row.label} className="min-h-[44px] min-w-0 text-left font-semibold text-[var(--terra-ink)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] break-words">{row.label}</button>
-       <span className={"tabular-nums break-words "+(!settings.privacyMode&&row.overLimit?'font-semibold text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]')}>
-        {currency(row.spent)} / {currency(row.limit)}
-       </span>
-      </div>
-      {!settings.privacyMode&&<div data-testid="category-limit-progress" role="progressbar" aria-label={"Использование лимита: "+row.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={row.percentage} aria-valuetext={row.overLimit?`Лимит превышен на ${formatBudgetMoney(row.spent-row.limit)} ₽`:`Использовано ${row.percentage}%`} className="h-2 w-full bg-[var(--terra-soft)] rounded-full overflow-hidden">
-       <div className={"h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none "+(row.overLimit?'bg-[var(--terra-danger-text)]':'bg-[var(--terra-primary-solid)]')}
-        style={{width:row.percentage+'%'}}/>
-      </div>}
-      <p className="text-xs text-[var(--terra-muted)]">
-       {settings.privacyMode?'Суммы скрыты':row.overLimit?'Лимит превышен на '+currency(row.spent-row.limit):'Осталось '+currency(row.remaining)}
-      </p>
-     </div>)}
+     {rows.map(row=>{
+      const state=overviewLimitState(row.spent,row.limit);
+      if(!state)return null;
+      const percent=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(state.percentage);
+      const warning=state.status==='near'||state.status==='exhausted';
+      const statusText=state.status==='over'?'Лимит превышен на '+currency(state.difference):state.status==='exhausted'?'Лимит исчерпан':'Осталось '+currency(state.difference);
+      return <div key={row.categoryId} className="space-y-1.5 min-w-0">
+       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-center gap-2 text-sm">
+        <button type="button" disabled={saving} onClick={()=>openLimit(row.categoryId)} data-limit-category={row.categoryId} aria-label={"Изменить лимит: "+row.label} className="min-h-[44px] min-w-0 text-left font-semibold text-[var(--terra-ink)] rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] [overflow-wrap:anywhere]">{row.label}</button>
+        <span className={"min-w-0 text-right tabular-nums [overflow-wrap:anywhere] "+(!settings.privacyMode&&state.status==='over'?'font-semibold text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]')}>
+         {currency(row.spent)} / {currency(row.limit)}
+        </span>
+       </div>
+       {!settings.privacyMode&&<div data-testid="category-limit-progress" role="progressbar" aria-label={"Использование лимита: "+row.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.barWidth} aria-valuetext={percent+'%. '+statusText} className="h-2 w-full bg-[var(--terra-soft)] rounded-full overflow-hidden">
+        <div className={"h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none "+(state.status==='over'?'bg-[var(--terra-danger-text)]':warning?'bg-[var(--terra-offline-text)]':'bg-[var(--terra-primary-solid)]')}
+         style={{width:state.barWidth+'%'}}/>
+       </div>}
+       <p className="flex flex-wrap justify-between gap-1 text-xs text-[var(--terra-muted)]">
+        {settings.privacyMode?'Суммы скрыты':<><span>{statusText}</span><span className="tabular-nums">{percent}%</span></>}
+       </p>
+      </div>;
+     })}
     </div>
    }
    <div className="border-t border-surface-border dark:border-white/10 pt-3 space-y-2" aria-label="Месячный отчёт бюджета">

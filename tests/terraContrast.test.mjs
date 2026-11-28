@@ -8,7 +8,7 @@ const contrast=(a,b)=>(Math.max(luma(a),luma(b))+0.05)/(Math.min(luma(a),luma(b)
 test('Terra semantic text and control token pairs meet contrast in light and dark',()=>{
  const light=read(':root'),dark={...light,...read('html\\.dark')};
  for(const palette of [light,dark]){
-  for(const [a,b,min] of [['ink','surface',4.5],['muted','soft',4.5],['primary-text','canvas',4.5],['primary-text','surface',4.5],['primary-text','soft',4.5],['primary-text','primary-soft',4.5],['on-primary','primary-solid',4.5],['on-primary','primary-hover',4.5],['danger-text','danger-soft',4.5],['offline-text','offline-soft',4.5],['pending-text','pending-soft',4.5],['focus','soft',3],['control-border','soft',3]]){
+  for(const [a,b,min] of [['ink','surface',4.5],['muted','soft',4.5],['primary-text','canvas',4.5],['primary-text','surface',4.5],['primary-text','soft',4.5],['primary-text','primary-soft',4.5],['on-primary','primary-solid',4.5],['on-primary','primary-hover',4.5],['danger-text','danger-soft',4.5],['danger-text','surface',4.5],['on-danger','danger-solid',4.5],['on-danger','danger-hover',4.5],['income-chart','surface',3],['expense-chart','surface',3],['offline-text','offline-soft',4.5],['pending-text','pending-soft',4.5],['focus','soft',3],['control-border','soft',3]]){
    assert.ok(palette[a]&&palette[b],a+'/'+b+' missing');
    assert.ok(contrast(palette[a],palette[b])>=min,a+'/'+b);
   }

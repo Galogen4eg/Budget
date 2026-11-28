@@ -21,6 +21,7 @@ import { GoogleGenAI } from "@google/genai";
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import {useMobileViewport} from '../hooks/useMobileViewport';
 import useAIKnowledgeBase from '../hooks/useAIKnowledgeBase';
 import CategoriesSettings from './CategoriesSettings';
 import BudgetSettingsSection from './BudgetSettingsSection';
@@ -574,6 +575,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [currentFamilyId]);
 
   useBodyScrollLock();
+  const viewport=useMobileViewport();
   const surface=useModalSurface(onClose,{initialSelector:'[aria-label="Закрыть настройки"]'});
   const guideSurface=useModalSurface(()=>setShowInstallGuide(false),{enabled:showInstallGuide});
   const logoutSurface=useModalSurface(()=>{if(!isLoggingOut)setShowLogoutConfirm(false);},{enabled:showLogoutConfirm,initialSelector:'[aria-label="Отмена выхода"]'});
@@ -1405,7 +1407,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const currentSection = SECTIONS.find(s => s.id === activeSection) || SECTIONS[0];
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-3 lg:p-4">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-3 lg:p-4" style={viewport.height===null?undefined:{height:viewport.height,bottom:'auto'}}>
       {/* Backdrop */}
       <div 
         onClick={onClose} 
@@ -1415,7 +1417,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       {/* Main Container */}
       <div 
         {...surface} role="dialog" aria-modal="true" aria-label="Настройки" data-terra-settings="true"
-        className="modal-animate-enter motion-reduce:animate-none relative bg-[var(--terra-surface)] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-[100dvh] md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-xl overflow-hidden pt-[env(safe-area-inset-top,0px)] md:pt-0 pb-[env(safe-area-inset-bottom,0px)] md:pb-0 flex flex-col border-0 md:border border-[var(--terra-border)] z-10"
+        className="modal-animate-enter motion-reduce:animate-none relative bg-[var(--terra-surface)] text-gray-900 dark:text-gray-100 min-w-0 w-full max-w-full md:max-w-[min(94vw,1120px)] h-full max-h-full md:h-[min(88dvh,780px)] md:max-h-[780px] md:rounded-2xl rounded-none shadow-xl overflow-hidden pt-[env(safe-area-inset-top,0px)] md:pt-0 pb-[env(safe-area-inset-bottom,0px)] md:pb-0 flex flex-col border-0 md:border border-[var(--terra-border)] z-10"
       >
         {/* DESKTOP Top Header Bar (md and up) */}
         <header className="hidden md:flex h-14 px-5 bg-[var(--terra-surface)] border-b border-gray-100 dark:border-white/10 items-center justify-between shrink-0">

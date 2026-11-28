@@ -34,6 +34,8 @@ import { toast } from 'sonner';
 
 interface TerraOverviewProps {
   onOpenAddModal: () => void;
+  onOpenAddModalForDate?:(date:Date)=>void;
+  onAddCategory?:(category:Category)=>void|Promise<void>;
   onOpenAIChat: () => void;
   onOpenSettings: () => void;
   onOpenNotifications?: () => void;
@@ -51,6 +53,7 @@ const OVERVIEW_CATEGORY_PREVIEW_LIMIT = 6;
 
 const TerraOverview: React.FC<TerraOverviewProps> = ({
   onOpenAddModal,
+  onOpenAddModalForDate,onAddCategory,
   onOpenAIChat,
   onOpenSettings,
   onOpenNotifications,
@@ -124,7 +127,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   
   // Russian Month Label (e.g. "Май 2025")
   const currentMonthName = useMemo(() => {
-    const raw = activeMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+    const raw = activeMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s+г\.?$/u, '');
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [activeMonth]);
 
@@ -143,7 +146,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
     const base = new Date();
     for (let offset = -5; offset <= 1; offset++) {
       const d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
-      const label = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s*г\.?/gi, '');
+      const label = d.toLocaleString('ru-RU', { month: 'long', year: 'numeric' }).replace(/\s+г\.?$/u, '');
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       list.push({ key, label, date: d });
     }
@@ -316,8 +319,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   }, [todayTransactions]);
 
   const isOverDailyLimit = dailyLimit > 0 && spentToday > dailyLimit;
-  const overLimitDelta = Math.max(0, spentToday - dailyLimit);
-  const dailyUsagePercent = dailyLimit > 0 ? Math.min(100, Math.round((spentToday / dailyLimit) * 100)) : (spentToday > 0 ? 100 : 0);
+  const overLimitDelta = money(Math.max(0,cents(spentToday)-cents(dailyLimit)));
+  const dailyLimitDisplay=overviewLimitState(spentToday,dailyLimit);
+  const dailyUsagePercent=dailyLimitDisplay?.barWidth??0;
+  const dailyUsageLabel=(dailyLimitDisplay?.percentage??0).toLocaleString("ru-RU",{maximumFractionDigits:1})+"%";
 
   // Month-over-month trend comparison
   const lastMonthComparison = useMemo(() => {
@@ -659,8 +664,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
         <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Потрачено</dt><dd className={`terra-overview-summary-value text-base leading-snug font-semibold tabular-nums [overflow-wrap:anywhere] ${!settings.privacyMode&&isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatAmount(spentToday)} ₽</dd></div>
       </dl>
       {!settings.privacyMode&&personalOpeningKnown&&dailyLimit>0&&<div className="space-y-1.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><span className={isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}>{isOverDailyLimit?'Превышение: '+formatAmount(overLimitDelta)+' ₽':'Использовано'}</span><span className="tabular-nums font-semibold">{dailyUsagePercent}%</span></div>
-        <div role="progressbar" aria-label="Использование дневного ориентира" aria-valuemin={0} aria-valuemax={100} aria-valuenow={dailyUsagePercent} className="h-2 bg-[var(--terra-soft)] rounded-full overflow-hidden">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><span className={isOverDailyLimit?'text-[var(--terra-danger-text)]':'text-[var(--terra-muted)]'}>{isOverDailyLimit?'Превышение: '+formatAmount(overLimitDelta)+' ₽':'Использовано'}</span><span className="tabular-nums font-semibold">{dailyUsageLabel}</span></div>
+        <div role="progressbar" aria-label="Использование дневного ориентира" aria-valuemin={0} aria-valuemax={100} aria-valuenow={dailyUsagePercent} aria-valuetext={dailyUsageLabel+" использовано"} className="h-2 bg-[var(--terra-soft)] rounded-full overflow-hidden">
           <div className={`h-full rounded-full terra-progress ${isOverDailyLimit?'bg-[var(--terra-danger-text)]':'bg-[var(--terra-primary-solid)]'}`} style={{width:dailyUsagePercent+'%'}}/>
         </div>
       </div>}
@@ -703,7 +708,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
   </button>);
 
   return (
-    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-graphite dark:text-gray-100 transition-colors">
+    <div data-testid="overview-scroll-container" className="flex-1 min-h-0 flex flex-col min-w-0 bg-[var(--terra-canvas)] overflow-y-auto overscroll-y-contain no-scrollbar pb-4 md:pb-8 text-[var(--terra-ink)]">
       {/* ========================================================= */}
       {/* MOBILE VIEW (strictly matches screenshot image.png on < md) */}
       {/* ========================================================= */}
@@ -724,7 +729,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           }
         />
         <div data-overview-mobile-controls className="terra-overview-mobile-controls terra-layout-inset pt-2">
-        <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector">
+        <div className={isMonthPickerOpen?'terra-overview-month-open':'min-w-0'} data-testid="overview-month-selector" onKeyDown={e=>{if(e.key==='Escape'&&isMonthPickerOpen){e.stopPropagation();setIsMonthPickerOpen(false);e.currentTarget.querySelector('button')?.focus();}}}>
           <button type="button" onClick={()=>setIsMonthPickerOpen(open=>!open)}
             aria-label={`Выбрать месяц: ${currentMonthName}`} aria-expanded={isMonthPickerOpen} aria-controls="overview-month-controls-mobile"
             className={TOOLBAR_ACTION+' '+TOOLBAR_ACTION_IDLE+' w-full max-w-full terra-press'}>
@@ -757,8 +762,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'family'}
               className={`h-11 min-w-0 px-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-sm font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                 budgetMode === 'family'
-                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
-                  : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
+                  : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
               }`}
             >
               <span>Семейный</span>
@@ -769,8 +774,8 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
               aria-pressed={budgetMode === 'personal'}
               className={`h-11 min-w-0 px-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] text-sm font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                 budgetMode === 'personal'
-                  ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)]'
-                  : 'text-[#2E3230] dark:text-gray-200 hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
+                  : 'text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
               }`}
             >
               <span>Личный</span>
@@ -858,7 +863,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                   Категории расходов
                 </h3>
                 <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-                  Всего: {formatAmount(displayMonthSpent || 0)} ₽
+                  Всего: {formatAmount(categoryBreakdown.total)} ₽
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -1143,7 +1148,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
                       <h3 className={SECTION_HEADING}>
                         События на этой неделе
                       </h3>
-                      <span className="w-5 h-5 rounded-full bg-primary-light dark:bg-primary/20 text-primary dark:text-green-400 text-[11px] font-bold flex items-center justify-center border border-[#D5E5D9] dark:border-transparent">
+                      <span className="w-5 h-5 rounded-md bg-[var(--terra-soft)] text-[var(--terra-muted)] text-xs font-semibold flex items-center justify-center">
                         {upcomingWeekEvents.length}
                       </span>
                     </div>
@@ -1247,7 +1252,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           onPayExpenses={handlePayMandatoryExpenses}
           onEditExpense={onEditMandatoryExpense}
           privacyMode={settings.privacyMode}
-          currency="₽"
+          currency="₽" period={currentMonthName}
         />
       )}
 
@@ -1266,6 +1271,7 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           currentMonth={activeMonth}
           settings={settings}
           initialCategoryId={selectedCatModalId}
+          onAddCategory={onAddCategory}
           onSelectCategory={(catId) => {
             setIsCatModalOpen(false);
             onDrillDown(catId);
@@ -1284,10 +1290,10 @@ const TerraOverview: React.FC<TerraOverviewProps> = ({
           members={members}
           onEditTransaction={onEditTransaction}
           onAddTransactionForDay={() => {
-            setSelectedDayDetailDate(null);
-            onOpenAddModal();
+            if(onOpenAddModalForDate)onOpenAddModalForDate(selectedDayDetailDate);
+            else {setSelectedDayDetailDate(null);onOpenAddModal();}
           }}
-          dailySafeLimit={dailyLimit}
+          dailySafeLimit={chartDailyLimit}
           privacyMode={settings.privacyMode}
         />
       )}

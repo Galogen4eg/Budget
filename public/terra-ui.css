@@ -14,12 +14,12 @@
  --terra-canvas:#F6F1E8; --terra-surface:#FFFCF7; --terra-soft:#EFE7DA; --terra-border:#E2D8C8;
  --terra-ink:#1F2A24; --terra-muted:#5D675F; --terra-primary-solid:#4A7C59; --terra-primary:var(--terra-primary-solid);
  --terra-primary-hover:#3E694B; --terra-on-primary:#FFFFFF; --terra-primary-text:#356044; --terra-primary-soft:#E6F0E8; --terra-accent:#C69143; --terra-focus:#356044;
- --terra-danger-text:#A8322C; --terra-danger-soft:#FCE8E5; --terra-control-border:#7C8377; --terra-offline-text:#79500F; --terra-offline-soft:#FFF1D6; --terra-pending-text:#345B80; --terra-pending-soft:#E7EFF7;
+ --terra-danger-text:#963F39; --terra-danger-soft:#F4E7E2; --terra-danger-solid:#934E49; --terra-danger-hover:#824541; --terra-on-danger:#FFFFFF; --terra-income-chart:#536F5A; --terra-expense-chart:#A9756B; --terra-control-border:#7C8377; --terra-offline-text:#79500F; --terra-offline-soft:#FFF1D6; --terra-pending-text:#345B80; --terra-pending-soft:#E7EFF7;
 }
 html.dark {
  --terra-canvas:#151716; --terra-surface:#1D201E; --terra-soft:#262A27; --terra-border:#313733;
- --terra-ink:#F3F1EC; --terra-muted:#A4ADA7; --terra-primary-solid:#4A7C59; --terra-primary-hover:#3E694B; --terra-on-primary:#FFFFFF; --terra-primary-text:#9BD1A8; --terra-primary-soft:#223328; --terra-focus:#8BC49B;
- --terra-danger-text:#FDA4A0; --terra-danger-soft:#3B2424; --terra-control-border:#707B73; --terra-offline-text:#F5CD82; --terra-offline-soft:#392D1B; --terra-pending-text:#ACD3FF; --terra-pending-soft:#223447;
+ --terra-ink:#F3F1EC; --terra-muted:#A4ADA7; --terra-primary-solid:#536B59; --terra-primary-hover:#627B67; --terra-on-primary:#FFFFFF; --terra-primary-text:#A9BCA7; --terra-primary-soft:#29362E; --terra-focus:#91AD95;
+ --terra-danger-text:#D4A09A; --terra-danger-soft:#372A29; --terra-danger-solid:#854B46; --terra-danger-hover:#93534D; --terra-on-danger:#FFFFFF; --terra-income-chart:#91AE99; --terra-expense-chart:#C69A91; --terra-control-border:#707B73; --terra-offline-text:#F5CD82; --terra-offline-soft:#392D1B; --terra-pending-text:#ACD3FF; --terra-pending-soft:#223447;
 }
 .font-body {font-family:"Nunito Sans",system-ui,sans-serif;}
 .font-display {font-family:"Literata",serif;}
@@ -200,11 +200,11 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-overview-toolbar{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:8px;}
 .terra-overview-toolbar-actions{justify-content:start;}
 .terra-overview-toolbar .terra-overview-scope{width:max-content;max-width:100%;}
-@container(min-width:650px){.terra-overview-toolbar{grid-template-columns:minmax(0,1fr) auto;}.terra-overview-toolbar>h1{grid-column:1;grid-row:1;}.terra-overview-toolbar-actions{grid-column:2;grid-row:1;justify-content:end;}.terra-overview-toolbar .terra-overview-scope{grid-column:1/-1;}}
-@container(min-width:1040px){.terra-overview-toolbar{grid-template-columns:auto auto minmax(0,1fr);column-gap:16px;}.terra-overview-toolbar .terra-overview-scope{grid-column:2;grid-row:1;justify-self:start;}.terra-overview-toolbar-actions{grid-column:3;grid-row:1;}}
+@container(min-width:600px){.terra-overview-toolbar{grid-template-columns:minmax(0,1fr) auto;}.terra-overview-toolbar>h1{grid-column:1;grid-row:1;}.terra-overview-toolbar-actions{grid-column:2;grid-row:1;justify-content:end;}.terra-overview-toolbar .terra-overview-scope{grid-column:1/-1;}}
+@container(min-width:800px){.terra-overview-toolbar{grid-template-columns:auto auto minmax(0,1fr);column-gap:16px;}.terra-overview-toolbar .terra-overview-scope{grid-column:2;grid-row:1;justify-self:start;}.terra-overview-toolbar-actions{grid-column:3;grid-row:1;}}
 .terra-overview-mobile-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:start;}
 .terra-overview-mobile-controls>div{grid-column:1/-1;min-width:0;}
-@container(min-width:390px){.terra-overview-mobile-controls>div{grid-column:span 2;}.terra-overview-mobile-controls>.terra-overview-month-open,.terra-overview-mobile-controls>.terra-overview-month-open+div,.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
+@container(min-width:375px){.terra-overview-mobile-controls>div{grid-column:span 2;}.terra-overview-mobile-controls>.terra-overview-month-open,.terra-overview-mobile-controls>.terra-overview-month-open+div,.terra-overview-mobile-controls>div:only-child{grid-column:1/-1;}}
 .terra-overview-main-amount[data-negative="true"]{color:var(--terra-danger-text);}
 /* Summary zones use shared grid tracks. */
 .terra-overview-summary-value{font-size:16px;line-height:1.35;}
@@ -214,7 +214,8 @@ details.terra-settings-group>summary{min-height:44px;}
 .terra-overview-chart-disclosure{min-width:0;}
 .terra-overview-chart-disclosure[open]{grid-column:1/-1;}
 .terra-overview-chart-budget{grid-column:2;grid-row:1;justify-self:end;}
-.terra-overview-chart-disclosure[open]+.terra-overview-chart-budget{grid-row:auto;}
+.terra-overview-chart-disclosure[open]+.terra-overview-chart-budget{grid-row:1;align-self:start;z-index:1;}
+.terra-overview-chart-disclosure[open]>summary{max-width:calc(100% - 112px);}
 .terra-overview-chart-note{grid-column:1/-1;line-height:1.4;padding-bottom:2px;}
 
 .terra-overview-section-head{min-height:44px;}
@@ -269,3 +270,14 @@ details.terra-settings-group>summary{min-height:44px;}
  .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="main"]{grid-column:span 7;}
  .terra-layout-grid.terra-budget-columns[data-terra-grid="workspace"]>[data-terra-stack="aside"]{grid-column:span 5;}
 }
+
+/* Overview v2.1: quiet selections, exact geometry and one scroll per detail dialog. */
+.terra-overview-mobile-controls:not(:has(.terra-overview-month-open)) [data-testid=overview-month-selector]>button{padding-inline:8px;gap:4px;}
+.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(70px,auto);}
+.terra-reserve-bill-actions{grid-column:2/-1;}
+@media(min-width:640px){.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(96px,auto) auto;}.terra-reserve-bill-actions{grid-column:auto;}}
+.terra-reserve-bill-actions:empty{display:none;}
+
+.terra-reserve-content{container-type:inline-size;}
+@container(min-width:400px){.terra-reserve-bill{grid-template-columns:44px minmax(0,1fr) minmax(85px,auto) auto;}.terra-reserve-bill-actions{grid-column:auto;}}
+.terra-overview-scope button[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--terra-primary-text);}

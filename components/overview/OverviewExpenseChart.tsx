@@ -50,9 +50,9 @@ export function OverviewExpenseChart({
       </div>
     </div>
     <dl data-overview-chart-metrics className="terra-overview-chart-metrics grid gap-x-3 gap-y-2 text-sm tabular-nums">
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Среднее</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(average)}</dd></div>
-      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Максимум</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(maximum)}</dd></div>
-      {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">Лимит</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">{scale==="month"?"Среднее за месяц":"Среднее за день"}</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(average)}</dd></div>
+      <div className="min-w-0"><dt className="text-[var(--terra-muted)]">{scale==="month"?"Макс. за месяц":"Макс. за день"}</dt><dd className="text-base font-semibold text-[var(--terra-ink)] [overflow-wrap:anywhere]">{amount(maximum)}</dd></div>
+      {!privacyMode && limit > 0 && <div className="min-w-0"><dt className="text-[var(--terra-muted)]">{scale==="month"?"Лимит на месяц":"Лимит на день"}</dt><dd className="font-semibold text-[var(--terra-offline-text)]">{amount(limit)}</dd></div>}
     </dl>
     <div data-testid="overview-chart-plot" className={privacyMode||!hasExpenses?'min-h-[76px] flex items-center justify-center w-full min-w-0':'terra-overview-chart-plot w-full min-w-0'}>
       {privacyMode ? <p role="status" className="text-center px-2 py-3 text-sm text-[var(--terra-muted)]">График скрыт в режиме приватности</p> :
@@ -72,7 +72,7 @@ export function OverviewExpenseChart({
                 const point = payload[0].payload as Point;
                 return <div className={CHART_TOOLTIP}><div>{point.fullLabel || point.label}</div><strong className="tabular-nums">{amount(point.amount)}</strong></div>;
               }} />
-            <Bar dataKey="amount" name="Расходы" fill="var(--terra-primary-solid)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
+            <Bar dataKey="amount" name="Расходы" fill="var(--terra-expense-chart)" radius={[3,3,0,0]} maxBarSize={38} isAnimationActive={false} cursor="pointer" />
           </BarChart>
         </ResponsiveContainer>}
     </div>

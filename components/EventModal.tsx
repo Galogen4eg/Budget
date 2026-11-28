@@ -1,5 +1,7 @@
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useModalSurface } from '../hooks/useDialogFocus';
+import {useMobileViewport} from '../hooks/useMobileViewport';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -111,7 +113,11 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
   const [conflictToConfirm, setConflictToConfirm] = useState<{ eventData: FamilyEvent; conflictingEvent: FamilyEvent } | null>(null);
   useBodyScrollLock();
-  const surface=useModalSurface<HTMLElement>(()=>{if(!savePending.current)onClose();},{initialSelector:'[aria-label="Закрыть редактор события"]'});
+  const viewport=useMobileViewport();
+  const requestClose=()=>{if(!savePending.current)onClose();};
+  useModalBackHandler(true,requestClose);
+  useModalBackHandler(!!conflictToConfirm,()=>setConflictToConfirm(null));
+  const surface=useModalSurface<HTMLElement>(requestClose,{initialSelector:'[aria-label="Закрыть редактор события"]'});
   const conflictSurface=useModalSurface(()=>setConflictToConfirm(null),{enabled:!!conflictToConfirm});
 
   // Custom reminder state
@@ -367,25 +373,21 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 motion-reduce:animate-none"
+      className="fixed inset-0 z-[2000] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 motion-reduce:animate-none"
+      style={viewport.height===null?undefined:{height:viewport.height,bottom:'auto'}}
       onClick={()=>{if(!savePending.current&&!conflictToConfirm)onClose();}}
     >
       <main {...surface}
         role="dialog"
         aria-modal="true" aria-label={event?'Редактировать план':'Новый план'}
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-[520px] md:max-w-3xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-none sm:rounded-2xl pt-[env(safe-area-inset-top,0px)] sm:pt-0 shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 motion-reduce:animate-none text-[#2C2723] dark:text-gray-100 overflow-hidden"
+        className="w-full max-w-[520px] md:max-w-3xl h-full sm:h-auto max-h-full sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] rounded-none sm:rounded-2xl pt-[env(safe-area-inset-top,0px)] sm:pt-0 shadow-2xl flex flex-col border-0 md:border border-[#EAE5DB] dark:border-white/10 relative animate-in slide-in-from-bottom-6 duration-200 motion-reduce:animate-none text-[#2C2723] dark:text-gray-100 overflow-hidden"
       >
-        {/* Mobile Pull Handle */}
-        <div className="w-full flex justify-center pt-2 md:hidden shrink-0">
-          <div aria-hidden="true" className="w-9 h-1 bg-[#E4DFD5] dark:bg-white/20 rounded-full" />
-        </div>
-
         {/* Header Section: Compact with Always Visible Templates Button */}
-        <header className="px-4 md:px-7 py-3 md:py-3.5 border-b border-[#EAE5DB]/60 dark:border-white/10 bg-[var(--terra-surface)] shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#EAF2EC] dark:bg-[#4A7C59]/20 border border-[#CBD7CB]/70 dark:border-white/10 flex items-center justify-center text-[#4A7C59] dark:text-green-300 shrink-0">
+        <header className="px-3 md:px-4 py-2 border-b border-[var(--terra-border)] bg-[var(--terra-surface)] shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center min-w-0 gap-2">
+              <div className="hidden sm:flex w-9 h-9 rounded-xl bg-[var(--terra-primary-soft)] items-center justify-center text-[var(--terra-primary-text)] shrink-0">
                 <CalendarIcon size={18} strokeWidth={2.2} />
               </div>
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#2C2723] dark:text-white leading-tight">
@@ -407,8 +409,8 @@ export const EventModal: React.FC<EventModalProps> = ({
                 aria-expanded={showTemplatesDropdown}
                 className={`min-h-[44px] px-2.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                   showTemplatesDropdown
-                    ? 'bg-[#4A7C59] text-white shadow-2xs'
-                    : 'bg-[#F5F2EB] dark:bg-white/10 text-[#4A7C59] dark:text-emerald-400 hover:bg-[#EAE5DB] border border-[#CBD7CB]/60 dark:border-white/10'
+                    ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-2xs'
+                    : 'bg-[#F5F2EB] dark:bg-white/10 text-[var(--terra-primary-text)] hover:bg-[#EAE5DB] border border-[#CBD7CB]/60 dark:border-white/10'
                 }`}
                 title="Выбрать событие из шаблона"
               >
@@ -423,7 +425,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 aria-label="Отправить событие в Telegram"
                 className={`w-11 h-11 rounded-full border flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] transition-colors cursor-pointer ${
                   sent 
-                    ? 'bg-emerald-600 text-white border-emerald-600' 
+                    ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] border-[var(--terra-primary-text)]' 
                     : 'bg-[#F5F2EB] dark:bg-white/10 border-[#EAE5DB] dark:border-white/10 text-stone-500 hover:text-[#4A7C59]'
                 }`}
                 title="Отправить в Telegram"
@@ -449,7 +451,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   key={t.id}
                   type="button"
                   onClick={() => applyTemplate(t)}
-                  className="w-full text-left text-xs font-bold py-1.5 px-2 rounded-lg hover:bg-[#F5F2EB] dark:hover:bg-white/5 flex items-center justify-between text-[#2C2723] dark:text-white cursor-pointer"
+                  className="w-full min-h-[44px] text-left text-xs font-semibold py-1.5 px-2 rounded-lg hover:bg-[#F5F2EB] dark:hover:bg-white/5 flex items-center justify-between text-[#2C2723] dark:text-white cursor-pointer"
                 >
                   <span className="truncate">{t.title}</span>
                   <span className="text-[10px] text-[#4A7C59]">{t.duration || 1} ч</span>
@@ -460,7 +462,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </header>
 
         {/* Scrollable Form Body: 2 Columns on Desktop, 1 Column on Mobile */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-7 py-3 md:py-4 space-y-3.5 custom-scrollbar overscroll-y-contain touch-pan-y">
+        <div data-testid="terra-event-scroll" className="flex-1 min-h-0 overflow-y-auto px-3 md:px-4 py-3 space-y-3 custom-scrollbar overscroll-y-contain touch-pan-y">
           
           <section className="space-y-2 rounded-xl border border-[#EAE5DB] dark:border-white/10 p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -510,7 +512,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <button
                   type="button"
                   onClick={applySuggestedSlot}
-                  className="px-2 py-1 rounded-lg bg-[var(--terra-soft)] border border-emerald-300 dark:border-emerald-800/50 text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="px-2 py-1 rounded-lg bg-[var(--terra-soft)] border border-[var(--terra-border)] text-[11px] font-bold text-[#4A7C59] flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <span>Сдвинуть: {suggestedSlot.startTime}</span>
                   <ArrowRight size={11} />
@@ -668,7 +670,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                         aria-pressed={isSelected}
                         className={`inline-flex min-h-[44px] items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition cursor-pointer active:scale-95 ${
                           isSelected
-                            ? 'border-[#4A7C59] bg-[#EAF2EC] text-[#2D5A46] dark:bg-[#4A7C59]/25 dark:text-green-300'
+                            ? 'border-[var(--terra-primary-text)] bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]'
                             : 'border-[#EAE5DB] bg-[#F5F2EB]/50 dark:bg-white/5 text-stone-500 dark:text-stone-400 opacity-60'
                         }`}
                       >
@@ -703,7 +705,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setReminders([])}
-                      className="text-[10px] font-bold text-stone-400 hover:text-red-500 cursor-pointer"
+                      className="text-[10px] font-bold text-stone-400 hover:text-[var(--terra-danger-text)] cursor-pointer"
                     >
                       Сбросить
                     </button>
@@ -721,7 +723,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                         aria-pressed={isActive}
                         className={`min-h-[44px] py-1 px-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                           isActive
-                            ? 'bg-[#4A7C59] text-white shadow-2xs'
+                            ? 'bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] shadow-2xs'
                             : 'bg-[#F5F2EB] dark:bg-[#252528] text-stone-600 dark:text-gray-300 hover:bg-[#EAE5DB] border border-[#EAE5DB]/60 dark:border-white/5'
                         }`}
                       >
@@ -748,18 +750,18 @@ export const EventModal: React.FC<EventModalProps> = ({
                       max="365"
                       value={customReminderVal}
                       onChange={e => setCustomReminderVal(e.target.value)}
-                      className="w-14 px-2 py-1 bg-[#F5F2EB] dark:bg-[#252528] rounded-md text-xs font-bold text-center outline-none border border-[#EAE5DB]"
+                      className="w-16 min-h-[44px] px-2 py-1 bg-[#F5F2EB] dark:bg-[#252528] rounded-md text-xs font-bold text-center outline-none border border-[#EAE5DB]"
                     />
                     <select
                       value={customReminderUnit}
                       onChange={e => setCustomReminderUnit(e.target.value as any)}
-                      className="px-2 py-1 bg-[#F5F2EB] dark:bg-[#252528] rounded-md text-xs font-bold outline-none border border-[#EAE5DB] cursor-pointer"
+                      className="min-h-[44px] px-2 py-1 bg-[#F5F2EB] dark:bg-[#252528] rounded-md text-xs font-bold outline-none border border-[#EAE5DB] cursor-pointer"
                     >
                       <option value="min">минут</option>
                       <option value="hour">часов</option>
                       <option value="day">дней</option>
                     </select>
-                    <button type="submit" className="px-2.5 py-1 bg-[#4A7C59] text-white rounded-md text-xs font-bold cursor-pointer">
+                    <button type="submit" className="min-h-[44px] px-2.5 py-1 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] rounded-md text-xs font-bold cursor-pointer">
                       OK
                     </button>
                     <button type="button" onClick={() => setIsCustomReminderOpen(false)} className="text-stone-400 p-1 cursor-pointer">
@@ -809,7 +811,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     type="button"
                     onClick={() => addChecklistItem()}
                     aria-label="Добавить пункт чек-листа"
-                    className="w-11 h-11 bg-[#4A7C59] text-white rounded-lg flex items-center justify-center cursor-pointer shrink-0"
+                    className="w-11 h-11 bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] rounded-lg flex items-center justify-center cursor-pointer shrink-0"
                   >
                     <Plus size={14} />
                   </button>
@@ -834,7 +836,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                           type="button"
                           onClick={() => setChecklist(checklist.filter(i => i.id !== item.id))}
                           aria-label={`Удалить пункт: ${item.text}`}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-400 hover:text-red-500 cursor-pointer"
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-400 hover:text-[var(--terra-danger-text)] cursor-pointer"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -855,7 +857,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Footer Actions: Fixed at bottom */}
-        <footer className="p-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] md:px-7 md:py-4 bg-[var(--terra-soft)] border-t border-[#EAE5DB]/60 dark:border-white/10 shrink-0 flex items-center justify-between gap-2">
+        <footer className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] md:px-4 bg-[var(--terra-surface)] border-t border-[var(--terra-border)] shrink-0 flex flex-wrap items-center justify-between gap-2">
           <div>
             {event && onDelete && (
               !isConfirmingDelete ? (
@@ -863,7 +865,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="button"
                   onClick={() => setIsConfirmingDelete(true)}
                   aria-label="Удалить событие"
-                  className="w-11 h-11 flex items-center justify-center rounded-xl text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl text-[var(--terra-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-danger-soft)] transition cursor-pointer"
                   title="Удалить"
                 >
                   <Trash2 size={15} />
@@ -889,7 +891,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setIsSaving(false);
                       }
                     }}
-                    className="min-h-[44px] px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+                    className="min-h-[44px] px-3 py-2 rounded-lg bg-[var(--terra-danger-solid)] text-[var(--terra-on-danger)] text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                   >
                     Да, удалить
                   </button>
@@ -908,7 +910,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           <div className="flex items-center gap-2">
             <button 
               type="button"
-              onClick={onClose}
+              onClick={requestClose} disabled={isSaving}
               className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold text-stone-500 hover:bg-[#F5F2EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] cursor-pointer"
             >
               Отмена
@@ -917,7 +919,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               type="button"
               disabled={isSaving}
               onClick={handleSave}
-              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[#4A7C59] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7C59] hover:bg-[#3C6548] text-white flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-[var(--terra-primary-solid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] hover:bg-[var(--terra-primary-hover)] text-[var(--terra-on-primary)] flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
             >
               <Check size={14} strokeWidth={2.8} />
               <span>{isSaving ? 'Сохранение…' : event ? 'Сохранить' : 'Создать'}</span>
@@ -925,7 +927,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
         </footer>
 
-        {saveError && <p role="alert" className="px-4 pb-2 text-xs text-red-600 dark:text-red-400">{saveError}</p>}
+        {saveError && <p role="alert" className="px-4 pb-2 text-xs text-[var(--terra-danger-text)]">{saveError}</p>}
 
         {/* Conflict Confirmation Modal */}
         {conflictToConfirm && (

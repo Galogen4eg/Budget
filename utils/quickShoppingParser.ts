@@ -1,10 +1,10 @@
-import { detectProductCategory } from './categorizer';
-import { ShoppingItem } from '../types';
+import { detectProductCategory } from './categorizer.ts';
+import type { ShoppingItem } from '../types';
 
 export interface ParsedQuickShoppingItem {
   title: string;
   amount: string;
-  unit: 'шт' | 'кг' | 'уп' | 'л';
+  unit: 'шт' | 'кг' | 'уп' | 'л' | 'г';
   category: string;
   rawInput: string;
 }
@@ -47,13 +47,15 @@ export const parseSingleQuickShoppingText = (rawInput: string): ParsedQuickShopp
   if (!text) return null;
 
   let amount = '1';
-  let unit: 'шт' | 'кг' | 'уп' | 'л' = 'шт';
+  let unit: 'шт' | 'кг' | 'уп' | 'л' | 'г' = 'шт';
   let cleanTitle = text;
+  let explicitUnit = false;
 
   // 1. Check special Russian word quantities: "полкило", "полтора", "десяток"
   if (/пол-?кило(?:грамм[а-я]*)?/i.test(cleanTitle)) {
     amount = '0.5';
     unit = 'кг';
+    explicitUnit = true;
     cleanTitle = cleanTitle.replace(/пол-?кило(?:грамм[а-я]*)?/gi, '').trim();
   } else if (/полтор(?:а|ы)/i.test(cleanTitle)) {
     amount = '1.5';
@@ -75,6 +77,7 @@ export const parseSingleQuickShoppingText = (rawInput: string): ParsedQuickShopp
   const match = cleanTitle.match(unitRegex);
 
   if (match) {
+    explicitUnit = true;
     const rawQty = match[1];
     const rawUnit = match[2]?.toLowerCase();
 
@@ -90,13 +93,14 @@ export const parseSingleQuickShoppingText = (rawInput: string): ParsedQuickShopp
       if (rawUnit.startsWith('кг') || rawUnit.startsWith('кило')) {
         unit = 'кг';
       } else if (rawUnit.startsWith('г') || rawUnit.startsWith('гр') || rawUnit.startsWith('грамм')) {
-        // If grams specified, convert >= 100g to kg (e.g. 300g -> 0.3 кг)
-        const numericVal = parseFloat(amount) || 0;
-        if (numericVal >= 50) {
-          amount = String(parseFloat((numericVal / 1000).toFixed(3)));
+        // Preserve grams when conversion to the usual tenth-kilogram unit
+        // would discard precision. E.g. 300 g -> 0.3 kg, 25 g -> 25 g.
+        const grams = Number(amount);
+        if (grams >= 100 && grams % 100 === 0) {
+          amount = String(grams / 1000);
           unit = 'кг';
         } else {
-          unit = 'шт';
+          unit = 'г';
         }
       } else if (rawUnit.startsWith('л') || rawUnit.startsWith('литр')) {
         unit = 'л';
@@ -137,7 +141,7 @@ export const parseSingleQuickShoppingText = (rawInput: string): ParsedQuickShopp
   const category = detectProductCategory(title);
 
   // Context-aware unit adjustment if unit is default 'шт'
-  if (unit === 'шт') {
+  if (!explicitUnit && unit === 'шт') {
     const lower = title.toLowerCase();
     if (lower.includes('молоко') || lower.includes('сок') || lower.includes('кефир') || lower.includes('вода') || lower.includes('квас') || lower.includes('вино') || lower.includes('пиво')) {
       unit = 'л';
@@ -164,7 +168,7 @@ export const parseQuickShoppingInput = (input: string): ParsedQuickShoppingItem[
 
   // Split by commas, semicolons, newlines, or conjunction "и" surrounded by spaces
   const segments = input
-    .split(/[,;\n]|\s+и\s+/i)
+    .split(/(?<!\d),|,(?!\d)|[;\n]|\s+и\s+/i)
     .map(s => s.trim())
     .filter(s => s.length > 0);
 

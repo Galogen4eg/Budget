@@ -1,3 +1,4 @@
+import {meetsTouchTarget} from './touchTargetGeometry.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 
@@ -6,14 +7,22 @@ const out='artifacts/terra-v2-pilot';
 const visible=locator=>locator.filter({visible:true}).first();
 const button=(root,name,exact=true)=>visible(root.getByRole('button',{name,exact}));
 async function targetSize(locator,label){
- const rect=await locator.boundingBox();assert.ok(rect&&rect.width>=44&&rect.height>=44,label+' too small '+JSON.stringify(rect));
+ const rect=await locator.boundingBox();assert.ok(meetsTouchTarget(rect),label+' too small '+JSON.stringify(rect));
 }
 async function capture(page,name){
  await page.evaluate(async()=>{await document.fonts.ready;});
+ // Playwright's animations:disabled completes CSS/Web Animations, not every
+ // requestAnimationFrame-driven Motion transition. Capture the settled picker.
+ await page.waitForFunction(()=>[...document.querySelectorAll('[data-terra-picker-panel],[data-terra-settle-panel]')].filter(el=>el.getClientRects().length&&!el.closest('[inert]')).every(el=>{
+  const style=getComputedStyle(el),backdrop=getComputedStyle(el.parentElement);
+  const m=new DOMMatrixReadOnly(style.transform==='none'?undefined:style.transform);
+  return Number(style.opacity)>=.999&&Number(backdrop.opacity)>=.999&&Math.abs(m.m41)<.05&&Math.abs(m.m42)<.05&&Math.abs(m.a-1)<.001&&Math.abs(m.d-1)<.001;
+ }),null,{timeout:4000});
  await page.screenshot({path:out+'/'+name+'.png',animations:'disabled'});
 }
 async function noOverflow(locator,label){
- assert.ok(await locator.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+' horizontal overflow');
+ const bounds=await locator.evaluate(el=>({scrollWidth:el.scrollWidth,clientWidth:el.clientWidth}));
+ assert.ok(bounds.scrollWidth<=bounds.clientWidth+2,label+' horizontal overflow '+JSON.stringify(bounds));
 }
 async function axisFits(locator,label){
  try{await locator.locator('[data-terra-money-tick]').first().waitFor({state:'visible',timeout:10000});}
@@ -123,15 +132,15 @@ async function overviewGeometryPilot(page,settingsRef){
    assert.match(await limit.innerText(),/Превышение:/);
    const progress=limit.getByRole('progressbar');
    assert.equal(await progress.getAttribute('aria-valuenow'),'100');
-   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(253, 164, 160)':'rgb(168, 50, 44)',label+' limit danger token');
+   assert.equal(await progress.locator('div').evaluate(el=>getComputedStyle(el).backgroundColor),theme==='dark'?'rgb(212, 160, 154)':'rgb(150, 63, 57)',label+' limit danger token');
    await noOverflow(limit,label+' limit');
    await assertTerraLayoutGeometry(overview,label,width);
    const toolbar=visibleInOverview(width<768?'[data-overview-mobile-controls]':'[data-overview-toolbar]').first();
    await noOverflow(toolbar,label+' controls');
    const controlBoxes=await toolbar.locator('button').filter({visible:true}).evaluateAll(nodes=>nodes.map(el=>({label:el.getAttribute('aria-label')||el.textContent,height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,top:el.getBoundingClientRect().top})));
    assert.ok(controlBoxes.length>=3,label+' missing controls');
-   for(const box of controlBoxes)assert.ok(box.height>=44&&box.width>=44,label+' too small control '+JSON.stringify(box));
-   if(width>=390&&width<768||width>=1440)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
+   for(const box of controlBoxes)assert.ok(meetsTouchTarget(box),label+' too small control '+JSON.stringify(box));
+   if(width>=375&&width<768||width>=1024)assert.ok(Math.max(...controlBoxes.map(x=>x.top))-Math.min(...controlBoxes.map(x=>x.top))<=1,label+' controls not aligned');
    if(width>=768){
     const summary=overview.getByTestId('overview-metrics-desktop');
     const headings=summary.locator('[data-overview-summary-heading]');
@@ -249,6 +258,55 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
      const pair=await daily.locator('dl').evaluate(el=>[...el.children].map(x=>x.getBoundingClientRect().toJSON()));
      assert.ok(pair[0].right<=pair[1].left+1,label+' daily values overlap');
     }
+    // Exercise modal focus and real UI states without contacting AI providers or writing a ledger.
+    const notificationTrigger=button(mobile?overview:page,'Уведомления');
+    await notificationTrigger.click();
+    const notificationDialog=page.getByTestId('terra-notifications-dialog');
+    await notificationDialog.waitFor({state:'visible'});
+    await noOverflow(notificationDialog,label+' notifications');
+    const notificationFilters=notificationDialog.getByRole('group',{name:'Фильтр уведомлений'});
+    const unreadFilter=button(notificationFilters,/^Новые/,false);
+    await targetSize(unreadFilter,label+' unread filter');await unreadFilter.click();
+    assert.equal(await unreadFilter.getAttribute('aria-pressed'),'true');
+    await capture(page,'overview-notifications-'+label);
+    await page.keyboard.press('Escape');await notificationDialog.waitFor({state:'hidden'});
+    assert.equal(await notificationTrigger.evaluate(el=>document.activeElement===el),true,label+' notifications focus return');
+    const assistantTrigger=button(overview,mobile?'AI Ассистент':'Спросить ИИ-помощника');
+    await assistantTrigger.click();
+    const assistant=page.getByTestId('terra-ai-dialog');await assistant.waitFor({state:'visible'});
+    await noOverflow(assistant,label+' assistant');
+    const assistantComposer=assistant.getByRole('textbox',{name:'Сообщение ассистенту'});
+    await targetSize(button(assistant,'Закрыть чат'),label+' assistant close');
+    await capture(page,'overview-assistant-'+label);
+    const attach=button(assistant,'Дополнительные действия');
+    await attach.click();assert.equal(await attach.getAttribute('aria-expanded'),'true');
+    await capture(page,'overview-assistant-actions-'+label);
+    await page.keyboard.press('Escape');assert.equal(await attach.getAttribute('aria-expanded'),'false');
+    assert.equal(await attach.evaluate(el=>document.activeElement===el),true,label+' assistant actions focus return');
+    await attach.click();await button(assistant,'Быстрый список покупок').click();
+    assert.equal(await assistantComposer.inputValue(),'Добавь в список покупок: ',label+' quick list must only prepare a draft');
+    await assistantComposer.fill('');
+    // Mock speech input only inside the isolated browser. No real microphone or external request.
+    await page.evaluate(()=>{
+      const previous=Object.getOwnPropertyDescriptor(window,'SpeechRecognition');
+      window.__terraQaRestoreSpeech=()=>{if(previous)Object.defineProperty(window,'SpeechRecognition',previous);else delete window.SpeechRecognition;};
+      class QaSpeechRecognition{
+        start(){}
+        stop(){this.onresult?.({results:[[{transcript:'QA голосовой черновик'}]]});this.onend?.();}
+        abort(){}
+      }
+      Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:QaSpeechRecognition});
+    });
+    try{
+      await attach.click();await button(assistant,'Голосовой ввод / Запись').click();
+      const voice=page.getByRole('dialog',{name:'Голосовой ввод',exact:true});await voice.waitFor({state:'visible'});
+      await capture(page,'overview-assistant-voice-'+label);
+      await button(voice,'Завершить запись').click();await voice.waitFor({state:'hidden'});
+      assert.equal(await assistantComposer.inputValue(),'QA голосовой черновик',label+' real transcript remains a draft');
+    }finally{await page.evaluate(()=>{window.__terraQaRestoreSpeech?.();delete window.__terraQaRestoreSpeech;});}
+    await assistantComposer.fill('');
+    await page.keyboard.press('Escape');await assistant.waitFor({state:'hidden'});
+    assert.equal(await assistantTrigger.evaluate(el=>document.activeElement===el),true,label+' assistant focus return');
     const values=chart.locator('summary').filter({hasText:'Значения графика'});
     await values.waitFor({state:'visible'});await targetSize(values,label+' chart values');await values.click();
     const point=chart.getByTestId('overview-chart-values').getByRole('button').first();
@@ -257,11 +315,100 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const dayDialog=page.getByTestId('terra-day-detail');
     await dayDialog.waitFor({state:'visible'});
     assert.equal(await dayDialog.getAttribute('aria-modal'),'true');
+    await noOverflow(dayDialog,label+' day detail');
+    for(const action of await dayDialog.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' day detail action');
+    await capture(page,'overview-day-detail-'+label);
+    const addForDay=button(dayDialog,/Добавить операцию/,false);
+    await addForDay.click();
+    const dayEditor=page.getByRole('dialog',{name:'Новая операция',exact:true});
+    await dayEditor.waitFor({state:'visible'});
+    const expectedDay=await page.evaluate(()=>{const date=new Date();return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-01';});
+    assert.equal(await dayEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedDay,label+' wrong date in day editor');
+    await noOverflow(dayEditor,label+' day editor');await targetSize(dayEditor.getByRole('textbox',{name:'Сумма операции'}),label+' transaction amount');await capture(page,'overview-day-new-operation-'+label);
+    const assigneeTrigger=button(dayEditor,'Исполнитель');
+    await targetSize(assigneeTrigger,label+' assignee trigger');await assigneeTrigger.click();
+    const backFromAssignee=button(dayEditor,'Назад');await backFromAssignee.waitFor({state:'visible'});
+    await targetSize(backFromAssignee,label+' assignee back');
+    if(!mobile){const bounds=await dayEditor.boundingBox();assert.ok(bounds&&bounds.width<=512.01&&bounds.height<=360,label+' oversized two-member selector '+JSON.stringify(bounds));}
+    await noOverflow(dayEditor,label+' assignee selector');await capture(page,'overview-day-assignee-'+label);
+    await page.keyboard.press('Escape');await assigneeTrigger.waitFor({state:'visible'});
+    assert.equal(await assigneeTrigger.evaluate(el=>document.activeElement===el),true,label+' assignee focus return');
+    const bindingTrigger=button(dayEditor,'Привязать к платежу');
+    await targetSize(bindingTrigger,label+' payment link');await bindingTrigger.click();
+    await button(dayEditor,'Не привязывать').waitFor({state:'visible'});
+    if(!mobile){const bounds=await dayEditor.boundingBox();assert.ok(bounds&&bounds.width<=512.01&&bounds.height<=480,label+' oversized three-payment selector '+JSON.stringify(bounds));}
+    await noOverflow(dayEditor,label+' payment selector');await capture(page,'overview-day-payment-binding-'+label);
+    // Exercise the real history entry as well as Escape in the preceding selector.
+    await page.evaluate(()=>window.history.back());await bindingTrigger.waitFor({state:'visible'});
+    assert.equal(await bindingTrigger.evaluate(el=>document.activeElement===el),true,label+' binding focus return');
+    assert.equal(await dayEditor.locator('[aria-label="Дата операции"]').inputValue(),expectedDay,label+' date retained after nested views');
+    const pickerTrigger=button(dayEditor,'Выбрать категорию');await pickerTrigger.click();
+    const nestedPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
+    await nestedPicker.waitFor({state:'visible'});await noOverflow(nestedPicker,label+' nested category picker');await capture(page,'overview-day-category-picker-'+label);
+    await page.keyboard.press('Escape');await nestedPicker.waitFor({state:'hidden'});
+    assert.equal(await pickerTrigger.evaluate(el=>document.activeElement===el),true,label+' category picker focus return');
+    await button(dayEditor,'Закрыть модальное окно').click();await dayEditor.waitFor({state:'hidden'});
+    await dayDialog.waitFor({state:'visible'});
+    assert.equal(await addForDay.evaluate(el=>document.activeElement===el),true,label+' day editor focus return');
     await button(dayDialog,'Закрыть детали дня').focus();
     await page.keyboard.press('Escape');
     await dayDialog.waitFor({state:'hidden'});
     assert.equal(await point.evaluate(el=>document.activeElement===el),true,label+' focus return');
     await values.click();
+    const overviewEventTrigger=button(overview,'Создать событие');
+    await targetSize(overviewEventTrigger,label+' create event');await overviewEventTrigger.click();
+    const overviewEventDialog=page.getByRole('dialog',{name:'Новый план',exact:true});
+    await overviewEventDialog.waitFor({state:'visible'});
+    await noOverflow(overviewEventDialog,label+' overview event dialog');
+    await targetSize(overviewEventDialog.locator('#event-title-input'),label+' event title');
+    await overviewEventDialog.locator('#event-title-input').fill('QA черновик события');
+    await capture(page,'overview-event-draft-'+label);
+    await page.keyboard.press('Escape');await overviewEventDialog.waitFor({state:'hidden'});
+    assert.equal(await overviewEventTrigger.evaluate(el=>document.activeElement===el),true,label+' event focus return');
+    const reserveTrigger=button(overview,/Открыть подробности .* резерва/,false);
+    await reserveTrigger.click();const reserveDialog=page.getByTestId('terra-reserve-dialog');
+    await reserveDialog.waitFor({state:'visible'});await noOverflow(reserveDialog,label+' reserve');
+    await targetSize(reserveDialog.getByRole('textbox',{name:'Сумма вручную'}),label+' manual reserve input');
+    for(const action of await reserveDialog.getByRole('button').filter({visible:true}).all())await targetSize(action,label+' reserve action');
+    await capture(page,'overview-reserve-'+label);
+    const editReserveBill=button(reserveDialog,/^Редактировать обязательный платеж:/,false);
+    await editReserveBill.click();
+    const reserveBillEditor=page.getByTestId('terra-mandatory-dialog');
+    await reserveBillEditor.waitFor({state:'visible'});
+    await noOverflow(reserveBillEditor,label+' mandatory editor');
+    await capture(page,'overview-mandatory-editor-'+label);
+    await button(reserveBillEditor,'Удалить платеж').click();
+    const confirmBillDelete=button(reserveBillEditor,'Подтвердить удаление');
+    await confirmBillDelete.scrollIntoViewIfNeeded();
+    await targetSize(confirmBillDelete,label+' mandatory confirm delete');
+    await noOverflow(reserveBillEditor,label+' mandatory confirmation');
+    await capture(page,'overview-mandatory-delete-'+label);
+    await button(reserveBillEditor,'Отмена').click();
+    await button(reserveBillEditor,'Закрыть').focus();
+    await page.keyboard.press('Escape');await reserveBillEditor.waitFor({state:'hidden'});
+    await reserveDialog.waitFor({state:'visible'});
+    assert.equal(await editReserveBill.evaluate(el=>document.activeElement===el),true,label+' mandatory editor focus return');
+    const reserveDraft=reserveDialog.getByRole('textbox',{name:'Сумма вручную'});
+    await reserveDraft.fill('12.345');
+    const reserveSave=button(reserveDialog,'Сохранить ручной резерв');
+    await targetSize(reserveSave,label+' reserve save');await reserveSave.click();
+    await reserveDialog.getByRole('alert').waitFor({state:'visible'});
+    await capture(page,'overview-reserve-invalid-'+label);
+    await page.keyboard.press('Escape');await reserveDialog.waitFor({state:'hidden'});
+    assert.equal(await reserveTrigger.evaluate(el=>document.activeElement===el),true,label+' reserve focus return');
+    const overviewSettingsTrigger=button(mobile?overview:page,mobile?'Настройки и профиль':'Настройки');
+    await overviewSettingsTrigger.click();
+    const overviewSettings=page.getByRole('dialog',{name:'Настройки',exact:true});
+    await overviewSettings.waitFor({state:'visible'});
+    await button(overviewSettings.getByRole('navigation',{name:'Разделы настроек'}),/^Параметры бюджета/,false).click();
+    const financeSettings=overviewSettings.locator('[data-settings-section="budget"]');
+    await financeSettings.waitFor({state:'visible'});await noOverflow(financeSettings,label+' finance settings');
+    await targetSize(financeSettings.getByRole('spinbutton',{name:'Начальный баланс'}),label+' initial balance');
+    await targetSize(financeSettings.getByRole('switch',{name:'Включить авторезерв'}),label+' smart reserve');
+    await capture(page,'overview-finance-settings-'+label);
+    await button(overviewSettings,'Закрыть настройки').click();
+    await overviewSettings.waitFor({state:'hidden'});
+    assert.equal(await overviewSettingsTrigger.evaluate(el=>document.activeElement===el),true,label+' settings focus return');
     await overview.getByTestId('overview-scroll-container').evaluate(el=>{el.scrollTop=0;});
     if(mobile){
      const balance=overview.getByTestId('overview-balance-mobile');const rect=await balance.boundingBox();
@@ -273,9 +420,23 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     const history=overview.getByTestId(mobile?'overview-history-mobile':'overview-history-desktop');
     const all=history.getByTestId(mobile?'overview-history-all-mobile':'overview-history-all-desktop');
     await targetSize(all,label+' history link');
-    assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(155, 209, 168)':'rgb(53, 96, 68)',label+' history link contrast token');
+    assert.equal(await all.evaluate(el=>getComputedStyle(el).color),theme==='dark'?'rgb(169, 188, 167)':'rgb(53, 96, 68)',label+' history link contrast token');
     await capture(page,'overview-'+label);
     await history.scrollIntoViewIfNeeded();await capture(page,'overview-history-'+label);
+    const editRecent=button(history,/^Редактировать операцию:/,false);
+    await editRecent.click();
+    const recentEditor=page.getByRole('dialog',{name:'Редактирование операции',exact:true});
+    await recentEditor.waitFor({state:'visible'});
+    await noOverflow(recentEditor,label+' recent editor');
+    await capture(page,'overview-recent-editor-'+label);
+    await button(recentEditor,'Удалить операцию').click();
+    const confirmRecentDelete=button(recentEditor,'Подтвердить удаление');
+    await confirmRecentDelete.scrollIntoViewIfNeeded();
+    await targetSize(confirmRecentDelete,label+' transaction confirm delete');
+    await noOverflow(recentEditor,label+' transaction confirmation');
+    await capture(page,'overview-recent-delete-'+label);
+    await button(recentEditor,'Закрыть модальное окно').click();await recentEditor.waitFor({state:'hidden'});
+    assert.equal(await editRecent.evaluate(el=>document.activeElement===el),true,label+' recent editor focus return');
     const categoryCard=overview.getByTestId(mobile?'overview-categories-mobile':'overview-categories-desktop');
     const categoryRows=categoryCard.getByRole('button',{name:/^Аналитика категории:/});
     assert.equal(await categoryRows.count(),6,label+' dense category preview must stay compact');
@@ -284,6 +445,35 @@ export async function runTerraV2Pilot(page,{settingsRef,transactionsRef}){
     assert.ok(countMatch&&Number(countMatch[1])>=30,label+' full active root category count missing');
     await noOverflow(categoryCard,label+' dense categories');
     await categoryCard.scrollIntoViewIfNeeded();await capture(page,'overview-categories-'+label);
+    const manage=button(categoryCard,'Управление категориями');await manage.click();
+    const managementPicker=page.getByRole('dialog',{name:'Выбор категории',exact:true});
+    await managementPicker.waitFor({state:'visible'});const overviewCategorySearch=managementPicker.getByRole('textbox',{name:'Поиск по категориям'});
+    await targetSize(overviewCategorySearch,label+' category search');await overviewCategorySearch.fill('терра-нет-категории');
+    await managementPicker.getByText('Категории не найдены',{exact:true}).waitFor({state:'visible'});
+    await capture(page,'overview-category-picker-empty-'+label);
+    await targetSize(button(managementPicker,'Очистить поиск'),label+' clear category search');await button(managementPicker,'Очистить поиск').click();
+    assert.equal(await overviewCategorySearch.inputValue(),'',label+' clear category search value');
+    assert.equal(await overviewCategorySearch.evaluate(el=>document.activeElement===el),true,label+' clear category search focus');
+    await managementPicker.getByText('Категории не найдены',{exact:true}).waitFor({state:'hidden'});
+    await noOverflow(managementPicker,label+' category management');await capture(page,'overview-category-picker-'+label);
+    await button(managementPicker,mobile?'Создать':'Создать категорию').click();
+    const categoryForm=managementPicker.locator('[data-terra-create-panel]');
+    await categoryForm.waitFor({state:'visible'});
+    await page.waitForFunction(()=>[...document.querySelectorAll('[data-terra-create-panel]')].every(el=>Number(getComputedStyle(el).opacity)>=.999));
+    const categoryName=categoryForm.getByRole('textbox',{name:'Название категории',exact:true});
+    const subcategoryName=categoryForm.getByRole('textbox',{name:'Название подкатегории',exact:true});
+    for(const field of [categoryName,subcategoryName])await targetSize(field,label+' category create field');
+    await categoryName.fill('QA категория — черновик');await subcategoryName.fill('QA подкатегория');
+    const addSubcategory=button(categoryForm,'Добавить подкатегорию');await targetSize(addSubcategory,label+' add subcategory');await addSubcategory.click();
+    const removeTag=button(categoryForm,'Удалить подкатегорию: QA подкатегория');
+    await targetSize(removeTag,label+' remove tag');
+    await targetSize(button(categoryForm,'Сохранить категорию'),label+' save category');
+    await noOverflow(categoryForm,label+' create category');await capture(page,'overview-category-create-'+label);
+    await removeTag.click();await removeTag.waitFor({state:'hidden'});
+    await categoryName.focus();
+    // Never submit the category draft in a visual pilot.
+    await page.keyboard.press('Escape');await managementPicker.waitFor({state:'hidden'});
+    assert.equal(await manage.evaluate(el=>document.activeElement===el),true,label+' category management focus return');
     const allCategories=button(categoryCard,'Все категории расходов');
     await targetSize(allCategories,label+' all categories');
     await allCategories.click();

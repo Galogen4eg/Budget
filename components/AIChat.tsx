@@ -17,6 +17,8 @@ import { addItem, addItemsBatch, saveTransactionWithGoal } from '../utils/db';
 import { queryGrokAssistant } from '../utils/grokAssistant';
 import { updateGrokSettings } from '../utils/grokClient';
 import { ConfirmationModal } from './ConfirmationModal';
+import {useModalSurface} from '../hooks/useDialogFocus';
+import useModalBackHandler from '../hooks/useModalBackHandler';
 import { detectProductCategory } from '../utils/categorizer';
 import { 
   queryGeminiAssistant, 
@@ -54,13 +56,13 @@ const getCurrentFormattedTime = () => {
   return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 };
 
-const DEFAULT_WELCOME_MESSAGE: Message = {
+const createWelcomeMessage = (): Message => ({
   id: 'welcome_1',
   role: 'model',
-  text: 'Здравствуйте! Я семейный ассистент Terra. Могу зафиксировать доходы и расходы голосом или текстом, рассчитать доступный остаток до конца месяца, найти пересечения в расписании или обновить совместный список покупок. Чем помочь вам прямо сейчас?',
+  text: 'Чем помочь? Можно спросить о бюджете, покупках или планах.',
   createdAt: Date.now(),
-  timeStr: '10:42',
-};
+  timeStr: getCurrentFormattedTime(),
+});
 
 export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
   const { 
@@ -87,25 +89,19 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      showToast(`Файл «${file.name}» загружен для анализа`);
-      handleSend(`Прикреплён файл: ${file.name}. Проанализируй и запиши операции.`);
-      e.target.value = '';
-    }
-  };
+  const attachRef = useRef<HTMLButtonElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
-  const recordingTimeoutRef = useRef<any>(null);
+  useEffect(()=>()=>{
+    const recognition=recognitionRef.current;
+    recognitionRef.current=null;
+    if(recognition){try{recognition.abort();}catch{}}
+  },[]);
 
   // Gemini API Key
   const activeApiKey = useMemo(() => {
@@ -123,29 +119,15 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Remove only the two known synthetic initial messages, never user-created history.
+          const actual=parsed.filter((m:Message)=>m.id!=='welcome_user_init'&&m.id!=='welcome_bot_init');
+          return actual.length?actual:[createWelcomeMessage()];
         }
       }
     } catch (e) {
       console.warn('Не удалось загрузить историю диалога AI:', e);
     }
-    return householdPersonal?[DEFAULT_WELCOME_MESSAGE]:[
-      DEFAULT_WELCOME_MESSAGE,
-      {
-        id: 'welcome_user_init',
-        role: 'user',
-        text: 'Сколько свободно денег?',
-        createdAt: Date.now() - 60000,
-        timeStr: '22:49',
-      },
-      {
-        id: 'welcome_bot_init',
-        role: 'model',
-        text: 'Я зафиксировала запрос по теме: «Сколько свободно денег?». Все семейные показатели в норме, никаких перерасходов не зафиксировано.',
-        createdAt: Date.now() - 30000,
-        timeStr: '22:49',
-      }
-    ];
+    return [createWelcomeMessage()];
   });
 
   // Save history
@@ -183,51 +165,49 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
     return Math.round(freeBalance / daysLeftInMonth);
   }, [freeBalance, daysLeftInMonth]);
 
-  // Voice recording triggers
-  const openVoiceModal = () => {
-    setShowVoiceOverlay(true);
-    setIsRecording(true);
-
-    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognitionClass) {
-      try {
-        const recognition = new SpeechRecognitionClass();
-        recognition.lang = 'ru-RU';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          if (transcript) {
-            handleSend(transcript);
-          }
-          closeVoiceModal();
-        };
-        recognition.onerror = () => closeVoiceModal();
-        recognition.onend = () => closeVoiceModal();
-
-        recognitionRef.current = recognition;
-        recognition.start();
-        return;
-      } catch (e) {
-        console.warn('SpeechRecognition unavailable, fallback simulation');
-      }
-    }
-
-    recordingTimeoutRef.current = setTimeout(() => {
-      closeVoiceModal();
-      toast.error('Голосовой ввод не поддерживается вашей платформой. Пожалуйста, введите запрос текстом.');
-    }, 1500);
-  };
-
+  // Voice is a draft input, never a fabricated or automatic financial command.
   const closeVoiceModal = () => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (_) {}
-    }
-    if (recordingTimeoutRef.current) clearTimeout(recordingTimeoutRef.current);
+    const recognition=recognitionRef.current;
+    recognitionRef.current=null;
+    if(recognition){try{recognition.abort();}catch{}}
     setShowVoiceOverlay(false);
-    setIsRecording(false);
+  };
+  const voiceSurface=useModalSurface(closeVoiceModal,{enabled:showVoiceOverlay,initialSelector:'[data-voice-cancel]'});
+  useModalBackHandler(showVoiceOverlay,closeVoiceModal);
+  const openVoiceModal = () => {
+    const SpeechRecognitionClass=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    if(!SpeechRecognitionClass){toast.error('Голосовой ввод недоступен. Введите запрос текстом.');return;}
+    try{
+      const recognition=new SpeechRecognitionClass();
+      recognition.lang='ru-RU';
+      recognition.continuous=false;
+      recognition.interimResults=false;
+      recognitionRef.current=recognition;
+      recognition.onresult=(event:any)=>{
+        if(recognitionRef.current!==recognition)return;
+        const transcript=String(event.results?.[0]?.[0]?.transcript??'').trim();
+        if(transcript)setInput(previous=>[previous.trim(),transcript].filter(Boolean).join(' '));
+      };
+      recognition.onend=()=>{
+        if(recognitionRef.current!==recognition)return;
+        recognitionRef.current=null;
+        setShowVoiceOverlay(false);
+      };
+      recognition.onerror=()=>{
+        if(recognitionRef.current!==recognition)return;
+        closeVoiceModal();
+        toast.error('Не удалось распознать речь. Попробуйте снова.');
+      };
+      recognition.start();
+      setShowVoiceOverlay(true);
+    }catch{
+      closeVoiceModal();
+      toast.error('Не удалось запустить голосовой ввод.');
+    }
+  };
+  const finishVoiceRecording=()=>{
+    try{recognitionRef.current?.stop();}
+    catch{closeVoiceModal();toast.error('Не удалось завершить запись.');}
   };
 
   // Assistant Actions
@@ -413,7 +393,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#faf6f0] dark:bg-[#1C1F1E] font-body text-[#2e3230] dark:text-stone-100 relative overflow-hidden select-none min-h-0">
+    <div className="flex flex-col h-full bg-[var(--terra-surface)] text-[var(--terra-ink)] font-body relative overflow-hidden min-h-0"
+      onKeyDown={e=>{if(e.key==='Escape'&&showAttachMenu){e.preventDefault();e.stopPropagation();attachRef.current?.focus();setShowAttachMenu(false);}}}>
       
       {/* Toast Alert Notification */}
       {toastMessage && (
@@ -424,26 +405,26 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
       )}
 
       {/* Mobile Top Fixed Header */}
-      <header className="sticky top-0 w-full z-40 pt-safe bg-[#faf6f0]/85 dark:bg-[#1C1F1E]/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(46,50,48,0.04)] shrink-0">
-        <div className="h-16 px-4 flex items-center justify-between">
+      <header className="w-full z-40 pt-[env(safe-area-inset-top,0px)] bg-[var(--terra-surface)] border-b border-[var(--terra-border)] shrink-0">
+        <div className="min-h-[56px] px-3 sm:px-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {onClose && (
               <button 
                 type="button"
                 onClick={onClose}
                 aria-label="Закрыть чат" 
-                className="w-11 h-11 flex items-center justify-center rounded-full text-[#2e3230] dark:text-white hover:bg-[#f0ece4] dark:hover:bg-white/10 active:bg-[#eae6de] transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center rounded-full text-[var(--terra-ink)] hover:bg-[#f0ece4] dark:hover:bg-white/10 active:bg-[#eae6de] transition-colors cursor-pointer"
               >
                 <X size={24} />
               </button>
             )}
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-[#78a886]/40 text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center font-bold">
                 <Sparkles size={20} />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-base font-headline font-semibold leading-tight text-[#2e3230] dark:text-white tracking-normal">
-                  Ai Ассистент Terra
+                <h1 className="text-base font-headline font-semibold leading-tight text-[var(--terra-ink)] tracking-normal">
+                  ИИ-помощник
                 </h1>
               </div>
             </div>
@@ -454,11 +435,11 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
               type="button"
               onClick={handleClearHistory}
               aria-label="Очистить диалог" 
-              className="w-11 h-11 flex items-center justify-center rounded-full text-[#4a4e4a] dark:text-stone-300 hover:text-[#b83230] hover:bg-[#ffdad8]/20 transition-colors cursor-pointer"
+              className="w-11 h-11 flex items-center justify-center rounded-full text-[#4a4e4a] dark:text-stone-300 hover:text-[var(--terra-danger-text)] hover:bg-[var(--terra-danger-soft)] transition-colors cursor-pointer"
             >
               <Trash2 size={22} />
             </button>
-            <div className="w-8 h-8 rounded-full bg-[#4a7c59] flex items-center justify-center shadow-[0_2px_8px_rgba(74,124,89,0.2)] text-white">
+            <div className="w-8 h-8 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center">
               <User size={18} />
             </div>
           </div>
@@ -471,8 +452,8 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
       </header>
 
       {/* Main Messages Stream Area */}
-      <main className="flex-1 flex flex-col relative w-full p-4 overflow-y-auto pb-28 no-scrollbar scroll-smooth">
-        <div className="flex flex-col gap-4 max-w-md mx-auto w-full">
+      <main data-testid="terra-ai-messages" className="flex-1 min-h-0 flex flex-col relative w-full p-3 sm:p-4 overflow-y-auto overscroll-y-contain">
+        <div className="flex flex-col gap-3 max-w-2xl mx-auto w-full min-w-0 [overflow-wrap:anywhere]">
           
           {messages.map((m) => {
             const isUser = m.role === 'user';
@@ -483,7 +464,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
               <div key={m.id} className={`msg-in flex ${isUser ? 'justify-end' : 'gap-2.5 items-start'}`}>
                 
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-full bg-[#78a886]/30 text-[#4a7c59] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-1 shadow-xs">
+                  <div className="w-8 h-8 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center shrink-0 mt-1 shadow-xs">
                     <Sparkles size={18} />
                   </div>
                 )}
@@ -491,14 +472,14 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                 <div className={isUser ? 'max-w-[82%]' : 'flex flex-col gap-2 max-w-[88%] w-full'}>
                   <div className={`p-4 shadow-xs rounded-2xl ${
                     isUser 
-                      ? 'bg-[#e4e0d8] dark:bg-[#252528] text-[#2e3230] dark:text-white rounded-tr-xs' 
-                      : 'bg-[#f5f1ea] dark:bg-[#252528] text-[#2e3230] dark:text-stone-100 rounded-tl-xs'
+                      ? 'bg-[var(--terra-soft)] text-[var(--terra-ink)] rounded-tr-xs' 
+                      : 'bg-[var(--terra-soft)] text-[var(--terra-ink)] rounded-tl-xs'
                   }`}>
                     
                     {/* Expense Recorded Rich Card */}
                     {!isUser && isExpenseRecorded && (
                       <div className="space-y-3">
-                        <div className="flex items-center gap-1.5 text-[#4a7c59] dark:text-emerald-400 text-xs font-bold mb-1">
+                        <div className="flex items-center gap-1.5 text-[var(--terra-primary-text)] text-xs font-bold mb-1">
                           <CheckCircle2 size={16} />
                           <span>Операция сохранена</span>
                         </div>
@@ -511,7 +492,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                     {/* Shopping Checklist Rich Card */}
                     {!isUser && isShoppingList && (
                       <div className="space-y-2">
-                        <div className="text-xs font-bold text-[#4a7c59] dark:text-emerald-400 font-headline mb-2">
+                        <div className="text-xs font-bold text-[var(--terra-primary-text)] font-headline mb-2">
                           Семейный список покупок
                         </div>
                         <div className="flex flex-col gap-1.5 mb-2">
@@ -534,10 +515,10 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                                     toggleShoppingCheck(m.id, title);
                                   }
                                 }}
-                                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white dark:bg-[#1C1F1E] border border-gray-200/50 dark:border-white/5 text-xs text-[#2e3230] dark:text-white text-left cursor-pointer transition-all active:scale-[0.98]"
+                                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white dark:bg-[#1C1F1E] border border-gray-200/50 dark:border-white/5 text-xs text-[var(--terra-ink)] text-left cursor-pointer transition-all active:scale-[0.98]"
                               >
                                 {isChecked ? (
-                                  <CheckSquare size={16} className="text-[#4a7c59] shrink-0" />
+                                  <CheckSquare size={16} className="text-[var(--terra-primary-text)] shrink-0" />
                                 ) : (
                                   <Square size={16} className="text-[#74796e] shrink-0" />
                                 )}{' '}
@@ -569,10 +550,10 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
           {/* Typing State Bubble */}
           {loading && (
             <div className="flex gap-2.5 items-center animate-msg-in">
-              <div className="w-8 h-8 rounded-full bg-[#78a886]/30 text-[#4a7c59] flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center shrink-0 shadow-xs">
                 <Sparkles size={18} />
               </div>
-              <div className="bg-[#f5f1ea] dark:bg-[#252528] px-4 py-3 rounded-2xl rounded-tl-xs shadow-xs flex items-center gap-2">
+              <div className="bg-[var(--terra-soft)] px-4 py-3 rounded-2xl rounded-tl-xs shadow-xs flex items-center gap-2">
                 <span className="text-xs text-[#4a4e4a] dark:text-stone-300 font-semibold">Terra думает</span>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#4a7c59] animate-bounce" />
@@ -592,16 +573,16 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
       {/* Voice Recording Overlay Modal */}
       {showVoiceOverlay && (
         <div className="fixed inset-0 z-50 bg-[#2e3230]/40 backdrop-blur-xs flex items-end justify-center animate-msg-in">
-          <div className="w-full bg-white dark:bg-[#1C1F1E] rounded-t-3xl p-6 shadow-2xl flex flex-col items-center">
+          <div {...voiceSurface} role="dialog" aria-modal="true" aria-label="Голосовой ввод" className="w-full max-w-lg bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-t-2xl p-4 flex flex-col items-center">
             <div className="w-12 h-1.5 rounded-full bg-[#e4e0d8] dark:bg-white/10 mb-6" />
-            <div className="w-14 h-14 rounded-full bg-[#78a886]/20 text-[#4a7c59] flex items-center justify-center mb-3">
+            <div className="w-14 h-14 rounded-full bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center mb-3">
               <Volume2 size={28} />
             </div>
-            <p className="font-headline font-semibold text-base text-[#2e3230] dark:text-white mb-1">
-              Слушаю семью Terra
+            <p className="font-headline font-semibold text-base text-[var(--terra-ink)] mb-1">
+              Голосовой ввод
             </p>
             <p className="text-xs text-[#4a4e4a] dark:text-stone-400 mb-6 text-center">
-              Говорите естественно, например: «Запиши кофе за 280 рублей»
+              Распознанный текст появится в поле сообщения.
             </p>
 
             {/* Audio Waveform Live Bars */}
@@ -617,18 +598,15 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
             <div className="flex items-center gap-3 w-full">
               <button 
                 type="button"
-                onClick={closeVoiceModal}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-200 text-sm font-semibold hover:bg-[#eae6de] transition-colors cursor-pointer"
+                onClick={closeVoiceModal} data-voice-cancel
+                className="flex-1 min-h-[44px] py-3.5 px-4 rounded-xl bg-[#f0ece4] dark:bg-[#252528] text-[#4a4e4a] dark:text-stone-200 text-sm font-semibold hover:bg-[#eae6de] transition-colors cursor-pointer"
               >
                 Отменить
               </button>
               <button 
                 type="button"
-                onClick={() => {
-                  closeVoiceModal();
-                  handleSend("Купили фермерские яблоки и сыр на 720 рублей");
-                }}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-[#4a7c59] text-white text-sm font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={finishVoiceRecording}
+                className="flex-1 py-3.5 px-4 rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] text-sm font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 size={18} />
                 <span>Завершить запись</span>
@@ -639,75 +617,60 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
       )}
 
       {/* Sticky Bottom Input Bar (Scoped to Chat Modal) */}
-      <footer className="sticky bottom-0 w-full z-40 shrink-0 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] bg-[#faf6f0]/95 dark:bg-[#1C1F1E]/95 backdrop-blur-xl border-t border-[#e4e0d8]/60 dark:border-white/10 shadow-[0_-2px_12px_rgba(46,50,48,0.05)]">
+      <footer data-testid="terra-ai-composer" className="w-full z-40 shrink-0 pb-[env(safe-area-inset-bottom,0px)] bg-[var(--terra-surface)] border-t border-[var(--terra-border)]">
         <div className="px-4 py-3">
           <form 
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex items-end gap-2 bg-[#f0ece4] dark:bg-[#252528] rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-[#4a7c59]/30 transition-all"
+            className="flex items-end gap-2 bg-[var(--terra-soft)] rounded-xl p-1.5 border border-[var(--terra-border)] focus-within:ring-2 focus-within:ring-[var(--terra-focus)]"
           >
             {/* Action Popover Menu for + Button */}
             <div className="relative">
               <button 
                 type="button"
+                ref={attachRef}
                 onClick={() => setShowAttachMenu(prev => !prev)}
-                aria-label="Прикрепить файл или голос" 
-                className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl text-[#4a4e4a] dark:text-stone-300 hover:text-[#4a7c59] active:scale-95 transition-all cursor-pointer"
+                aria-expanded={showAttachMenu} aria-controls={showAttachMenu?'terra-ai-attachments':undefined}
+                aria-label="Дополнительные действия" 
+                className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl text-[#4a4e4a] dark:text-stone-300 hover:text-[var(--terra-primary-text)] active:scale-95 transition-all cursor-pointer"
               >
-                <PlusCircle size={22} className={showAttachMenu ? 'rotate-45 text-[#4a7c59] transition-transform' : 'transition-transform'} />
+                <PlusCircle size={22} className={showAttachMenu ? 'rotate-45 text-[var(--terra-primary-text)] transition-transform' : 'transition-transform'} />
               </button>
 
               {showAttachMenu && (
-                <div className="absolute bottom-14 left-0 bg-white dark:bg-[#252528] border border-[#e4e0d8] dark:border-white/10 rounded-2xl shadow-xl p-2 w-56 z-50 animate-msg-in flex flex-col gap-1">
+                <div id="terra-ai-attachments" role="group" aria-label="Дополнительные действия" className="absolute bottom-14 left-0 bg-[var(--terra-surface)] border border-[var(--terra-border)] rounded-xl shadow-lg p-2 w-56 max-w-[calc(100vw-40px)] z-50 flex flex-col gap-1">
                   <button
                     type="button"
                     onClick={() => {
+                      attachRef.current?.focus();
                       setShowAttachMenu(false);
                       openVoiceModal();
                     }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
+                    className="flex min-h-[44px] items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
-                    <span className="text-base">🎙️</span>
+                    <span aria-hidden="true" className="text-base">🎙️</span>
                     <span>Голосовой ввод / Запись</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
-                  >
-                    <span className="text-base">🧾</span>
-                    <span>Загрузить чек / выписку</span>
-                  </button>
+                  <div className="px-3 py-2 text-xs text-[var(--terra-muted)]">Анализ файлов недоступен. Выписки можно импортировать в разделе «Бюджет».</div>
 
                   <button
                     type="button"
                     onClick={() => {
                       setShowAttachMenu(false);
-                      handleSend("Добавь в список покупок: молоко, хлеб, сыр, яблоки");
+                      setInput(previous=>previous.trim()?previous:'Добавь в список покупок: ');
+                      textareaRef.current?.focus();
                     }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
+                    className="flex min-h-[44px] items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#2e3230] dark:text-stone-200 hover:bg-[#f0ece4] dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
-                    <span className="text-base">🛒</span>
+                    <span aria-hidden="true" className="text-base">🛒</span>
                     <span>Быстрый список покупок</span>
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Hidden File Input */}
-            <input 
-              ref={fileInputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf,.xlsx,.csv,.txt"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
 
             <div className="flex-1 min-h-[44px] flex items-center py-2 px-1">
               <textarea 
@@ -715,14 +678,15 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     handleSend();
                   }
                 }}
-                placeholder="Спросите ассистента Terra..."
-                rows={1}
-                className="w-full bg-transparent resize-none border-0 p-0 text-sm font-body text-[#2e3230] dark:text-white placeholder:text-[#4a4e4a]/60 focus:outline-none focus:ring-0 leading-snug"
+                aria-label="Сообщение ассистенту"
+                placeholder="Сообщение"
+                rows={2}
+                className="w-full bg-transparent resize-none border-0 p-0 text-sm font-body text-[var(--terra-ink)] placeholder:text-[#4a4e4a]/60 focus:outline-none focus:ring-0 leading-snug"
               />
             </div>
 
@@ -730,7 +694,7 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose, onOpenSettings }) => {
               type="submit"
               disabled={!input.trim() || loading || provider==='loading' || provider==='unavailable' || Boolean(grokProposal)}
               aria-label="Отправить сообщение" 
-              className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl bg-[#4a7c59] text-white active:scale-95 transition-all shadow-[0_2px_8px_rgba(74,124,89,0.25)] cursor-pointer ${
+              className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl bg-[var(--terra-primary-solid)] text-[var(--terra-on-primary)] active:scale-95 transition-all shadow-[0_2px_8px_rgba(74,124,89,0.25)] cursor-pointer ${
                 !input.trim() || loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >

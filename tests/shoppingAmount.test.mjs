@@ -43,3 +43,11 @@ test('iteration 75: validate only positive shopping quantities with one decimal 
   assert.equal(parseShoppingQuantity(invalid),null,String(invalid));
  }
 });
+
+test('weight and volume editing retains thousandths while default input rules stay unchanged',()=>{
+ assert.equal(parseShoppingQuantity('0,025','кг'),'0.025');
+ assert.equal(parseShoppingQuantity('0,125','л'),'0.125');
+ assert.equal(parseShoppingQuantity('0,0001','л'),null);
+ assert.equal(parseShoppingQuantity('0.01'),null);
+ assert.equal(nextShoppingAmount('0.125',0.5,0.5),'0.625');
+});

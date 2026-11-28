@@ -155,7 +155,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       {/* Карточка 1: Базовый контур и копилка */}
       <section className="terra-settings-group">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[var(--terra-primary-text)] shrink-0">
             <Wallet size={24} />
           </div>
           <div>
@@ -210,7 +210,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               <Remove size={20} />
             </button>
             <div className="flex flex-col items-center">
-              <span className="font-headline font-bold text-xl text-[#4a7c59] dark:text-emerald-400">
+              <span className="font-headline font-bold text-xl text-[var(--terra-primary-text)]">
                 {savingsRate} %
               </span>
               <span className="text-[10px] text-[#4a4e4a] dark:text-gray-400 font-medium">
@@ -238,8 +238,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                   onClick={() => setSavingsRate(chip.val)} aria-pressed={isActive}
                   className={`min-h-[44px] shrink-0 px-3 py-1.5 rounded-lg text-sm transition-colors motion-reduce:transition-none cursor-pointer ${
                     isActive
-                      ? 'font-semibold bg-[#4a7c59] text-white shadow-[0_2px_8px_rgba(74,124,89,0.25)] active:scale-95'
-                      : 'font-medium bg-[#f5f1ea] dark:bg-[#25282c] text-[#4a4e4a] dark:text-gray-300 hover:bg-[#f0ece4] dark:hover:bg-white/10 active:scale-95'
+                      ? 'font-semibold bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] ring-1 ring-inset ring-[var(--terra-primary-text)]'
+                      : 'font-medium bg-[var(--terra-soft)] text-[var(--terra-muted)] hover:text-[var(--terra-ink)]'
                   }`}
                 >
                   {chip.label}
@@ -250,9 +250,9 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
         </div>
 
         {/* Переключатель Умного резерва */}
-        <div className="bg-[#f5f1ea] dark:bg-[#25282c] p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-transparent dark:border-white/5">
+        <div className="bg-[var(--terra-soft)] p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--terra-border)]">
           <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-lg bg-[#78a886]/25 dark:bg-emerald-950/50 text-[#2a6038] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-lg bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center shrink-0 mt-0.5">
               <Lock size={18} />
             </div>
             <div className="space-y-1 min-w-0 flex-1">
@@ -264,7 +264,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex justify-end pt-2 sm:pt-0 shrink-0">
+          <div className="flex justify-end shrink-0">
             <button
               type="button"
               onClick={() => onUpdateSetting('enableSmartReserve', !smartReserve)}
@@ -285,7 +285,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               <h2 className="font-headline font-semibold text-base sm:text-lg text-[#2e3230] dark:text-white">
                 Календарь выплат
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-[#c8e8d0] dark:bg-emerald-950/60 text-[#2a6038] dark:text-emerald-300 text-[11px] font-semibold">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--terra-soft)] text-[var(--terra-muted)] text-[11px] font-semibold">
                 Выбрано: {salaryDates.length} {salaryDates.length === 1 ? 'день' : (salaryDates.length > 1 && salaryDates.length < 5 ? 'дня' : 'дней')}
               </span>
             </div>
@@ -293,7 +293,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
               Дни месяца для пересчета доступного дневного лимита
             </p>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[var(--terra-primary-text)] shrink-0">
             <EventAvailable size={20} />
           </div>
         </div>
@@ -310,8 +310,8 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
                 onClick={() => toggleSalaryDay(dayNum)} aria-pressed={isSelected} aria-label={`День выплаты: ${dayNum}`}
                 className={`min-h-[44px] min-w-[44px] rounded-lg font-semibold text-xs flex items-center justify-center transition-colors cursor-pointer ${
                   isSelected
-                    ? 'bg-[#4a7c59] text-white font-bold shadow-[0_2px_8px_rgba(74,124,89,0.3)]'
-                    : 'bg-[#f5f1ea] dark:bg-[#25282c] text-[#2e3230] dark:text-gray-300 hover:bg-[#f0ece4] dark:hover:bg-white/10'
+                    ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] ring-1 ring-inset ring-[var(--terra-primary-text)]'
+                    : 'bg-[var(--terra-soft)] text-[var(--terra-ink)] hover:bg-[var(--terra-surface)]'
                 }`}
               >
                 {dayNum}
@@ -338,7 +338,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
       {/* Карточка 3: Инструменты и аудит данных */}
       <section className="terra-settings-group">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[#4a7c59] dark:text-emerald-400 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#f0ece4] dark:bg-[#282a2d] flex items-center justify-center text-[var(--terra-primary-text)] shrink-0">
             <Build size={22} />
           </div>
           <div>
@@ -374,7 +374,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             onClick={onOpenDuplicates}
             className="min-h-[44px] w-full py-2.5 px-4 rounded-xl bg-[#e4e0d8] dark:bg-white/10 text-[#2e3230] dark:text-white font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#d4ccbf] dark:hover:bg-white/15 transition-colors cursor-pointer"
           >
-            <SearchCheck size={18} className="text-[#4a7c59] dark:text-emerald-400" />
+            <SearchCheck size={18} className="text-[var(--terra-primary-text)]" />
             <span>Найти дубли</span>
           </button>
         </div>
@@ -420,7 +420,7 @@ export const BudgetSettingsSection: React.FC<BudgetSettingsSectionProps> = ({
             <button
               type="button"
               onClick={handleArchiveExport} disabled={!validRange||isDeleting}
-              className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#f0ece4] dark:bg-white/10 text-[#4a7c59] dark:text-emerald-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#e4e0d8] dark:hover:bg-white/15 transition-colors cursor-pointer"
+              className="min-h-[44px] w-full py-3 px-4 rounded-xl bg-[#f0ece4] dark:bg-white/10 text-[var(--terra-primary-text)] font-semibold text-xs flex items-center justify-center gap-2 hover:bg-[#e4e0d8] dark:hover:bg-white/15 transition-colors cursor-pointer"
             >
               <FolderZip size={18} />
               <span>Экспортировать JSON</span>

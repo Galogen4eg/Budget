@@ -12,7 +12,7 @@ export interface QuickShoppingWidgetProps {
   handleToggleShopping: (item: any) => Promise<void>;
   handleAddShoppingInline: (e: React.FormEvent) => Promise<void>;
   onNavigateTab: (tabId: string) => void;
-  liveParsedShopping?: {title:string;amount:string|number;unit:string}|null;
+  liveParsedShopping?: {title:string;amount:string|number;unit:string}[];
   desktop?:boolean;
 }
 
@@ -25,7 +25,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
   handleToggleShopping,
   handleAddShoppingInline,
   onNavigateTab,
-  liveParsedShopping,
+  liveParsedShopping=[],
   desktop=false,
 }) => {
   return (
@@ -35,7 +35,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           <h3 className={SECTION_HEADING}>
             Список покупок
           </h3>
-          <span className="bg-[#EAE6DD] dark:bg-white/10 text-graphite dark:text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+          <span className="bg-[var(--terra-soft)] text-[var(--terra-muted)] text-xs font-semibold px-2 py-0.5 rounded-full">
             {activeShoppingItems.length}
           </span>
         </div>
@@ -71,7 +71,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
                 {item.title}
               </span>
             <span className="text-sm min-w-0 text-right [overflow-wrap:anywhere] font-medium tabular-nums text-[var(--terra-muted)]">
-              {item.amount ? `${item.amount} ${item.unit || 'шт'}` : '1 шт'}
+              {item.amount ? `${String(item.amount).replace('.', ',')} ${item.unit || 'шт'}` : '1 шт'}
             </span>
           </div>
         ))}
@@ -100,7 +100,7 @@ export const QuickShoppingWidget: React.FC<QuickShoppingWidgetProps> = ({
           <Plus size={18} strokeWidth={2.4} />
         </button>
       </form>
-      {liveParsedShopping&&<p className="text-xs text-[var(--terra-muted)] [overflow-wrap:anywhere]">{liveParsedShopping.title} · {liveParsedShopping.amount} {liveParsedShopping.unit}</p>}
+      {liveParsedShopping.length>0&&<div data-testid="overview-shopping-preview" className="divide-y divide-[var(--terra-border)] text-xs text-[var(--terra-muted)]" aria-label="Предпросмотр покупок">{liveParsedShopping.map((item,index)=><div key={index} className="flex items-baseline justify-between gap-2 py-1.5"><span className="min-w-0 [overflow-wrap:anywhere]">{item.title}</span><span className="shrink-0 tabular-nums">{String(item.amount).replace('.', ',')} {item.unit}</span></div>)}</div>}
     </section>
   );
 };

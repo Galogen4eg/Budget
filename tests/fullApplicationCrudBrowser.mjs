@@ -1,3 +1,4 @@
+import {meetsTouchTarget} from './touchTargetGeometry.mjs';
 import {runTerraV2Pilot} from './terraV2PilotBrowser.mjs';
 import {makeFamilyFixtures,fixtureSettings,fixtureCategories} from './fixtures/realisticFamily.mjs';
 import {runNavigationAudit} from './navigationAudit.mjs';
@@ -324,7 +325,7 @@ await scenario('ALFA partial import, replay, mobile review action and persistenc
  const all=filters.getByRole('button',{name:'Все 1',exact:true});
  const search=dialog.getByRole('searchbox',{name:'Поиск по выписке'});
  for(const control of [without,all,search]){
-  const rect=await control.boundingBox();assert.ok(rect&&rect.height>=44&&rect.width>=44,'Import control target too small');
+  const rect=await control.boundingBox();assert.ok(meetsTouchTarget(rect),'Import control target too small');
  }
  await without.click();
  assert.equal(await without.getAttribute('aria-pressed'),'true');
@@ -385,6 +386,32 @@ await scenario('PLN-03/04/06 event create, cross-user edit, checklist, delete',a
  await eventDialog(b).waitFor({state:'hidden'});
  await currentDoc(saved.ref,x=>!x.exists,'event deletion');
 });
+await scenario('OVR quick shopping decimal units and two-account completion',async()=>{
+ const shopping=family.collection('shopping');
+ const ledgerBefore=JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()]));
+ await nav(b,'overview','Обзор');
+ const card=panel(b,'overview').getByTestId('overview-shopping-card').filter({visible:true}).first();
+ const input=card.getByRole('textbox',{name:'Название новой покупки'});
+ phase='overview decimal preview';
+ await input.fill('QA молоко точность 1,5 л; QA сыр точность 25 г');
+ const preview=card.getByTestId('overview-shopping-preview');
+ await preview.getByText('1,5 л',{exact:true}).waitFor({state:'visible'});
+ await preview.getByText('25 г',{exact:true}).waitFor({state:'visible'});
+ phase='save both quantities';
+ await btn(card,'Добавить в список покупок').click();
+ const milk=await findOne('shopping','title','QA молоко точность');
+ const cheese=await findOne('shopping','title','QA сыр точность');
+ assert.equal(milk.data().amount,'1.5');assert.equal(milk.data().unit,'л');
+ assert.equal(cheese.data().amount,'25');assert.equal(cheese.data().unit,'г');
+ phase='other account sees and completes item';
+ await nav(a,'shopping','Покупки');
+ await btn(panel(a,'shopping'),'Редактировать товар: QA молоко точность').waitFor({state:'visible'});
+ await btn(card,'Отметить покупку «QA молоко точность» как выполненную').click();
+ await currentDoc(milk.ref,s=>s.exists&&s.data().completed===true&&typeof s.data().completedAt==='number','overview completion timestamp');
+ await btn(panel(a,'shopping'),'Редактировать товар: QA молоко точность').waitFor({state:'hidden'});
+ assert.equal(JSON.stringify((await rows.get()).docs.map(doc=>[doc.id,doc.data()])),ledgerBefore,'Quick shopping changed ledger');
+ await Promise.all([milk.ref.delete(),cheese.ref.delete()]);
+});
 await scenario('SHP-02/03 shopping create, mobile rename, quantity, bought/restore, delete',async()=>{
  await nav(b,'shopping','Покупки');let p=panel(b,'shopping');
  phase='shopping quick add';
@@ -428,7 +455,7 @@ await scenario('SHP Terra filtered clear, template preview and pantry transfer',
  assert.equal((await shopping.doc(ids[2]).get()).exists,true);
  phase='pantry move on desktop';await search.fill(titles[2]);
  const move=btn(p,'В кладовку: '+titles[2]);await move.waitFor({state:'visible'});
- const box=await move.boundingBox();assert.ok(box&&box.width>=44&&box.height>=44);
+ const box=await move.boundingBox();assert.ok(meetsTouchTarget(box));
  await move.evaluate(button=>{button.click();button.click();});
  await currentDoc(shopping.doc(ids[2]),snap=>!snap.exists,'moved source removed');
  const moved=await findOne('pantry','title',titles[2]);assert.equal(moved.data().amount,'2.5');assert.equal(moved.data().unit,'л');
@@ -643,18 +670,46 @@ await scenario('BUD-16/17/18 mandatory payments persistence',async()=>{
 });
 await scenario('OVR-reserve actual empty state and confirmed mark',async()=>{
  const ref=family.collection('config').doc('settings');
- await ref.set({mandatoryExpenses:[],manualPaidExpenses:{}},{merge:true});
+ await ref.set({mandatoryExpenses:[],manualPaidExpenses:{},manualReservedAmount:0},{merge:true});
  await nav(b,'overview','Обзор');
  phase='empty reserve';await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
  const dialog=b.getByRole('dialog',{name:'Структура резерва'});
  await dialog.getByText('Нет обязательных платежей',{exact:true}).waitFor({state:'visible'});
  assert.equal(await btn(dialog,'Отметить выбранные как оплаченные').isDisabled(),true);
  assert.equal(await dialog.getByRole('checkbox').count(),0);
+ const reserveInput=dialog.getByRole('textbox',{name:'Сумма вручную',exact:true});
+ const saveReserve=btn(dialog,'Сохранить ручной резерв');
+ phase='invalid reserve remains unchanged';
+ await reserveInput.fill('12.345');await saveReserve.click();
+ await dialog.getByRole('alert').waitFor({state:'visible'});
+ assert.equal((await ref.get()).data().manualReservedAmount,0,'invalid reserve committed');
+ phase='cancel reserve draft without saving';
+ await reserveInput.fill('43,21');await btn(dialog,'Закрыть').click();
+ await dialog.waitFor({state:'hidden'});
+ assert.equal((await ref.get()).data().manualReservedAmount,0,'cancel committed draft');
+ phase='explicit reserve save';
+ await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
+ await reserveInput.fill('43,21');await saveReserve.click();
+ await currentDoc(ref,x=>x.data()?.manualReservedAmount===43.21,'reserve saved exact kopecks');
+ await saveReserve.waitFor({state:'visible'});
  await btn(dialog,'Закрыть').click();
+ await dialog.waitFor({state:'hidden'});
  phase='real reserve payment';await ref.set({mandatoryExpenses:[{id:'qa-reserve',name:'QA резерв',amount:100.25,day:10,remind:false}]},{merge:true});
  await btn(panel(b,'overview'),/^Открыть подробности (семейного|личного) резерва$/,false).click();
  const checkbox=dialog.getByRole('checkbox',{name:'Выбрать платёж: QA резерв',exact:true});
  await checkbox.waitFor({state:'visible'});
+ const editPayment=btn(dialog,'Редактировать обязательный платеж: QA резерв');
+ phase='nested payment editor returns to reserve';
+ await editPayment.click();
+ const paymentEditor=b.getByRole('dialog',{name:'Редактирование платежа',exact:true});
+ await paymentEditor.waitFor({state:'visible'});
+ await b.waitForFunction(()=>document.activeElement?.closest('[data-testid="terra-mandatory-dialog"]')?.contains(document.activeElement)&&document.activeElement?.getAttribute('aria-label')==='Закрыть',null,{timeout:3000});
+ await b.keyboard.press('Escape');
+ await paymentEditor.waitFor({state:'hidden'});
+ await dialog.waitFor({state:'visible'});
+ await b.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Редактировать обязательный платеж: QA резерв',null,{timeout:3000});
+ assert.equal(await editPayment.evaluate(el=>document.activeElement===el),true,'reserve edit focus return');
+ phase='confirm reserve payment';
  await checkbox.check();
  await btn(dialog,'Отметить выбранные как оплаченные').click();
  await currentDoc(ref,snapshot=>Object.values(snapshot.data()?.manualPaidExpenses??{}).some(ids=>Array.isArray(ids)&&ids.includes('qa-reserve')),'confirmed reserve paid mark');

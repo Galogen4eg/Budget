@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import {useModalSurface} from '../hooks/useDialogFocus';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
+import useModalBackHandler from '../hooks/useModalBackHandler';
+import {useMobileViewport} from '../hooks/useMobileViewport';
 import { X, Trash2, Edit3, Send, CheckCircle2, CheckSquare, CreditCard, Home, Link2, Info } from 'lucide-react';
 import { MandatoryExpense, MandatoryExpenseType, AppSettings, FamilyMember } from '../types';
 import { useData } from '../contexts/DataContext';
@@ -40,6 +44,13 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const requestClose=()=>{if(!isSaving)onClose();};
+  // The modal surface must capture the opener before focusing this dialog.
+  // Native/React autoFocus on an input would replace that opener during mount.
+  const surface=useModalSurface(requestClose,{initialSelector:'[aria-label="Закрыть"]'});
+  useBodyScrollLock();
+  useModalBackHandler(true,requestClose);
+  const viewport=useMobileViewport();
 
   const { debts } = useData();
   const { user: firebaseUser } = useAuth();
@@ -159,12 +170,13 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000] bg-stone-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 select-none"
+      className="fixed inset-0 z-[2000] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={viewport.height===null?undefined:{height:viewport.height,bottom:'auto'}}
       onClick={() => { if (!isSaving) onClose(); }}
       role="presentation"
     >
-      <div 
-        className="relative w-full max-w-[490px] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] bg-[var(--terra-surface)] rounded-t-3xl sm:rounded-2xl shadow-[0_20px_60px_rgba(46,50,48,0.18)] p-6 sm:p-7 flex flex-col gap-5 text-stone-900 dark:text-white border-0 sm:border border-[var(--terra-border)] animate-in fade-in zoom-in-95 duration-200 overflow-y-auto no-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+      <div {...surface} role="dialog" aria-modal="true" aria-busy={isSaving} aria-label={expense?'Редактирование платежа':'Новый обязательный платёж'} data-testid="terra-mandatory-dialog"
+        className="relative w-full max-w-[490px] h-full sm:h-auto max-h-full sm:max-h-[92dvh] bg-[var(--terra-surface)] rounded-none sm:rounded-2xl shadow-lg p-3 sm:p-4 flex flex-col gap-3 text-stone-900 dark:text-white border-0 sm:border border-[var(--terra-border)] animate-in fade-in duration-200 motion-reduce:animate-none overflow-y-auto overscroll-y-contain pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
         onClick={e => e.stopPropagation()}
       >
         {/* Заголовок модального окна */}
@@ -213,11 +225,11 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 onClick={() => setExpenseType('debt')} aria-pressed={expenseType==='debt'}
                 className={`min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                   expenseType === 'debt'
-                    ? 'bg-[var(--terra-soft)] text-[#8C3A3A] dark:text-rose-400 shadow-xs'
+                    ? 'bg-[var(--terra-soft)] text-[var(--terra-muted)] shadow-xs'
                     : 'text-stone-500 dark:text-gray-400 hover:text-stone-900'
                 }`}
               >
-                <CreditCard size={15} className={expenseType === 'debt' ? 'text-[#8C3A3A] dark:text-rose-400' : ''} />
+                <CreditCard size={15} className={expenseType === 'debt' ? 'text-[var(--terra-muted)]' : ''} />
                 <span>Кредит / Долг</span>
               </button>
             </div>
@@ -277,7 +289,6 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                 value={name} 
                 onChange={e => setName(e.target.value)}
                 placeholder={expenseType === 'debt' ? 'Ипотека, автокредит, кредитка...' : 'ЖКХ, интернет, аренда, связь...'} 
-                autoFocus
                 className="w-full bg-[var(--terra-soft)] text-stone-900 dark:text-white font-semibold text-base px-4 py-3 rounded-xl border border-[var(--terra-border)] shadow-[0_1px_4px_rgba(46,50,48,0.04)] focus:outline-none focus:ring-2 focus:ring-[#4A7C59] transition-all pr-10"
               />
               <span className="absolute right-3.5 text-stone-400">
@@ -426,7 +437,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
 
           {/* Кнопки действий */}
           <div className="flex flex-col gap-2 pt-2">
-            {formError && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{formError}</p>}
+            {formError && <p role="alert" className="text-xs text-[var(--terra-danger-text)]">{formError}</p>}
             <button
               type="submit"
               disabled={isSaving}
@@ -441,7 +452,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                   type="button"
                   onClick={handleDelete}
                   disabled={isSaving}
-                  className="flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-[#D95C48] hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-[var(--terra-danger-text)] hover:bg-[var(--terra-danger-soft)] rounded-xl transition-colors cursor-pointer"
                 >
                   <Trash2 size={16} />
                   <span>Удалить платеж</span>
@@ -452,7 +463,7 @@ export const MandatoryExpenseModal: React.FC<MandatoryExpenseModalProps> = ({
                     type="button"
                     onClick={handleDelete}
                   disabled={isSaving}
-                    className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-white bg-[#D95C48] hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-2.5 text-sm font-semibold text-[var(--terra-on-danger)] bg-[var(--terra-danger-solid)] hover:bg-[var(--terra-danger-hover)] rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
                     <Trash2 size={16} />
                     <span>Подтвердить удаление</span>

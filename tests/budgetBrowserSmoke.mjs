@@ -1,3 +1,4 @@
+import {meetsTouchDimension,meetsTouchTarget,TOUCH_TARGET_MEASURED_MIN_PX} from './touchTargetGeometry.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
@@ -216,7 +217,7 @@ try{
         await tab.click();
         assert.equal(await tab.getAttribute('aria-pressed'),'true','1920: chart '+name+' not selected');
         const rect=await tab.boundingBox();
-        assert.ok(rect && rect.height>=44,'1920: small chart control '+name);
+        assert.ok(rect && meetsTouchDimension(rect.height),'1920: small chart control '+name);
       }
       const picker=page.getByRole('button',{name:/Выбрать месяц\. Сейчас:/});
       await picker.click();
@@ -283,7 +284,7 @@ try{
       for(const name of ['Предыдущий месяц','Следующий месяц']){
         const arrow=page.getByRole('button',{name,exact:true}).filter({visible:true}).first();
         const bounds=await arrow.boundingBox();
-        assert.ok(bounds && bounds.width>=44 && bounds.height>=44,
+        assert.ok(meetsTouchTarget(bounds),
           '1920: undersized Budget month control '+name);
       }
       const calendarDay=page.getByRole('button',{name:/^Выбрать 15 /}).filter({visible:true}).first();
@@ -291,23 +292,20 @@ try{
       assert.equal(await calendarDay.getAttribute('aria-pressed'),'true','1920: selected calendar day not reflected');
       const expandDay=page.getByRole('button',{name:'Операции за день',exact:true}).filter({visible:true}).first();
       const expandBounds=await expandDay.boundingBox();
-      assert.ok(expandBounds && expandBounds.height>=44,'1920: undersized day details action');
+      assert.ok(expandBounds && meetsTouchDimension(expandBounds.height),'1920: undersized day details action');
       await expandDay.click();
-      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'visible'});
-      const closeDay=page.locator('button[title="Закрыть"]').filter({visible:true}).last();
-      // DayDetailModal scales from 0.98 to 1 on entrance; measure only
-      // after that transform finishes, not at an intermediate frame.
-      await page.waitForFunction(() => {
-        const close=document.querySelector('button[title="Закрыть"]');
-        if(!close)return false;
-        const rect=close.getBoundingClientRect();
-        return rect.width>=43.95 && rect.height>=43.95;
-      },null,{timeout:4000});
+      const dayDialog=page.getByTestId('terra-day-detail');
+      await dayDialog.waitFor({state:'visible'});
+      assert.equal(await dayDialog.getAttribute('aria-modal'),'true');
+      for(const metric of ['day-detail-net','day-detail-income','day-detail-expense']){
+        await dayDialog.getByTestId(metric).waitFor({state:'visible'});
+      }
+      const closeDay=dayDialog.getByRole('button',{name:'Закрыть детали дня',exact:true});
       const closeBounds=await closeDay.boundingBox();
-      assert.ok(closeBounds && closeBounds.width>=43.95 && closeBounds.height>=43.95,
+      assert.ok(meetsTouchTarget(closeBounds),
         '1920: undersized day details close action '+JSON.stringify(closeBounds));
       await closeDay.click();
-      await page.getByText('Финансовые операции и детальный баланс дня').waitFor({state:'hidden'});
+      await dayDialog.waitFor({state:'hidden'});
       await page.getByRole('button',{name:'Добавить операцию',exact:true}).filter({visible:true}).first().click();
       await page.getByRole('heading',{name:'Новая операция'}).waitFor({state:'visible'});
       const amountField=page.getByRole('textbox',{name:'Сумма операции'});
@@ -366,7 +364,7 @@ try{
       if(width<768)await verifyMobileScroll(page,'budget-scroll-container',label,{requireOverflow:true});
       const add=page.getByRole('button',{name:'Добавить обязательный платёж'}).filter({visible:true}).last();
       const bounds=await add.boundingBox();
-      assert.ok(bounds && bounds.height>=44,label+': mandatory create target too small');
+      assert.ok(bounds && meetsTouchDimension(bounds.height),label+': mandatory create target too small');
       await add.click();
       await page.getByRole('heading',{name:'Новый обязательный платёж'}).waitFor({state:'visible'});
       await page.locator('#paymentName').fill('QA обязательство '+label);
@@ -396,7 +394,7 @@ try{
     assert.ok(await shoppingPanel.locator('button').count()>0,label+': lazy shopping did not mount');
     for(const control of [quickLists,repeat]){
       const dimensions=await control.boundingBox();
-      assert.ok(dimensions && dimensions.height>=44,label+': small shopping panel control');
+      assert.ok(dimensions && meetsTouchDimension(dimensions.height),label+': small shopping panel control');
       await control.click();
       assert.equal(await control.getAttribute('aria-expanded'),'true',label+': shopping panel did not expand');
     }
@@ -431,7 +429,7 @@ try{
       const bottom=scroll.locator('[aria-label^="Редактировать товар: "], [aria-label^="Вернуть в список: "]').filter({visible:true}).last();
       const last=await bottom.boundingBox();
       const scrollBounds=await scroll.boundingBox();
-      assert.ok(last&&scrollBounds&&last.height>=44&&last.y>=scrollBounds.y-2&&last.y+last.height<=Math.min(scrollBounds.y+scrollBounds.height,height-(width<768?50:0))+2,label+': last shopping controls obscured');
+      assert.ok(last&&scrollBounds&&meetsTouchDimension(last.height)&&last.y>=scrollBounds.y-2&&last.y+last.height<=Math.min(scrollBounds.y+scrollBounds.height,height-(width<768?50:0))+2,label+': last shopping controls obscured');
       await scroll.evaluate(el=>{el.scrollTop=0;});
     }
     const shoppingOverflow=await page.evaluate(()=>({
@@ -703,7 +701,7 @@ try{
         if(key==='budget'){
           const days=body.getByRole('group',{name:'Дни выплаты зарплаты'}).getByRole('button');
           assert.equal(await days.count(),31);
-          assert.ok(await days.evaluateAll(nodes=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44;})),label+' salary targets');
+          assert.ok(await days.evaluateAll((nodes,min)=>nodes.every(e=>{const r=e.getBoundingClientRect();return r.width>=min&&r.height>=min;}),TOUCH_TARGET_MEASURED_MIN_PX),label+' salary targets');
         }
         if(key==='family')await body.getByRole('button',{name:'Пригласить участника',exact:true}).waitFor({state:'visible'});
         await page.screenshot({path:'artifacts/budget-browser/'+label+'-settings-'+theme+'-'+key+'.png',animations:'disabled'});
@@ -729,7 +727,7 @@ try{
       await tab.click();
       assert.equal(await tab.getAttribute('aria-pressed'),'true',label+': chart period');
       const size=await tab.boundingBox();
-      assert.ok(size&&size.height>=44&&size.width>=44,label+': chart control too small');
+      assert.ok(meetsTouchTarget(size),label+': chart control too small');
     }
     const endHeight=await chart.boundingBox();
     assert.ok(baseHeight&&endHeight&&Math.abs(baseHeight.height-endHeight.height)<=2,label+': chart layout jumps after cycling periods');

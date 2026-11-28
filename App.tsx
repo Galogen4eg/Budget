@@ -243,6 +243,7 @@ export default function App() {
   const [targetService, setTargetService] = useState<string | null>(null);
   const navigateMenu=(id:string)=>{if(id==='services')setTargetService('menu');setActiveTab(id);};
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newTransactionDate,setNewTransactionDate]=useState<Date|null>(null);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<FamilyEvent | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -276,7 +277,7 @@ export default function App() {
   const [drillDownState, setDrillDownState] = useState<{categoryId: string, merchantName?: string, budgetMemberId?:string, budgetMonthScope?:boolean} | null>(null);
   const [memberFilter, setMemberFilter] = useState<string | 'all'>('all');
   useEffect(()=>{
-    setMemberFilter('all');setSelectedTx(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
+    setMemberFilter('all');setSelectedTx(null);setNewTransactionDate(null);setIsAddModalOpen(false);setSelectedMandatoryExpense(null);setIsMandatoryModalOpen(false);setEditingGoal(null);setIsGoalModalOpen(false);setImportPreview(null);setAlfaReviewOpen(false);setImportIssue(null);setImportReport(null);setDrillDownState(null);setIsDuplicatesOpen(false);
   },[familyId,user?.uid,householdPersonal]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(()=>typeof window==='undefined'||window.innerWidth>=1024);
   
@@ -497,7 +498,7 @@ export default function App() {
     }
   };
 
-  const handleEditTransaction = (tx: Transaction) => { setSelectedTx(tx); setIsAddModalOpen(true); };
+  const handleEditTransaction = (tx: Transaction) => { setNewTransactionDate(null);setSelectedTx(tx); setIsAddModalOpen(true); };
 
   const handleToggleMandatoryPaid = async (expenseId: string) => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -1121,7 +1122,9 @@ export default function App() {
             <div key={tabScope+'-overview'} data-tab-panel="overview" className={`h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
                 {financialDataStatus!=='ready'?<FinancialDataState status={financialDataStatus} onRetry={retryFinancialData} onSettings={()=>setIsSettingsOpen(true)} onNotifications={()=>setShowNotifications(true)}/>:<TerraOverview 
                     onOpenNotifications={()=>setShowNotifications(true)}
-                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenAddModal={()=>{setNewTransactionDate(null);setSelectedTx(null);setIsAddModalOpen(true);}}
+                    onOpenAddModalForDate={date=>{setNewTransactionDate(date);setSelectedTx(null);setIsAddModalOpen(true);}}
+                    onAddCategory={handleAddCategory}
                     onOpenAIChat={() => setIsAIChatOpen(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onEditTransaction={handleEditTransaction}
@@ -1266,7 +1269,7 @@ export default function App() {
                     navigateMenu(tab.id);
                   }} 
                   className={`relative flex flex-col items-center justify-center flex-1 min-w-[44px] min-h-[48px] px-0.5 py-1 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors terra-press ${
-                    isActive ? 'bg-[#E6EDE5] dark:bg-[#20362A] text-[#326243] dark:text-green-400 font-bold' : 'text-graphite-muted dark:text-gray-400 hover:text-graphite'
+                    isActive ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] font-bold' : 'text-[var(--terra-muted)] hover:text-[var(--terra-ink)]'
                   }`}
                 >
                     <span className="relative z-10 flex items-center justify-center">
@@ -1274,7 +1277,7 @@ export default function App() {
                     </span>
                     <span className="w-full min-w-0 truncate text-center text-[10px] sm:text-[11px] mt-1 font-medium">{tab.label}</span>
                     {tab.id === 'shopping' && activeShoppingCount > 0 && (
-                      <span className="absolute top-1 right-[26%] w-2 h-2 rounded-full bg-[#4A7C59]" />
+                      <span className="absolute top-1 right-[26%] w-2 h-2 rounded-full bg-[var(--terra-primary-text)]" />
                     )}
                 </button>
              );
@@ -1285,13 +1288,13 @@ export default function App() {
         <AnimatePresence>
             {isAddModalOpen && <AddTransactionModal 
                 key={selectedTx ? `edit-tx-${selectedTx.id}` : 'add-tx-modal'} 
-                onClose={() => { setIsAddModalOpen(false); setSelectedTx(null); }} 
+                onClose={() => { setIsAddModalOpen(false); setSelectedTx(null);setNewTransactionDate(null); }} 
                 onSubmit={handleTransactionSubmit} 
                 settings={financialSettings} 
                 members={householdPersonal ? members.filter(m=>m.userId && m.userId===user?.uid) : members} 
                 categories={categories} 
                 learnedRules={learnedRules}
-                initialTransaction={selectedTx} 
+                initialTransaction={selectedTx} initialDate={newTransactionDate??undefined} 
                 onLearnRule={handleLearnRule} 
                 onAddCategory={handleAddCategory} 
                 transactions={transactions} 

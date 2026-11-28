@@ -9,8 +9,8 @@ import { Transaction, Category, FamilyMember } from '../types';
 import BrandIcon from './BrandIcon';
 import { getMerchantBrandKey } from '../utils/categorizer';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
-import { formatMoney } from '../utils/formatters';
-import { monthlyMoneyTotals, formatBudgetMoney } from '../utils/budgetFinancialMath';
+import { monthlyMoneyTotals, formatBudgetMoney, formatSignedBudgetMoney } from '../utils/budgetFinancialMath';
+import {ICON_ACTION,TOOLBAR_ACTION,TOOLBAR_ACTION_IDLE,TOOLBAR_ACTION_PRIMARY} from './filterUiTokens';
 
 interface DayDetailModalProps {
   isOpen: boolean;
@@ -72,133 +72,78 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
       >
         <motion.div 
           {...surface} role="dialog" aria-modal="true" aria-labelledby="terra-day-detail-heading" data-testid="terra-day-detail"
-          initial={reduced?false:{ y: 6, opacity: 0, scale: .98 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 6, opacity: 0, scale: .98 }}
+          initial={reduced?false:{ y: 6, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 6, opacity: 0 }}
           transition={terraTransition(reduced,.2)}
-          className="bg-[var(--terra-surface)] text-[var(--terra-ink)] w-full max-w-3xl lg:max-w-4xl rounded-t-2xl sm:rounded-2xl border border-[var(--terra-border)] shadow-xl flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden pb-[env(safe-area-inset-bottom,0px)]"
+          className="terra-overview-dialog bg-[var(--terra-surface)] text-[var(--terra-ink)] w-full max-w-3xl rounded-none sm:rounded-2xl border border-[var(--terra-border)] shadow-lg flex flex-col min-h-0 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
           onClick={(e) => e.stopPropagation()}
         >
 
-          {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-surface-border/80 dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary text-white flex flex-col items-center justify-center font-headline font-bold shadow-xs leading-none shrink-0">
-              <span className="text-[10px] uppercase font-sans font-bold tracking-wider opacity-80">
-                {date.toLocaleDateString('ru-RU', { month: 'short' })}
-              </span>
-              <span className="text-base leading-none">{dayNumber}</span>
+          <header className="flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-[var(--terra-border)] shrink-0">
+            <div className="min-w-0">
+              <h3 id="terra-day-detail-heading" className="text-lg font-semibold font-headline text-[var(--terra-ink)] capitalize [overflow-wrap:anywhere]">{dayName}</h3>
+              {isToday&&<p className="text-xs text-[var(--terra-muted)]">Сегодня</p>}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 id="terra-day-detail-heading" className="text-base font-bold font-headline text-[var(--terra-ink)] capitalize">
-                  {dayName}
-                </h3>
-                {isToday && (
-                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                    Сегодня
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-graphite-muted dark:text-gray-400 mt-0.5">
-                Финансовые операции и детальный баланс дня
-              </p>
-            </div>
-          </div>
-
-          <button 
-            onClick={onClose}
-            className="w-11 h-11 shrink-0 rounded-xl border border-surface-border dark:border-white/10 hover:bg-[#F3EFE7] dark:hover:bg-white/5 text-graphite-muted dark:text-gray-400 hover:text-graphite dark:hover:text-white flex items-center justify-center transition cursor-pointer active:scale-95"
-            title="Закрыть" aria-label="Закрыть детали дня" type="button"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Sub-header Bar with Daily Balance */}
-        <div className="p-3.5 sm:px-5 bg-[#FAF6F0] dark:bg-[#1E1E20] border-b border-surface-border/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xs text-graphite-muted dark:text-gray-400 font-medium">
-                Баланс дня:
-              </span>
-              <span className={`text-lg font-bold font-headline tabular-nums ${
-                net >= 0 ? 'text-[#4A7C59] dark:text-green-400' : 'text-[#E05252] dark:text-red-400'
-              }`}>
-                {formatMoney(net, { privacy: privacyMode, showSign: true })}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs font-semibold">
-              {income > 0 && (
-                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30">
-                  {formatMoney(income, { privacy: privacyMode, showSign: true })}
-                </span>
-              )}
-              {expense > 0 && (
-                <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-300 text-[11px] font-bold border border-red-200 dark:border-red-800/30">
-                  -{formatMoney(expense,{privacy:privacyMode})}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="text-xs text-graphite-muted dark:text-gray-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Дневной лимит: <b className="text-graphite dark:text-white">{privacyMode?'•••':formatBudgetMoney(dailySafeLimit)+' ₽/дн'}</b></span>
-          </div>
-        </div>
-
+            <button type="button" onClick={onClose} aria-label="Закрыть детали дня" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE}><X size={18}/></button>
+          </header>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-4 space-y-3" data-testid="terra-day-detail-scroll">
+            <dl className="terra-day-metrics grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-[var(--terra-border)] tabular-nums">
+              <div className="col-span-2 sm:col-span-1 min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Баланс дня</dt><dd data-testid="day-detail-net" className={`text-lg font-semibold [overflow-wrap:anywhere] ${!privacyMode&&net<0?'text-[var(--terra-danger-text)]':'text-[var(--terra-ink)]'}`}>{formatSignedBudgetMoney(net,privacyMode,true)}</dd></div>
+              <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Доходы</dt><dd data-testid="day-detail-income" className="text-base font-semibold [overflow-wrap:anywhere] text-[var(--terra-primary-text)]">{formatSignedBudgetMoney(income,privacyMode,true)}</dd></div>
+              <div className="min-w-0"><dt className="text-xs text-[var(--terra-muted)]">Расходы</dt><dd data-testid="day-detail-expense" className="text-base font-semibold [overflow-wrap:anywhere]">{formatSignedBudgetMoney(-expense,privacyMode)}</dd></div>
+              <div className="col-span-full flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--terra-border)] pt-2 text-sm"><dt className="text-[var(--terra-muted)]">Дневной ориентир</dt><dd className="font-medium tabular-nums">{privacyMode?'•••':dailySafeLimit>0?formatBudgetMoney(dailySafeLimit)+' ₽/день':'Не задан'}</dd></div>
+            </dl>
         {/* Transactions list */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 sm:p-5 space-y-4 no-scrollbar">
+        <div className="space-y-2">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold font-headline uppercase tracking-wide text-graphite dark:text-white">
+              <span className="text-sm font-semibold text-[var(--terra-ink)]">
                 Операции за {date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
               </span>
-              <span className="text-[11px] text-graphite-muted dark:text-gray-400 font-medium">
-                {dayTransactions.length} {dayTransactions.length === 1 ? 'операция' : 'операций'}
+              <span className="text-[11px] text-[var(--terra-muted)] font-medium">
+                {dayTransactions.length}
               </span>
             </div>
 
             {dayTransactions.length === 0 ? (
-              <div className="text-center py-10 text-graphite-muted dark:text-gray-500 text-xs italic bg-[#FAF9F6] dark:bg-[#252528] rounded-xl border border-dashed border-surface-border dark:border-white/10">
+              <div className="text-center py-6 text-[var(--terra-muted)] text-sm bg-[var(--terra-soft)] rounded-xl">
                 Трат и доходов в этот день не зафиксировано
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-[var(--terra-border)]">
                 {dayTransactions.map(tx => {
                   const category = categories.find(c => c.id === tx.category);
                   const member = members.find(m => m.id === tx.memberId);
-                  const displayTitle = tx.note || category?.label || 'Операция';
+                  const displayTitle = tx.payee || tx.note || tx.rawNote || category?.label || 'Операция';
                   const brandKey = getMerchantBrandKey(displayTitle);
 
                   return (
                     <button type="button"
                       key={tx.id}
                       onClick={() => onEditTransaction(tx)}
-                      className="p-3 rounded-xl bg-white dark:bg-[#252528] border border-surface-border dark:border-white/5 hover:border-primary/50 shadow-xs flex items-center justify-between cursor-pointer group transition-colors min-h-[44px] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
+                      aria-label={`Редактировать операцию: ${displayTitle}`} className="terra-overview-history-row min-h-[56px] w-full py-2 text-left items-center hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="shrink-0">
-                          <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="md" />
+                      <div className="contents">
+                        <div className="w-9 h-9 shrink-0">
+                          <BrandIcon name={displayTitle} brandKey={brandKey} category={category} size="sm" className="w-9 h-9"/>
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h5 className="text-xs font-bold text-graphite dark:text-white truncate group-hover:text-primary transition">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <h5 className="text-sm font-medium text-[var(--terra-ink)] [overflow-wrap:anywhere]">
                               {displayTitle}
                             </h5>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                               tx.type === 'income' 
-                                ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' 
-                                : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300'
+                                ? 'bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)]' 
+                                : 'bg-[var(--terra-soft)] text-[var(--terra-muted)]'
                             }`}>
                               {tx.type === 'income' ? 'Доход' : 'Расход'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-graphite-muted dark:text-gray-400 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--terra-muted)] mt-0.5">
                             {member && (
-                              <span className="flex items-center gap-1 font-semibold" style={{ color: member.color }}>
+                              <span className="flex items-center gap-1 font-medium">
                                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: member.color }} />
                                 {member.name}
                               </span>
@@ -211,15 +156,13 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0 pl-3">
+                      <div className="text-right min-w-0 [overflow-wrap:anywhere]">
                         <div className={`text-sm font-bold font-headline tabular-nums ${
-                          tx.type === 'income' ? 'text-primary dark:text-green-400' : 'text-graphite dark:text-white'
+                          tx.type === 'income' ? 'text-[var(--terra-primary-text)]' : 'text-[var(--terra-ink)]'
                         }`}>
-                          {formatMoney(tx.type === 'expense' ? -tx.amount : tx.amount, { privacy: privacyMode, showSign: true })}
+                          {formatSignedBudgetMoney(tx.type === 'expense' ? -tx.amount : tx.amount,privacyMode,true)}
                         </div>
-                        <span className="text-[9px] text-graphite-muted dark:text-gray-500">
-                          редактировать ↗
-                        </span>
+
                       </div>
                     </button>
                   );
@@ -229,22 +172,23 @@ const DayDetailModal: React.FC<DayDetailModalProps> = ({
           </div>
         </div>
 
+          </div>
         {/* Footer with Actions */}
-        <div className="p-4 sm:px-5 border-t border-surface-border dark:border-white/10 bg-[#FAF9F6] dark:bg-[#252528] flex items-center justify-between gap-2">
+        <footer className="terra-overview-dialog-footer p-3 sm:px-4 border-t border-[var(--terra-border)] flex flex-wrap items-center justify-end gap-2 shrink-0">
           <button 
             onClick={onAddTransactionForDay}
-            className="min-h-[44px] px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark active:scale-95 rounded-xl shadow-xs transition flex items-center gap-1.5"
+            type="button" className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_PRIMARY+" terra-press"}
           >
             + Добавить операцию
           </button>
           
           <button 
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-graphite dark:text-white hover:bg-black/5 dark:hover:bg-white/5 border border-surface-border dark:border-white/10 rounded-xl transition"
+            type="button" className={TOOLBAR_ACTION+" "+TOOLBAR_ACTION_IDLE}
           >
             Закрыть
           </button>
-        </div>
+        </footer>
       </motion.div>
     </motion.div>
   </AnimatePresence>, document.body

@@ -500,7 +500,7 @@ export const ShoppingListDesktop: React.FC<ShoppingListProps> = ({
   const handleSaveModal = async (shouldMerge = false) => {
     if (!itemName.trim()) return;
     const cleanName = itemName.trim();
-    const parsedQuantity = parseShoppingQuantity(itemAmount);
+    const parsedQuantity = parseShoppingQuantity(itemAmount, itemUnit);
     if (parsedQuantity === null) { toast.error('Введите количество больше нуля, максимум один знак после запятой'); return; }
     const targetMemberId = getShoppingMember(itemMemberId);
     if (!targetMemberId) return;

@@ -20,12 +20,12 @@ export function OverviewCategoriesModal({items,total,period,privacyMode,onClose,
  return createPortal(
   <div className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
    <motion.div {...surface} role="dialog" aria-modal="true" aria-labelledby="overview-all-categories-title" data-testid={testId}
-    initial={reduced?false:{opacity:0,y:6,scale:.98}} animate={{opacity:1,y:0,scale:1}} transition={terraTransition(reduced,.20)}
+    initial={reduced?false:{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={terraTransition(reduced,.20)}
     className="flex flex-col w-full max-w-xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden bg-[var(--terra-surface)] text-[var(--terra-ink)] sm:rounded-2xl border border-[var(--terra-border)] shadow-xl pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]" onClick={event=>event.stopPropagation()}>
     <header className="flex items-start justify-between gap-2 p-4 border-b border-[var(--terra-border)] shrink-0">
      <div className="min-w-0">
       <h2 id="overview-all-categories-title" className="font-headline text-lg font-semibold">Категории расходов</h2>
-      <p className="text-sm text-[var(--terra-muted)]">{period} · {items.length} категорий</p>
+      <p className="text-sm text-[var(--terra-muted)]">{period} · Категорий: {items.length}</p>
       <p className="mt-1 text-sm tabular-nums [overflow-wrap:anywhere]">Всего: <strong data-testid="overview-all-categories-total">{amount(total)}</strong></p>
      </div>
      <button type="button" className={ICON_ACTION+' '+TOOLBAR_ACTION_IDLE+' shrink-0'} aria-label="Закрыть список категорий" onClick={onClose}><X size={18} aria-hidden="true"/></button>

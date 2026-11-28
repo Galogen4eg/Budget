@@ -17,6 +17,8 @@ import DesktopCategoryPickerModal from './DesktopCategoryPickerModal';
 import MobileCategoryPickerModal from './MobileCategoryPickerModal';
 import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import useModalBackHandler from '../hooks/useModalBackHandler';
+import {useMobileViewport} from '../hooks/useMobileViewport';
+import {terraTransition} from '../utils/uiMotion';
 import { isCategoryForType } from '../utils/categoryCatalog';
 import { transactionSaveError, type TransactionSavePhase } from '../utils/transactionSaveError';
 
@@ -29,6 +31,7 @@ interface AddTransactionModalProps {
   categories: Category[];
   learnedRules?: LearnedRule[];
   initialTransaction?: Transaction | null;
+  initialDate?:Date;
   onLearnRule: (rule: LearnedRule) => void;
   onApplyRuleToExisting?: (rule: LearnedRule) => void;
   transactions: Transaction[];
@@ -67,26 +70,30 @@ const SubHeader = ({ title, onBack }: { title: string; onBack: () => void }) => 
     <button 
       type="button"
       onClick={onBack} 
-      className="text-primary dark:text-green-400 flex items-center text-sm font-semibold hover:opacity-80 active:scale-95 transition"
+      autoFocus className="min-h-[44px] min-w-[44px] text-[var(--terra-primary-text)] flex items-center text-sm font-semibold rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)]"
     >
       <ChevronLeft size={20} className="-ml-1 mr-0.5" />
       <span>Назад</span>
     </button>
-    <h2 className="text-base font-headline font-bold text-center flex-1 pr-12 text-graphite dark:text-white truncate">
+    <h2 className="text-base font-headline font-semibold text-center flex-1 min-w-0 text-[var(--terra-ink)]">
       {title}
     </h2>
   </div>
 );
 
 export default function AddTransactionModal({
-  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, onDelete, onLearnRule, transactions = [], onAddCategory
+  onClose, onSubmit, previewMode=false, settings, members, categories, learnedRules = [], initialTransaction, initialDate, onDelete, onLearnRule, transactions = [], onAddCategory
 }: AddTransactionModalProps) {
   // Lock body scroll with scrollbar compensation when modal is open
   useBodyScrollLock();
   const reducedMotion=Boolean(useReducedMotion());
+  const viewport=useMobileViewport();
 
   // Navigation State
   const [currentView, setCurrentView] = useState<'main' | 'assignee' | 'monthly_binding'>('main');
+  const returnToControl=useRef<'assignee'|'monthly_binding'|null>(null);
+  const openSubview=(view:'assignee'|'monthly_binding')=>{returnToControl.current=view;setCurrentView(view);};
+  const restoreSubviewFocus=(view:'assignee'|'monthly_binding',node:HTMLButtonElement|null)=>{if(node&&returnToControl.current===view){returnToControl.current=null;node.focus({preventScroll:true});}};
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   
   // Form State
@@ -128,7 +135,7 @@ export default function AddTransactionModal({
   
   // Date & Telegram Notification State
   const [date, setDate] = useState(() => {
-    const targetDate = initialTransaction ? new Date(initialTransaction.date) : new Date();
+    const targetDate = initialTransaction ? new Date(initialTransaction.date) : initialDate ?? new Date();
     const year = targetDate.getFullYear();
     const month = String(targetDate.getMonth() + 1).padStart(2, '0');
     const day = String(targetDate.getDate()).padStart(2, '0');
@@ -140,8 +147,10 @@ export default function AddTransactionModal({
   const mutationPending=useRef(false);
   const savedMutation=useRef(false);
   const [saveConfirmed,setSaveConfirmed]=useState(false);
-  const requestClose=()=>{if(!mutationPending.current)onClose();};
-  useModalBackHandler(true,requestClose);
+  const requestClose=()=>{if(mutationPending.current)return;if(currentView!=='main'){setCurrentView('main');return;}onClose();};
+  // A subview has its own history entry: Back returns to the editor without consuming its registration.
+  useModalBackHandler(true,()=>{if(!mutationPending.current)onClose();});
+  useModalBackHandler(currentView!=='main',()=>setCurrentView('main'));
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDesktopCategoryPickerOpen, setIsDesktopCategoryPickerOpen] = useState(false);
   const [isMobileCategoryPickerOpen, setIsMobileCategoryPickerOpen] = useState(false);
@@ -348,7 +357,7 @@ export default function AddTransactionModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[3000] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[3000] flex items-end sm:items-center justify-center p-0 sm:p-4" style={viewport.height===null?undefined:{height:viewport.height,bottom:'auto'}}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -365,7 +374,7 @@ export default function AddTransactionModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
         transition={{ duration: reducedMotion?0:0.18, ease: 'easeOut' }}
-        className="relative w-full max-w-4xl lg:max-w-5xl h-[100dvh] sm:h-[min(620px,88dvh)] max-h-[100dvh] sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[#2E3230] dark:text-white rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-surface-border dark:border-white/10 z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)]"
+        className={`relative w-full h-full max-h-full sm:max-h-[88dvh] min-h-0 bg-[var(--terra-surface)] text-[var(--terra-ink)] rounded-none sm:rounded-2xl shadow-xl overflow-hidden flex flex-col border-0 sm:border border-[var(--terra-border)] z-10 pt-[env(safe-area-inset-top,0px)] sm:pt-0 pb-[env(safe-area-inset-bottom,0px)] ${currentView==='main'?'max-w-4xl lg:max-w-5xl sm:h-[min(620px,88dvh)]':'sm:max-w-lg sm:h-auto'}`}
         onClick={e => e.stopPropagation()}
       >
 
@@ -377,8 +386,8 @@ export default function AddTransactionModal({
               className="flex flex-col h-full min-h-0 overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-3.5 border-b border-surface-border/70 dark:border-white/10 bg-[var(--terra-surface)] shrink-0">
-                <h2 className="text-xl sm:text-2xl font-headline font-bold tracking-tight text-[#2E3230] dark:text-white">
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2 border-b border-[var(--terra-border)] bg-[var(--terra-surface)] shrink-0">
+                <h2 className="text-lg sm:text-xl font-headline font-semibold min-w-0 text-[var(--terra-ink)]">
                   {initialTransaction ? 'Редактирование операции' : 'Новая операция'}
                 </h2>
 
@@ -394,14 +403,14 @@ export default function AddTransactionModal({
 
               {/* Validation Alert */}
               {validationError && (
-                <div role="alert" className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 text-xs font-semibold px-6 py-2 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
+                <div role="alert" className="bg-[var(--terra-danger-soft)] text-[var(--terra-danger-text)] text-xs font-semibold px-6 py-2 border-b border-[var(--terra-border)] flex items-center justify-between">
                   <span>{validationError}</span>
                   <button onClick={() => setValidationError(null)} className="text-xs font-bold hover:underline">Закрыть</button>
                 </div>
               )}
 
               {/* Modal Body */}
-              <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-3.5 bg-[var(--terra-canvas)] no-scrollbar" onClickCapture={e=>{if(mutationPending.current){e.preventDefault();e.stopPropagation();}}}>
+              <div data-testid="terra-transaction-scroll" className="p-3 sm:p-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain space-y-3 bg-[var(--terra-canvas)]" onClickCapture={e=>{if(mutationPending.current){e.preventDefault();e.stopPropagation();}}}>
                 
                 {/* Top Row: Segmented Toggle & Sum Card */}
                 <fieldset disabled={isSubmitting||saveConfirmed} className="min-w-0 border-0 p-0 space-y-3 sm:space-y-3.5">
@@ -456,7 +465,7 @@ export default function AddTransactionModal({
                               width: `${Math.max(inputWidth, 60)}px`,
                               maxWidth: 'calc(100% - 28px)'
                             }}
-                            className={`bg-transparent font-headline font-extrabold tracking-tight text-[#2E3230] dark:text-white p-0 m-0 outline-none border-none focus:ring-0 transition-all ${
+                            className={`min-h-[44px] bg-transparent font-headline font-extrabold tracking-tight text-[var(--terra-ink)] p-0 m-0 outline-none border-none focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] rounded-md ${
                               amount.length > 9 
                                 ? 'text-lg sm:text-xl' 
                                 : amount.length > 6 
@@ -480,7 +489,7 @@ export default function AddTransactionModal({
                               ? 'text-lg sm:text-xl' 
                               : 'text-xl sm:text-2xl'
                           } ${
-                            type === 'expense' ? 'text-[#D95C48]' : 'text-primary dark:text-green-400'
+                            type === 'expense' ? 'text-[var(--terra-muted)]' : 'text-[var(--terra-primary-text)]'
                           }`}>
                             {settings.currency || '₽'}
                           </span>
@@ -491,7 +500,7 @@ export default function AddTransactionModal({
                           const isExpression = /[\+\-\*\/]/.test(amount);
                           if (evalVal !== null && isExpression) {
                             return (
-                              <div className="text-xs font-bold text-[#4A7C59] dark:text-green-400 mt-1.5 flex items-center gap-1 bg-[#FAF6F0] dark:bg-white/5 px-2 py-1 rounded-lg max-w-full">
+                              <div className="text-xs font-bold text-[var(--terra-primary-text)] mt-1.5 flex items-center gap-1 bg-[#FAF6F0] dark:bg-white/5 px-2 py-1 rounded-lg max-w-full">
                                 <span>= {evalVal.toLocaleString('ru-RU')} {settings.currency || '₽'}</span>
                               </div>
                             );
@@ -533,7 +542,7 @@ export default function AddTransactionModal({
                             setAmount('');
                             triggerHaptic('light');
                           }}
-                          className="min-h-[44px] px-2 py-1 text-xs font-semibold text-[var(--terra-danger-text)] hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition shrink-0 cursor-pointer"
+                          className="min-h-[44px] px-2 py-1 text-xs font-semibold text-[var(--terra-danger-text)] hover:bg-[var(--terra-danger-soft)] rounded-lg transition shrink-0 cursor-pointer"
                         >
                           Сброс
                         </button>
@@ -549,7 +558,7 @@ export default function AddTransactionModal({
                   <div className="space-y-3">
                     {/* Название в истории */}
                     <div className="bg-[var(--terra-surface)] rounded-2xl p-3 border border-surface-border dark:border-white/10 shadow-sm flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-primary-light text-primary dark:bg-green-950/40 dark:text-green-400 flex items-center justify-center font-headline font-bold text-sm shrink-0">
+                      <div className="w-8 h-8 rounded-xl bg-[var(--terra-primary-soft)] text-[var(--terra-primary-text)] flex items-center justify-center font-headline font-bold text-sm shrink-0">
                         {renamedTitle ? renamedTitle.charAt(0).toUpperCase() : 'Т'}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -569,16 +578,16 @@ export default function AddTransactionModal({
 
                     {/* Visual Indicator: Already Learned Rule */}
                     {existingLearnedRule && (
-                      <div className="bg-[#EAF2EC] dark:bg-green-950/30 border border-[#4A7C59]/40 rounded-2xl p-3 flex items-start gap-2.5 shadow-xs">
-                        <ShieldCheck size={18} className="text-[#4A7C59] dark:text-green-400 shrink-0 mt-0.5" />
+                      <div className="bg-[var(--terra-primary-soft)] border border-[var(--terra-border)] rounded-2xl p-3 flex items-start gap-2.5 shadow-xs">
+                        <ShieldCheck size={18} className="text-[var(--terra-primary-text)] shrink-0 mt-0.5" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-[#2A4C34] dark:text-green-300">
+                            <span className="text-xs font-bold text-[var(--terra-primary-text)]">
                               Автоправило сохранено
                             </span>
 
                           </div>
-                          <p className="text-[11px] text-[#3D6849] dark:text-green-400/90 mt-0.5 leading-tight">
+                          <p className="text-[11px] text-[var(--terra-primary-text)] mt-0.5 leading-tight">
                             Ключ: <b className="font-mono">«{existingLearnedRule.keyword}»</b> ➔ Категория: <b>{categories.find(c => c.id === existingLearnedRule.categoryId)?.label || 'Категория'}</b>
                           </p>
                         </div>
@@ -624,7 +633,7 @@ export default function AddTransactionModal({
                         >
                           <div className="bg-[var(--terra-surface)] p-3 rounded-2xl border border-surface-border dark:border-white/10 space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[10px] font-mono uppercase font-bold text-primary dark:text-green-400 block">
+                              <label className="text-[10px] font-mono uppercase font-bold text-[var(--terra-primary-text)] block">
                                 КЛЮЧЕВОЕ СЛОВО (ДЛЯ АВТО-ПРАВИЛА)
                               </label>
                               {initialTransaction?.rawNote && (
@@ -632,7 +641,7 @@ export default function AddTransactionModal({
                                   <button
                                     type="button"
                                     onClick={() => setCleanKeyword(extractCleanRuleKeyword(initialTransaction.rawNote, initialTransaction.note))}
-                                    className="text-primary dark:text-green-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    className="text-[var(--terra-primary-text)] font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
                                     title="Восстановить авто-очищенное ключевое слово"
                                   >
                                     <RotateCcw size={10} />
@@ -720,9 +729,9 @@ export default function AddTransactionModal({
                   <div className="space-y-3">
                     <div className="bg-[var(--terra-surface)] rounded-2xl border border-surface-border dark:border-white/10 shadow-sm divide-y divide-surface-border/60 dark:divide-white/5 overflow-hidden">
                       {/* Detail 1: Привязать к платежу */}
-                      <div 
-                        onClick={() => setCurrentView('monthly_binding')}
-                        className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
+                      <button type="button" aria-label="Привязать к платежу" ref={node=>restoreSubviewFocus('monthly_binding',node)}
+                        onClick={() => openSubview('monthly_binding')}
+                        className="w-full min-h-[44px] text-left p-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors group"
                       >
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-[#FAF6F0] dark:bg-[#2C2C2E] text-graphite-muted group-hover:text-primary flex items-center justify-center shrink-0 transition">
@@ -731,17 +740,17 @@ export default function AddTransactionModal({
                           <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">Привязать к платежу</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-graphite-muted font-medium group-hover:text-primary transition">
-                          <span className={boundExpense ? 'text-[#D95C48] font-bold' : ''}>
+                          <span className={boundExpense ? 'text-[var(--terra-primary-text)] font-semibold' : ''}>
                             {boundExpense ? boundExpense.name : 'Не выбрано'}
                           </span>
                           <ChevronRight size={14} />
                         </div>
-                      </div>
+                      </button>
 
                       {/* Detail 2: Исполнитель */}
-                      <div 
-                        onClick={() => setCurrentView('assignee')}
-                        className="p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group"
+                      <button type="button" aria-label="Исполнитель" ref={node=>restoreSubviewFocus('assignee',node)}
+                        onClick={() => openSubview('assignee')}
+                        className="w-full min-h-[44px] text-left p-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors group"
                       >
                         <div className="flex items-center gap-2.5">
                           <div 
@@ -756,7 +765,7 @@ export default function AddTransactionModal({
                           <span>{selectedMember.name}</span>
                           <ChevronRight size={14} className="text-graphite-muted" />
                         </div>
-                      </div>
+                      </button>
 
                       {/* Detail 3: Дата */}
                       <div className="relative p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF9F6] dark:hover:bg-[#252528] transition group">
@@ -829,7 +838,7 @@ export default function AddTransactionModal({
                       <button 
                         type="button"
                         onClick={() => setIsConfirmingDelete(true)} disabled={isSubmitting||saveConfirmed}
-                        className="min-h-[44px] px-3.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
+                        className="min-h-[44px] px-3.5 py-1.5 text-xs font-semibold text-[var(--terra-danger-text)] hover:bg-[var(--terra-danger-soft)] border border-[var(--terra-border)] rounded-xl transition cursor-pointer flex items-center gap-1.5 active:scale-95"
                       >
                         <Trash2 size={14} />
                         <span>Удалить операцию</span>
@@ -839,7 +848,7 @@ export default function AddTransactionModal({
                         <button 
                           type="button"
                           onClick={handleDeleteAction} disabled={isSubmitting||saveConfirmed}
-                          className="min-h-[44px] px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                          className="min-h-[44px] px-3.5 py-1.5 text-xs font-bold text-[var(--terra-on-danger)] bg-[var(--terra-danger-solid)] hover:bg-[var(--terra-danger-hover)] active:scale-95 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                         >
                           <Trash2 size={14} />
                           <span>Подтвердить удаление</span>
@@ -894,14 +903,14 @@ export default function AddTransactionModal({
           {currentView === 'assignee' && (
             <motion.div 
               key="assignee"
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-              className="flex flex-col h-full bg-[#F8F6F2] dark:bg-[#121214]"
+              initial={reducedMotion?false:{opacity:0}}
+              animate={{opacity:1}}
+              exit={{opacity:0}}
+              transition={terraTransition(reducedMotion,.16)}
+              className="flex flex-col h-full sm:h-auto min-h-0 min-w-0 w-full bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
+              <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">
                 <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   {members.map((mem) => {
                     const isSelected = memberId === mem.id;
@@ -910,12 +919,12 @@ export default function AddTransactionModal({
                         key={mem.id}
                         type="button"
                         onClick={() => { setMemberId(mem.id); setCurrentView('main'); }}
-                        className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors"
+                        className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
                           <MemberMarker member={mem} size="sm" />
                           <div className="text-left">
-                            <div className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
+                            <div className={`text-sm truncate ${isSelected ? 'text-[var(--terra-primary-text)] font-bold' : 'text-graphite dark:text-white'}`}>
                               {mem.name}
                             </div>
                             {mem.id === auth.currentUser?.uid && (
@@ -923,7 +932,7 @@ export default function AddTransactionModal({
                             )}
                           </div>
                         </div>
-                        {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                        {isSelected && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                       </button>
                     );
                   })}
@@ -936,25 +945,25 @@ export default function AddTransactionModal({
           {currentView === 'monthly_binding' && (
             <motion.div 
               key="monthly"
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-              className="flex flex-col h-full bg-[#F8F6F2] dark:bg-[#121214]"
+              initial={reducedMotion?false:{opacity:0}}
+              animate={{opacity:1}}
+              exit={{opacity:0}}
+              transition={terraTransition(reducedMotion,.16)}
+              className="flex flex-col h-full sm:h-auto min-h-0 min-w-0 w-full bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 no-scrollbar">
+              <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">
                 <div className="bg-[var(--terra-surface)] rounded-2xl overflow-hidden shadow-sm border border-surface-border dark:border-white/5 divide-y divide-surface-border dark:divide-white/5">
                   <button
                     type="button"
                     onClick={() => { setBoundExpenseId(''); setCurrentView('main'); }}
-                    className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors"
+                    className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <X size={18} className="text-graphite-muted" />
                       <span className="text-sm font-medium text-graphite dark:text-white">Не привязывать</span>
                     </div>
-                    {boundExpenseId === '' && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                    {boundExpenseId === '' && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                   </button>
                   
                   {mandatoryExpenses.map((exp) => {
@@ -970,14 +979,14 @@ export default function AddTransactionModal({
                           }
                           setCurrentView('main'); 
                         }}
-                        className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-[#FAF8F5] dark:hover:bg-[#2C2C2E] transition-colors"
+                        className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 hover:bg-[var(--terra-soft)] focus-visible:ring-2 focus-visible:ring-[var(--terra-focus)] transition-colors"
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                             <Repeat size={16} />
                           </div>
                           <div className="text-left min-w-0">
-                            <div className={`text-sm truncate ${isSelected ? 'text-primary dark:text-green-400 font-bold' : 'text-graphite dark:text-white'}`}>
+                            <div className={`text-sm truncate ${isSelected ? 'text-[var(--terra-primary-text)] font-bold' : 'text-graphite dark:text-white'}`}>
                               {exp.name}
                             </div>
                             <div className="text-[11px] text-graphite-muted dark:text-gray-400 font-mono">
@@ -985,7 +994,7 @@ export default function AddTransactionModal({
                             </div>
                           </div>
                         </div>
-                        {isSelected && <Check size={18} className="text-primary dark:text-green-400 shrink-0" />}
+                        {isSelected && <Check size={18} className="text-[var(--terra-primary-text)] shrink-0" />}
                       </button>
                     );
                   })}

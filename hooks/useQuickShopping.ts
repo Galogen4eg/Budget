@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { ShoppingItem } from '../types';
-import { parseSingleQuickShoppingText, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
-import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents } from '../utils/shoppingManager';
+import { parseQuickShoppingInput, createShoppingItemsFromQuickText } from '../utils/quickShoppingParser';
+import { mergeOrRestoreShoppingItems, recordCommittedShoppingEvents, applyCommittedShoppingChanges } from '../utils/shoppingManager';
 import { recordPurchaseEvent } from '../utils/frequentPurchases';
 import { saveShoppingMerge, updateItem } from '../utils/db';
 import { toast } from 'sonner';
@@ -17,7 +17,7 @@ export interface UseQuickShoppingOutput {
   newShoppingTitle: string;
   setNewShoppingTitle: (val: string) => void;
   isAddingShopping: boolean;
-  liveParsedShopping: ReturnType<typeof parseSingleQuickShoppingText> | null;
+  liveParsedShopping: ReturnType<typeof parseQuickShoppingInput>;
   handleToggleShopping: (item: ShoppingItem) => Promise<void>;
   handleAddShoppingInline: (e: React.FormEvent) => Promise<void>;
 }
@@ -35,18 +35,17 @@ export function useQuickShopping({
   const [isAddingShopping, setIsAddingShopping] = useState(false);
 
   const liveParsedShopping = useMemo(() => {
-    if (!newShoppingTitle.trim()) return null;
-    return parseSingleQuickShoppingText(newShoppingTitle);
+    return parseQuickShoppingInput(newShoppingTitle);
   }, [newShoppingTitle]);
 
   const handleToggleShopping = useCallback(async (item: ShoppingItem) => {
     const nextCompleted = !item.completed;
-    const updated = { ...item, completed: nextCompleted };
+    const completedAt = nextCompleted ? Date.now() : null;
 
     try {
       if (!familyId) throw new Error('Семейный аккаунт недоступен');
-      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted });
-      setShoppingItems(prev => prev.map(i => i.id === item.id ? { ...i, completed: nextCompleted } : i));
+      await updateItem(familyId, 'shopping', item.id, { completed: nextCompleted, completedAt });
+      setShoppingItems(prev => prev.map(i => i.id === item.id ? { ...i, completed: nextCompleted, completedAt } : i));
       recordPurchaseEvent(
         item.title,
         nextCompleted ? 'completed' : 'restored',
@@ -73,7 +72,6 @@ export function useQuickShopping({
       if (parsedItems.length === 0) return;
 
       const {
-        updatedList,
         itemsToUpdateInDb,
         itemsToAddInDb,
         purchaseEvents
@@ -82,7 +80,7 @@ export function useQuickShopping({
       if (!familyId) throw new Error('Семейный аккаунт недоступен');
       await saveShoppingMerge(familyId, itemsToUpdateInDb, itemsToAddInDb);
       recordCommittedShoppingEvents(purchaseEvents);
-      setShoppingItems(updatedList);
+      setShoppingItems(prev => applyCommittedShoppingChanges(prev, itemsToUpdateInDb, itemsToAddInDb));
       setNewShoppingTitle('');
       toast.success('Покупка успешно добавлена!');
     } catch (err) {

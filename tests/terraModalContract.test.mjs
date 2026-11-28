@@ -38,3 +38,13 @@ test('mandatory payment dialog has one focus owner so the opener is captured bef
  assert.match(s,/useModalSurface\(requestClose,\{initialSelector:/);
  assert.doesNotMatch(s,/<input\b[^>]*\bautoFocus\b/s);
 });
+
+test('transaction selector transitions do not shift full-width mobile content sideways',()=>{
+ const s=read('components/AddTransactionModal.tsx');
+ for(const key of ['assignee','monthly']){
+  const panel=s.split('key="'+key+'"')[1].split('className=')[0];
+  assert.match(panel,/initial=\{reducedMotion\?false:\{opacity:0\}\}/);
+  assert.match(panel,/animate=\{\{opacity:1\}\}/);
+  assert.doesNotMatch(panel,/\bx:|\bscale:/);
+ }
+});

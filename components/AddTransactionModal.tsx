@@ -903,11 +903,11 @@ export default function AddTransactionModal({
           {currentView === 'assignee' && (
             <motion.div 
               key="assignee"
-              initial={reducedMotion?false:{opacity:0,x:8}}
-              animate={{opacity:1,x:0}}
-              exit={{opacity:0,x:8}}
+              initial={reducedMotion?false:{opacity:0}}
+              animate={{opacity:1}}
+              exit={{opacity:0}}
               transition={terraTransition(reducedMotion,.16)}
-              className="flex flex-col h-full sm:h-auto min-h-0 bg-[var(--terra-canvas)]"
+              className="flex flex-col h-full sm:h-auto min-h-0 min-w-0 w-full bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Исполнитель" onBack={() => setCurrentView('main')} />
               <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">
@@ -945,11 +945,11 @@ export default function AddTransactionModal({
           {currentView === 'monthly_binding' && (
             <motion.div 
               key="monthly"
-              initial={reducedMotion?false:{opacity:0,x:8}}
-              animate={{opacity:1,x:0}}
-              exit={{opacity:0,x:8}}
+              initial={reducedMotion?false:{opacity:0}}
+              animate={{opacity:1}}
+              exit={{opacity:0}}
               transition={terraTransition(reducedMotion,.16)}
-              className="flex flex-col h-full sm:h-auto min-h-0 bg-[var(--terra-canvas)]"
+              className="flex flex-col h-full sm:h-auto min-h-0 min-w-0 w-full bg-[var(--terra-canvas)]"
             >
               <SubHeader title="Привязать к расходу" onBack={() => setCurrentView('main')} />
               <div className="flex-1 min-h-0 sm:max-h-[calc(88dvh-76px)] overflow-y-auto overscroll-y-contain p-3 sm:p-4 space-y-2">

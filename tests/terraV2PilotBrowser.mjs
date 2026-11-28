@@ -21,7 +21,8 @@ async function capture(page,name){
  await page.screenshot({path:out+'/'+name+'.png',animations:'disabled'});
 }
 async function noOverflow(locator,label){
- assert.ok(await locator.evaluate(el=>el.scrollWidth<=el.clientWidth+2),label+' horizontal overflow');
+ const bounds=await locator.evaluate(el=>({scrollWidth:el.scrollWidth,clientWidth:el.clientWidth}));
+ assert.ok(bounds.scrollWidth<=bounds.clientWidth+2,label+' horizontal overflow '+JSON.stringify(bounds));
 }
 async function axisFits(locator,label){
  try{await locator.locator('[data-terra-money-tick]').first().waitFor({state:'visible',timeout:10000});}
